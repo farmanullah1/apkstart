@@ -17,7 +17,7 @@ const { cmpVer } = require('./version');
 
 const OWNER_GH = 'farmanullah1';
 const OWNER_GITEE = 'daily-miku';
-const REPO = 'apkstart';
+const REPO = 'APK-START-English';
 
 const SOURCES = {
   github: {

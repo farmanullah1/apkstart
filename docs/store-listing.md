@@ -14,9 +14,9 @@
 | Price | Free |
 | Package | `dist/store/ApkStart_0.6.1.0_x64.msix`（x64，约 1.5 GB） |
 | 支持语言 | 简体中文 / English (United States) |
-| 官网 | https://github.com/farmanullah1/apkstart |
+| 官网 | https://github.com/farmanullah1/APK-START-English |
 | 支持邮箱 | <!-- 填你的邮箱 --> |
-| 隐私政策 | https://github.com/farmanullah1/apkstart/blob/main/docs/privacy.md（或自建页面） |
+| 隐私政策 | https://github.com/farmanullah1/APK-START-English/blob/main/docs/privacy.md（或自建页面） |
 
 ### 本版新增（Partner Center → **What's new in this version**，直接粘贴）
 

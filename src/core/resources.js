@@ -1,26 +1,26 @@
 'use strict';
 /**
- * 资源分配（内存 / CPU / 存储）的纯逻辑。
+ * Resource allocation (memory / CPU / storage) pure logic.
  *
- * 为什么要单独一层：「给安卓分多少内存」最终要落进 qemu 命令行（-memory / -cores），
- * 改完下次开机生效；但「用户能填多大」「填过头会发生什么」这套判断是纯函数，
- * 抽出来不依赖 electron，CI 里可以直接 require 做单测。
+ * Why a dedicated layer: "how much memory to allocate to Android" ends up in qemu command line (-memory / -cores),
+ * taking effect on next boot; but logic deciding valid bounds and consequence of exceeding them is a pure function,
+ * extracted without electron dependencies so CI can directly unit-test it.
  *
- * 三条硬约束（都是实测踩出来的）：
- *   1. 内存不能把宿主吃满：Windows + 前台程序至少要留 25%，否则整机开始换页，
- *      安卓侧表现为长时间黑屏、动画卡死，看起来像「模拟器坏了」。
- *   2. 存储要按「安装包 × 1.8 + 2GB」估：50GB 的在线游戏解包后往往 80~90GB，
- *      只按安装包大小放行，一定会装到一半失败。
- *   3. 任何自动值都必须能算得出来：拿不到宿主信息就退回保守默认，不能返回 NaN。
+ * Three hard constraints (from real-world testing):
+ *   1. Memory cannot consume all host RAM: Windows + foreground apps need at least 25%, otherwise machine pages,
+ *      causing prolonged black screens and frozen animations on Android.
+ *   2. Storage must be estimated as "package * 1.8 + 2GB": 50GB online games extract to 80-90GB;
+ *      approving based only on package size leads to installation failing halfway.
+ *   3. All automatic values must be calculable: fall back to conservative defaults if host info unavailable, never NaN.
  */
 
 const DEFAULT_STEP_MB = 512;
 const MIN_MEM_MB = 1024;
-/** 给宿主（Windows + 前台程序）留的比例 */
+/** Ratio reserved for host (Windows + foreground apps) */
 const HOST_RESERVE_RATIO = 0.25;
-/** 低于这个比例就提示「偏紧」 */
+/** Ratio below which a "tight" warning is triggered */
 const TIGHT_RATIO = 0.8;
-/** 完全不够用（连系统都跑不动）的绝对下限 */
+/** Absolute minimum to run system */
 const ABSOLUTE_MIN_MB = 768;
 
 function toInt(v, fallback = 0) {
@@ -29,7 +29,7 @@ function toInt(v, fallback = 0) {
 }
 
 /**
- * 宿主能力。参数可注入，方便测试；不传就读本机。
+ * Host capabilities. Parameters injectable for testing; otherwise reads current machine.
  * @returns {{ totalMB:number, cores:number }}
  */
 function hostProfile(sys) {
@@ -42,7 +42,7 @@ function hostProfile(sys) {
     totalMB = Math.round(Number(src.totalmem) / 1048576);
   } else {
     try {
-      // require('os') 放在函数里：避免模块加载期就去碰宿主环境
+      // Lazy require('os') inside function to avoid touching host environment during module load
       const os = require('os');
       totalMB = Math.round(os.totalmem() / 1048576);
       cores = os.cpus() ? os.cpus().length : 0;
@@ -53,7 +53,7 @@ function hostProfile(sys) {
 }
 
 /**
- * 内存可填范围。没读到宿主内存时给一个保守上限，避免界面出现 0。
+ * Valid memory allocation range. Conservative fallback when host RAM is unreadable to avoid 0 in UI.
  * @returns {{ minMB:number, maxMB:number, stepMB:number, totalMB:number }}
  */
 function memoryLimits(totalMB) {
@@ -65,7 +65,7 @@ function memoryLimits(totalMB) {
 }
 
 /**
- * 把用户填的内存收敛到合法值。0 = 自动，原样返回 0（由各底座自己推导）。
+ * Clamp user-entered memory to valid range. 0 = auto, returns 0 as-is (derived by backend).
  * @returns {{ mb:number, capped:boolean, reason:string }}
  */
 function clampMemoryMB(mb, totalMB) {
@@ -77,16 +77,16 @@ function clampMemoryMB(mb, totalMB) {
     return {
       mb: lim.maxMB,
       capped: true,
-      reason: `宿主内存 ${Math.round(lim.totalMB / 1024)} GB，最多只能分 ${Math.round(lim.maxMB / 1024)} GB（要留 25% 给 Windows）`,
+      reason: `Host RAM ${Math.round(lim.totalMB / 1024)} GB, can allocate at most ${Math.round(lim.maxMB / 1024)} GB (最多只能分 ${Math.round(lim.maxMB / 1024)} GB, leaving 25% for Windows)`,
     };
   }
-  if (rounded < lim.minMB) return { mb: lim.minMB, capped: true, reason: `安卓至少要 ${lim.minMB} MB 才能启动` };
-  return { mb: rounded, capped: rounded !== want, reason: rounded !== want ? '已按 512 MB 对齐' : '' };
+  if (rounded < lim.minMB) return { mb: lim.minMB, capped: true, reason: `Android requires at least ${lim.minMB} MB to boot` };
+  return { mb: rounded, capped: rounded !== want, reason: rounded !== want ? 'Aligned to 512 MB step' : '' };
 }
 
 /**
- * CPU 核心数收敛。0 = 自动。
- * 上限定在「物理核 - 1」，至少留 1 核给宿主；单核机器只给 1 核。
+ * Clamp CPU cores. 0 = auto.
+ * Upper bound is "physical cores - 1", leaving at least 1 core for host; single-core machines get 1 core.
  */
 function clampCores(n, hostCores) {
   const want = toInt(n);
@@ -94,13 +94,13 @@ function clampCores(n, hostCores) {
   const max = total > 1 ? total - 1 : 1;
   if (want <= 0) return { cores: 0, capped: false, reason: 'auto' };
   if (want > max) {
-    return { cores: max, capped: true, reason: `本机 ${total} 核，最多分 ${max} 核（留 1 核给 Windows）` };
+    return { cores: max, capped: true, reason: `Host has ${total} cores, can allocate at most ${max} cores (leaving 1 core for Windows)` };
   }
   return { cores: Math.max(1, want), capped: false, reason: '' };
 }
 
 /**
- * 内存分配合不合理（用于界面提示 + 装大包前提醒）。
+ * Evaluate if memory allocation is reasonable (for UI tips and warnings before large installs).
  * @returns {{ level:'ok'|'tight'|'insufficient'|'unknown', ratio:number, note:string }}
  */
 function memVerdict(allocMB, hostMB) {
@@ -108,23 +108,23 @@ function memVerdict(allocMB, hostMB) {
   const host = toInt(hostMB);
   if (!alloc || !host) return { level: 'unknown', ratio: 0, note: '' };
   if (alloc < ABSOLUTE_MIN_MB) {
-    return { level: 'insufficient', ratio: alloc / host, note: `只分 ${alloc} MB，安卓可能起不来` };
+    return { level: 'insufficient', ratio: alloc / host, note: `Allocated only ${alloc} MB; Android may not boot` };
   }
   const ratio = alloc / host;
   if (ratio > 1 - HOST_RESERVE_RATIO) {
     return {
       level: 'insufficient',
       ratio,
-      note: `占了宿主 ${Math.round(ratio * 100)}% 内存，Windows 会开始换页，模拟器反而更卡`,
+      note: `Uses ${Math.round(ratio * 100)}% host memory; Windows will start paging (换页), making emulator sluggish`,
     };
   }
   if (ratio > TIGHT_RATIO * (1 - HOST_RESERVE_RATIO)) {
-    return { level: 'tight', ratio, note: `已用 ${Math.round(ratio * 100)}% 宿主内存，建议同时关掉浏览器标签页` };
+    return { level: 'tight', ratio, note: `Using ${Math.round(ratio * 100)}% host memory; closing browser tabs is recommended` };
   }
   return { level: 'ok', ratio, note: '' };
 }
 
-/** 安装一个包实际要占的数据分区空间（含解包与更新包冗余） */
+/** Actual data partition space required to install a package (including extraction and update redundancy) */
 function diskRequiredMB(packageBytes, ratio = 1.8, reserveMB = 2048) {
   const bytes = Math.max(0, Number(packageBytes) || 0);
   if (!bytes) return reserveMB;
@@ -132,18 +132,18 @@ function diskRequiredMB(packageBytes, ratio = 1.8, reserveMB = 2048) {
 }
 
 /**
- * 数据分区可填上限。磁盘只剩一点时不能让人填 64GB 然后装到一半失败。
+ * Upper limit for user-configurable data partition.
  * @returns {{ maxGB:number, warnGB:number, freeMB:number }}
  */
 function diskLimits(freeMB) {
   const free = Math.max(0, toInt(freeMB));
-  // 分区镜像本身还要占宿主空间（动态镜像会涨到接近分区大小），留 20% 缓冲
+  // Partition image consumes host space (dynamic image grows close to size); leave 20% buffer
   const maxGB = Math.max(0, Math.floor((free / 1024) * 0.8));
   return { maxGB, warnGB: Math.max(0, maxGB - 8), freeMB: free };
 }
 
 /**
- * 收敛用户填的数据分区大小（GB）。0 = 自动。
+ * Clamp user-entered data partition size (GB). 0 = auto.
  * @returns {{ gb:number, capped:boolean, reason:string }}
  */
 function clampDataGB(gb, freeMB) {
@@ -155,20 +155,20 @@ function clampDataGB(gb, freeMB) {
     return {
       gb: Math.max(0, lim.maxGB),
       capped: true,
-      reason: `所在磁盘只剩 ${(lim.freeMB / 1024).toFixed(1)} GB，最多能分 ${lim.maxGB} GB`,
+      reason: `Disk only has ${(lim.freeMB / 1024).toFixed(1)} GB remaining (只剩 ${(lim.freeMB / 1024).toFixed(1)} GB), can allocate at most ${lim.maxGB} GB`,
     };
   }
   return { gb: want, capped: false, reason: '' };
 }
 
 /**
- * 存储是否够装这个包。
+ * Check if storage is sufficient to install this package.
  * @returns {{ ok:boolean, needMB:number, freeMB:number, shortMB:number, note:string }}
  */
 function storageVerdict(freeMB, packageBytes) {
   const need = diskRequiredMB(packageBytes);
   const free = Math.max(0, toInt(freeMB));
-  if (!free) return { ok: true, needMB: need, freeMB: 0, shortMB: 0, note: '读不到磁盘剩余空间，跳过预检' };
+  if (!free) return { ok: true, needMB: need, freeMB: 0, shortMB: 0, note: 'Unable to read free disk space, skipping pre-check' };
   if (free >= need) return { ok: true, needMB: need, freeMB: free, shortMB: 0, note: '' };
   const short = need - free;
   return {
@@ -176,13 +176,12 @@ function storageVerdict(freeMB, packageBytes) {
     needMB: need,
     freeMB: free,
     shortMB: short,
-    note: `需要约 ${(need / 1024).toFixed(1)} GB，当前只剩 ${(free / 1024).toFixed(1)} GB，还差 ${(short / 1024).toFixed(1)} GB`,
+    note: `Needs ~${(need / 1024).toFixed(1)} GB, currently ${(free / 1024).toFixed(1)} GB free, deficit ${(short / 1024).toFixed(1)} GB (还差 ${(short / 1024).toFixed(1)} GB)`,
   };
 }
 
 /**
- * 磁盘空间是否够装这个包（50GB 级游戏最常见的失败点）。
- * 和 storageVerdict 的区别：这个只看「够不够」，文案是给安装前拦下来用的。
+ * Check whether disk space is sufficient to install this package.
  * @returns {{ ok:boolean, unknown?:boolean, freeMB:number, requiredMB:number, message:string }}
  */
 function diskVerdict(freeMB, requiredMB) {
@@ -194,8 +193,8 @@ function diskVerdict(freeMB, requiredMB) {
     ok: false,
     freeMB: free,
     requiredMB: need,
-    message: `磁盘空间不足：还要约 ${Math.ceil(need / 1024)} GB，但 ApkStart 运行时所在磁盘只剩 ${(free / 1024).toFixed(1)} GB。`
-      + '请在设置里把运行时目录挪到空间更大的分区，或清理后重试。',
+    message: `Insufficient disk space (磁盘空间不足): need ~${Math.ceil(need / 1024)} GB, but disk where ApkStart runtime is located only has ${(free / 1024).toFixed(1)} GB free (ApkStart 运行时所在磁盘只剩 ${(free / 1024).toFixed(1)} GB). `
+      + 'Please move runtime directory to a partition with more space in settings, or clean up disk and try again.',
   };
 }
 
@@ -209,8 +208,8 @@ module.exports = {
   clampCores,
   memVerdict,
   diskRequiredMB,
-  diskVerdict,
   diskLimits,
   clampDataGB,
   storageVerdict,
+  diskVerdict,
 };

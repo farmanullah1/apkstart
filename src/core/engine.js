@@ -1,11 +1,11 @@
 'use strict';
 /**
- * 运行时引擎：ApkStart 自带的 QEMU + Android-x86 虚拟机
+ * Runtime engine: the QEMU + Android-x86 virtual machine shipped with ApkStart
  *
- * 设计原则：
- *  - 默认完全自持（builtin）：adb / QEMU / 系统镜像都由 ApkStart 自己管理，不依赖任何第三方模拟器
- *  - 所有对安卓的操作统一走 adb，因此引擎可替换
- *  - 虚拟机按需启动，空闲自动回收；启动后常驻复用，装/开应用几乎零等待
+ * Design principles:
+ *  - Fully self-contained by default (builtin): adb / QEMU / system image are all managed by ApkStart itself, no dependency on any third-party emulator
+ *  - All operations against Android go through adb, so the engine is replaceable
+ *  - The VM starts on demand and is automatically reclaimed when idle; after launch it is reused as a resident, so installing / opening apps is almost zero-wait
  */
 const { spawn, execFile } = require('child_process');
 const net = require('net');
@@ -24,7 +24,7 @@ const MONITOR_PORT = 5556;
 const EMU_PORT = 5554;
 const EMU_SERIAL = `emulator-${EMU_PORT}`;
 
-/** TCP 端口是否有人监听（用来判断上次留下的模拟器还在不在） */
+/** Whether someone is listening on a TCP port (used to tell whether the leftover emulator from last time is still around) */
 function portAlive(port, timeout = 150) {
   return new Promise((resolve) => {
     const sock = net.connect({ host: '127.0.0.1', port });
@@ -54,19 +54,19 @@ class Runtime {
     this._freeformReady = false;
     this._client = null;
     this._bootLog = [];
-    this._activeApps = new Set();  // 容器会话：当前打开的应用窗口
-    // 多窗口模式下被墓碑化（force-stop 但保留数据）的后台应用；下次点开走热恢复。
+    this._activeApps = new Set();  // Container session: currently open app windows
+    // Background apps tombstoned in multi-window mode (force-stop but data retained); next launch uses hot restore.
     this._tombstoned = new Set();
-    // 最近一次网络体检结果。状态栏要显示「网络正常/未联网」，但状态是高频轮询的，
-    // 不能每次都去 guest 里跑一遍 shell；这里只缓存结论，过期（>5 分钟）就不采信。
+    // Result of the most recent network check. The status bar needs to show "network OK / offline", but the status is polled at high frequency,
+    // so it must not run a full shell inside the guest every time — only the conclusion is cached here, and the cached value is distrusted when expired (>5 minutes).
     this._lastNetwork = null;
-    this.emuSerial = EMU_SERIAL;   // 端口是动态挑的，serial 跟着变
+    this.emuSerial = EMU_SERIAL;   // The port is picked dynamically, so the serial changes with it
     /**
-     * 后端适配层：把「安卓从哪来」从本类里抽出去。
-     *
-     * 0.5.6 起这里**只有一个实现**：builtin（自带 emulator + 系统镜像）。
-     * 不再有 mumu / fydeos / attach 这些分支 —— 任何机器、任何设置、任何残留配置
-     * 都只会拿到自带运行时，保证 ApkStart 永远独立运行、与第三方模拟器无关。
+          * Backend adapter layer: pulls "where Android comes from" out of this class.
+      *
+      * Since 0.5.6 there is **only one implementation** here: builtin (shipped emulator + system image).
+      * There are no longer mumu / fydeos / attach branches — on any machine, any settings, any leftover configuration
+      * the user only ever gets the shipped runtime, guaranteeing ApkStart always runs standalone and is independent of third-party emulators.
      */
     this._backend = null;
     this._backendId = '';

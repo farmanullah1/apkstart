@@ -27,7 +27,7 @@
 🔥 老镜像上必崩的字节系应用（实测红果短剧），换新版翻译层后：安装 → 推荐流 → 视频播放，全程不崩
 
 两个版本任选：轻量版 0.11GB（首启一键部署）／完整版 1.35GB（开箱即用）
-GitHub 搜 `farmanullah1/apkstart`，点 Releases 下载，项目完全开源可自行编译 👀
+GitHub 搜 `farmanullah1/APK-START-English`，点 Releases 下载，项目完全开源可自行编译 👀
 
 有问题评论区问我，或者来公众号 / 抖音 @日常MIKU 找我～
 
@@ -39,7 +39,7 @@ GitHub 搜 `farmanullah1/apkstart`，点 Releases 下载，项目完全开源可
 
 ## 四、置顶评论
 
-> 📦 安装包在这：GitHub 搜索 `farmanullah1/apkstart` → Releases → v0.2.2
+> 📦 安装包在这：GitHub 搜索 `farmanullah1/APK-START-English` → Releases → v0.2.2
 > 轻量版 0.11GB（首启一键部署）｜完整版 1.35GB（内置引擎+镜像，解压即用）
 > 第 5 张图有下载二维码，长按识别就行。项目开源免费，觉得有用点个星 ⭐
 
@@ -59,7 +59,7 @@ GitHub 搜 `farmanullah1/apkstart`，点 Releases 下载，项目完全开源可
 | 5-12s | 桌面快捷方式、独立窗口并排 | 「我写了个启动器，双击 .apk 就装好，每个应用一个独立窗口。」 |
 | 12-22s | 设置面板开启 ARM 兼容模式 | 「带 ARM 库的应用过去直接装不上，新版内置 Android 14 兼容镜像，一键开启。」 |
 | 22-30s | 红果短剧播放画面 | 「实测红果短剧，安装、进推荐流、播视频，全程不崩。」 |
-| 30-35s | 第 5 张轮播图 | 「两个版本都开源免费，GitHub 搜 farmanullah1/apkstart，二维码在这，自取。」 |
+| 30-35s | 第 5 张轮播图 | 「两个版本都开源免费，GitHub 搜 farmanullah1/APK-START-English，二维码在这，自取。」 |
 
 ## 七、图片清单
 

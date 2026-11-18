@@ -2,8 +2,8 @@
 
 <p align="center"><img src="docs/images/logo.png" alt="ApkStart Logo" width="160" /></p>
 
-[![CI](https://github.com/farmanullah1/apkstart/actions/workflows/ci.yml/badge.svg)](https://github.com/farmanullah1/apkstart/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/farmanullah1/apkstart?include_prereleases&sort=semver)](https://github.com/farmanullah1/apkstart/releases)
+[![CI](https://github.com/farmanullah1/APK-START-English/actions/workflows/ci.yml/badge.svg)](https://github.com/farmanullah1/APK-START-English/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/farmanullah1/APK-START-English?include_prereleases&sort=semver)](https://github.com/farmanullah1/APK-START-English/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6.svg)](#)
 
@@ -38,7 +38,7 @@ Note: this is an early release, a personal hobby project. All changes are made b
 
 The two sources have identical content; Gitee is recommended for users in China:
 
-- GitHub：[github.com/farmanullah1/apkstart/releases](https://github.com/farmanullah1/apkstart/releases)
+- GitHub：[github.com/farmanullah1/APK-START-English/releases](https://github.com/farmanullah1/APK-START-English/releases)
 - Gitee：[gitee.com/daily-miku/apkstart/releases](https://gitee.com/daily-miku/apkstart/releases)（国内直连快得多）
 
 Installer packages (three forms, identical content and version number):
@@ -345,7 +345,7 @@ adb devices              # 会看到 emulator-5554
 
 ApkStart is developed and maintained by **farmanullah1**.
 
-- GitHub：<https://github.com/farmanullah1/apkstart>
+- GitHub：<https://github.com/farmanullah1/APK-START-English>
 - WeChat Official Account: scan the QR code to follow
 
 <p align="center"><img src="docs/images/brand.png" alt="关于面板：公众号二维码与项目链接" width="560" /></p>

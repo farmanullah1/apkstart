@@ -1,14 +1,14 @@
 'use strict';
 /**
- * 设备自适应 / 自动诊断（零配置底座）
+ * Device adaptive / auto-diagnostics (zero-config base)
  *
- * 目标：不同机器上都不需要用户调任何参数。
- *  - chooseProfile()  根据物理内存、CPU、磁盘、加速状态、emulator 版本推导启动参数；
- *  - planVariants()   给出「启动失败后依次降级」的重试方案（GPU → 加速 → 内存 → 冷启动）；
- *  - diagnose()       把 emulator 的英文 stderr 翻译成可执行的修复建议；
- *  - shortPath()      处理中文/空格安装路径（emulator 的 QEMU 对非 ASCII 路径极其敏感）。
+ * Goal: on different machines users should not need to tweak any parameters.
+ *  - chooseProfile()  derives startup parameters from physical RAM, CPU, disk, acceleration state, and emulator version;
+ *  - planVariants()   produces a retry plan that degrades step by step after a failed launch (GPU → acceleration → memory → cold boot);
+ *  - diagnose()       translates the emulator's English stderr into actionable fix advice;
+ *  - shortPath()      handles Chinese/space install paths (emulator's QEMU is extremely sensitive to non-ASCII paths).
  *
- * 本模块是纯函数 + 只读探测，不写设置、不拉起 Android，方便单测。
+ * This module is pure functions + read-only probes: it does not write settings or launch Android, so it is easy to unit-test.
  */
 const os = require('os');
 const fs = require('fs');
@@ -23,7 +23,7 @@ const isAsciiPath = (p) => ASCII.test(String(p || ''));
 
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
-/** 本机画像（毫秒级，只读） */
+/** Local machine profile (millisecond-level, read-only) */
 function hostInfo() {
   const totalMB = Math.round(os.totalmem() / 1048576);
   const freeMB = Math.round(os.freemem() / 1048576);
@@ -42,7 +42,7 @@ function hostInfo() {
   };
 }
 
-/** 目录所在盘可用空间（MB）；取不到返回 0 */
+/** Available space on the drive holding the directory (MB); returns 0 when it cannot be obtained */
 function freeDiskMB(dir) {
   try {
     let d = path.resolve(dir || '.');
@@ -60,9 +60,9 @@ function versionNumbers(v) {
 }
 
 /**
- * 检测 GPU 厂商（NVIDIA / AMD / Intel），用于调整渲染后端优先级。
- * 只在 Windows 上查 WMI；其他平台返回 'unknown'。
- * 结果缓存 10 分钟，避免每次 chooseProfile 都 spawn wmic。
+ * Detects the GPU vendor (NVIDIA / AMD / Intel), used to adjust render backend priority.
+ * Only queries WMI on Windows; other platforms return 'unknown'.
+ * Caches the result for 10 minutes to avoid spawning wmic on every chooseProfile().
  */
 let _gpuVendorCache = { vendor: 'unknown', at: 0 };
 function detectGpuVendor() {
@@ -70,7 +70,7 @@ function detectGpuVendor() {
   if (Date.now() - _gpuVendorCache.at < 600000) return _gpuVendorCache.vendor;
   try {
     const { execFileSync } = require('child_process');
-    // wmic 在 Win11 24H2+ 已被移除，改用 PowerShell Get-CimInstance
+    // wmic was removed in Win11 24H2+; use PowerShell Get-CimInstance instead
     let names = '';
     try {
       names = execFileSync('powershell.exe', [
@@ -78,7 +78,7 @@ function detectGpuVendor() {
         '(Get-CimInstance Win32_VideoController).Name -join "|"',
       ], { encoding: 'utf8', windowsHide: true, timeout: 8000 });
     } catch (_) {
-      // 回退到 wmic（老系统仍可用）
+      // fall back to wmic (older systems still have it)
       try {
         names = execFileSync('wmic', ['path', 'win32_videocontroller', 'get', 'name', '/format:list'],
           { encoding: 'utf8', windowsHide: true, timeout: 5000 });
@@ -86,7 +86,7 @@ function detectGpuVendor() {
     }
     const lower = String(names).toLowerCase();
     let vendor = 'unknown';
-    // 优先匹配独显（NVIDIA/AMD），虚拟显示适配器排在后面
+    // prefer discrete GPUs (NVIDIA/AMD); virtual display adapters rank last
     if (/nvidia|geforce|rtx\s|gtx\s/.test(lower)) vendor = 'nvidia';
     else if (/(?<!virtual\s)(amd|radeon|rx\s\d)/.test(lower)) vendor = 'amd';
     else if (/intel|uhd\s|iris|arc\s/.test(lower)) vendor = 'intel';

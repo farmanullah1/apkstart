@@ -1,14 +1,14 @@
 'use strict';
 /**
- * Emulator 引擎：驱动 Google 官方 Android Emulator 作为 ApkStart 的运行时。
+ * Emulator engine: drives the Google official Android Emulator as ApkStart's runtime.
  *
- * 与旧版最大的不同：这里不再假设「一套参数在所有电脑上都能跑」。
- *  1. 用 doctor.chooseProfile() 按内存/CPU/磁盘/加速状态/引擎版本自动推导参数；
- *  2. 启动失败时按 planVariants() 自动降级重试（GPU 后端 → 软件模拟 → 最小内存冷启动）；
- *  3. 动态挑空闲端口、清 AVD 锁、中文路径转短路径、镜像变更后自动作废快照；
- *  4. quickboot 快照 + 小数据分区，做到「像容器一样」共享只读基础层、秒级恢复。
+ * Biggest difference from the old version: this no longer assumes "one set of parameters runs on every machine".
+ *  1. Derives parameters automatically via doctor.chooseProfile() from RAM/CPU/disk/acceleration state/engine version;
+ *  2. On launch failure, retries with automatic degradation via planVariants() (GPU backend → software emulation → minimal-memory cold boot);
+ *  3. Dynamically picks an idle port, clears AVD locks, converts Chinese paths to short paths, and auto-invalidates snapshots after image changes;
+ *  4. quickboot snapshots + a small data partition, sharing a read-only base layer like a container and restoring in seconds.
  *
- * probe 回调由上层（Runtime）提供，用于判断 Android 是否真正就绪。
+ * The probe callback is supplied by the upper layer (Runtime) to judge whether Android is truly ready.
  */
 const { spawn, spawnSync, execFile } = require('child_process');
 const fs = require('fs');
@@ -25,18 +25,18 @@ const SNAPSHOT_NAME = 'apkstart';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Windows 上把 emulator/qemu 的退出码翻译成人话。
- * 0xC0000005（3221225477）是崩溃里最常见的那个：访问冲突，实测多由
- * 显卡驱动 / Vulkan 后端在 guest 启动瞬间崩掉引起，换软件渲染即可绕过。
+ * Translates emulator/qemu exit codes into human-readable text on Windows.
+ * 0xC0000005 (3221225477) is the most common crash exit code: access violation, in practice often caused by
+ * the GPU driver / Vulkan backend crashing at the instant the guest starts — switching to software rendering sidesteps it.
  */
 function describeExitCode(code) {
-  // 被信号结束时 code 是 null（Windows 上走 taskkill / adb emu kill 都会这样），
-  // 不能当成 0 报「正常退出」，但也谈不上异常，返回空串让调用方原样显示。
+     // When terminated by a signal the code is null (on Windows both taskkill and adb emu kill do this);
+   // it must not be treated as 0 "normal exit", but it is not exactly an error either — return an empty string and let the caller display it as-is.
   if (code == null) return '';
   switch (Number(code)) {
-    case 0: return '正常退出';
-    case 1: return '启动参数或环境错误';
-    case 3221225477: return '0xC0000005 访问冲突，渲染后端崩溃';
+    case 0: return 'Normal exit';
+    case 1: return 'Startup parameter or environment error';
+    case 3221225477: return '0xC0000005 access violation, render backend crashed';
     case 3221225725: return '0xC00000FD 栈溢出';
     case 3221225781: return '0xC0000135 缺少 DLL（VC++ 运行库 / 运行时组件被杀毒删除）';
     case 3221225506: return '0xC0000022 拒绝访问（驱动或权限问题）';

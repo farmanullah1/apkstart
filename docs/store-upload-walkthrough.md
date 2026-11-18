@@ -126,10 +126,10 @@ Windows 10 version 2004 (build 19041) or later, x64. "Virtual Machine Platform"
 ```
 - **Privacy policy URL** **[复制]**
   ```
-  https://github.com/farmanullah1/apkstart/blob/main/docs/privacy.md
+     https://github.com/farmanullah1/APK-START-English/blob/main/docs/privacy.md
   ```
   （已合入 `main`，无需再处理分支可见性）
-- **Support contact**：填你的邮箱 + `https://github.com/farmanullah1/apkstart/issues`
+- **Support contact**：填你的邮箱 + `https://github.com/farmanullah1/APK-START-English/issues`
 
 ---
 

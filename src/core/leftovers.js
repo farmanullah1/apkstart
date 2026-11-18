@@ -1,16 +1,16 @@
 'use strict';
 /**
- * 清理旧版本残留。
+ * Clean up legacy version leftovers.
  *
- * 用户升级 ApkStart 常出现「装过好几个版本、卸载不干净」：便携版每换一次版本就多一个
- * ApkStart-vX.Y.Z-win64-portable 目录；NSIS 安装版升级后可能留下指向已删除目录的
- * 卸载项；更新过程还会在数据目录里留下一堆临时包。
+ * When users upgrade ApkStart, residual files frequently accumulate: portable versions create a new
+ * ApkStart-vX.Y.Z-win64-portable directory for each release; NSIS installer upgrades may leave behind
+ * uninstall entries pointing to deleted directories; update processes leave temporary packages in data dirs.
  *
- * 这里只做**可证明安全**的清理：
- *   - 只认「目录里确实有 ApkStart.exe」的旧版本目录，且绝不碰当前正在运行的那个；
- *   - 只删除「InstallLocation 已经不存在」的注册表卸载项（那个本来就已经是死条目）；
- *   - 只删自己更新缓存里的临时文件与指向不存在目标的开始菜单/桌面快捷方式。
- * 任何一步拿不准就跳过，并把原因如实返回给界面。
+ * This module performs ONLY **provably safe** cleanups:
+ *   - Only matches directories that genuinely contain ApkStart.exe, and NEVER touches the currently running one;
+ *   - Only deletes registry uninstall entries whose InstallLocation no longer exists (dead entries);
+ *   - Only deletes its own update cache temporary files and shortcuts pointing to non-existent targets.
+ * If unsure at any step, skip it and report the reason accurately to the UI.
  */
 const fs = require('fs');
 const path = require('path');
@@ -29,7 +29,7 @@ function dirSize(p) {
       try {
         if (e.isDirectory()) walk(f);
         else n += fs.statSync(f).size;
-      } catch (_) { /* 占用/无权限，跳过 */ }
+      } catch (_) { /* In use or permission denied, skip */ }
     }
   };
   walk(p);
@@ -41,14 +41,12 @@ function norm(p) {
 }
 
 /**
- * 在若干「可能放程序的」目录里找旧版本目录。
+ * Find legacy version directories in several common candidate directories.
  *
- * 以前只扫当前 exe 的父目录 + LOCALAPPDATA\Programs + ProgramFiles，结果用户把
- * 便携版解压到别的地方（E:\下载、桌面、某个项目目录）就永远扫不到 —— 这正是
- * 「其他文件夹里的旧版本清不掉」的原因。现在多路发现：
- *   - 常见安装位置；
- *   - 各磁盘根目录下的浅层（很多便携版直接丢在 D:\ApkStart-…）；
- *   - 桌面 / 开始菜单里现存快捷方式指向的真实 exe 所在目录（最准，用户装过就一定有）。
+ * Scans multiple discovery paths:
+ *   - Common installation locations;
+ *   - Shallow root directories of all local drives (many portable releases are placed directly at D:\ApkStart-...);
+ *   - Real exe directories pointed to by existing shortcuts in Desktop and Start Menu.
  */
 function candidateRoots(installDir) {
   const roots = new Set();
@@ -58,14 +56,14 @@ function candidateRoots(installDir) {
   if (local) add(path.join(local, 'Programs'));
   add(process.env.ProgramFiles);
   add(process.env['ProgramFiles(x86)']);
-  // 用户主目录下几个高频位置
+  // High-frequency locations in user home directory
   const home = os.homedir();
   if (home) {
     add(path.join(home, 'Downloads'));
     add(path.join(home, 'Desktop'));
     add(path.join(home, 'Documents'));
   }
-  // 每个本地磁盘根目录（便携版常直接放盘根）
+  // Root of each local drive (portable editions are often extracted directly to drive root)
   try {
     for (const drv of ['C:\\', 'D:\\', 'E:\\', 'F:\\', 'G:\\', 'H:\\']) {
       if (fs.existsSync(drv)) add(drv.replace(/\\+$/, ''));
@@ -75,9 +73,9 @@ function candidateRoots(installDir) {
 }
 
 /**
- * 从快捷方式（.lnk / .desktop）反查 ApkStart.exe 的真实所在目录。
- * 这是最可靠的发现手段：只要用户曾经创建过桌面图标或开始菜单项，目标路径就在里面，
- * 无论它被放在哪个盘、哪个深层文件夹。
+ * Reverse lookup the real ApkStart.exe directory from shortcuts (.lnk / .desktop).
+ * Most reliable discovery method: as long as user created a desktop or start menu shortcut,
+ * target path is embedded inside.
  */
 function rootsFromShortcuts() {
   const dirs = new Set();
@@ -104,7 +102,7 @@ function rootsFromShortcuts() {
             if (exePath && /[\\/]ApkStart(\.exe)?$/i.test(exePath)) dirs.add(path.dirname(exePath));
           }
         } else {
-          // .lnk 是二进制，但目标路径以可读形式内嵌，直接扫字节里的 ApkStart*.exe
+          // .lnk is binary, but target path is embedded in readable form; scan bytes for ApkStart*.exe
           const buf = fs.readFileSync(full);
           const s = buf.toString('latin1');
           const re = /[A-Za-z]:\\[^\x00\x01-\x1f]*?ApkStart(?:-[^\x00\x01-\x1f]*)?[\\/]?ApkStart\.exe|[A-Za-z]:\\[^\x00\x01-\x1f]*?ApkStart\.exe/gi;
@@ -113,13 +111,13 @@ function rootsFromShortcuts() {
             dirs.add(path.dirname(mm[0].replace(/\x00.*$/, '')));
           }
         }
-      } catch (_) { /* 读不动就跳过 */ }
+      } catch (_) { /* Skip unreadable */ }
     }
   }
   return [...dirs];
 }
 
-/** 旧版本程序目录：形如 ApkStart*，且里面有 ApkStart.exe，且不是当前安装目录 */
+/** Legacy version directory: named like ApkStart*, contains ApkStart.exe, and is not current install directory */
 function scanDirs(installDir) {
   const out = [];
   const seen = new Set();
@@ -129,13 +127,13 @@ function scanDirs(installDir) {
     if (seen.has(key)) return;
     seen.add(key);
     if (key === cur) return;
-    // 必须是「真的是 ApkStart」的目录，避免误删同名文件夹
+    // Must genuinely be an ApkStart directory to avoid deleting similarly named folders
     if (!fs.existsSync(path.join(full, EXE))) return;
     out.push({
       kind: 'dir',
       path: full,
       size: dirSize(full),
-      note: '旧版本程序目录（含 ' + EXE + '）',
+      note: 'Legacy program directory (contains ' + EXE + ')',
     });
   };
   for (const root of candidateRoots(installDir)) {
@@ -147,10 +145,10 @@ function scanDirs(installDir) {
       consider(path.join(root, e.name));
     }
   }
-  // 快捷方式反查到的目录：本身可能就是旧版本目录，或其父/子目录是
+  // Directories found via shortcuts
   for (const d of rootsFromShortcuts()) {
     if (/^ApkStart/i.test(path.basename(d))) consider(d);
-    // 也看看它的同级（dist 下往往并排好几个版本目录）
+    // Also inspect sibling directories
     const parent = path.dirname(d);
     let sib = [];
     try { sib = fs.readdirSync(parent, { withFileTypes: true }); } catch (_) { continue; }
@@ -161,7 +159,7 @@ function scanDirs(installDir) {
   return out;
 }
 
-/** 注册表里指向已不存在目录的卸载项 */
+/** Registry uninstall entries pointing to non-existent directories */
 function scanRegistry() {
   const out = [];
   const roots = [
@@ -175,7 +173,7 @@ function scanRegistry() {
       text = execFileSync('reg', ['query', root, '/s', '/f', 'ApkStart', '/t', 'REG_SZ'],
         { encoding: 'utf8', windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024 });
     } catch (_) { continue; }
-    // reg query 输出是分块的「键 → 值」，这里按块切
+    // Split reg query output by blocks
     const blocks = String(text).split(/\r?\n\r?\n/);
     for (const b of blocks) {
       const key = (/^(HKEY_[^\r\n]+)$/m.exec(b) || [])[1];
@@ -187,21 +185,21 @@ function scanRegistry() {
       const install = (loc || '').trim().replace(/^"|"$/g, '');
       const uninsPath = (unins || '').trim().replace(/^"|"$/g, '');
       const installMissing = install ? !fs.existsSync(install) : false;
-      // 只处理「明明已经没装、却还挂在应用列表里」的死条目
+      // Only process dead entries whose targets are missing
       const deadUninstaller = uninsPath && !fs.existsSync(uninsPath.split('"')[0]);
       if (!installMissing && !deadUninstaller) continue;
       out.push({
         kind: 'registry',
         path: key,
         size: 0,
-        note: `失效的卸载项${disp ? `：${String(disp).trim()}` : ''}`,
+        note: `Invalid uninstall entry${disp ? `: ${String(disp).trim()}` : ''}`,
       });
     }
   }
   return out;
 }
 
-/** 更新缓存 / 临时包 */
+/** Update cache / temporary packages */
 function scanTemp(dataDir) {
   const out = [];
   const dirs = [path.join(dataDir, 'update'), os.tmpdir()];
@@ -216,14 +214,14 @@ function scanTemp(dataDir) {
       const full = path.join(d, name);
       let size = 0;
       try { size = e.isDirectory() ? dirSize(full) : fs.statSync(full).size; } catch (_) { /* ignore */ }
-      out.push({ kind: 'temp', path: full, size, note: '更新下载的临时文件' });
+      out.push({ kind: 'temp', path: full, size, note: 'Temporary download files from updates' });
     }
   }
   return out;
 }
 
-/** 旧/废弃的快速启动快照：default_boot 是早期版本留下的（一份 ram.img 约 3GB），
- *  *.stale-* 是「删不掉就改名」的残留。当前快照名是 apkstart，绝不碰。 */
+/** Legacy / abandoned quickboot snapshots: default_boot was left by earlier versions (~3GB ram.img),
+ *  *.stale-* are remnants from failed deletes renamed. Active snapshot is apkstart, never touch. */
 function scanSnapshots(avdHome) {
   const out = [];
   if (!avdHome) return out;
@@ -232,13 +230,13 @@ function scanSnapshots(avdHome) {
   try { list = fs.readdirSync(snapDir, { withFileTypes: true }); } catch (_) { return out; }
   for (const e of list) {
     if (!e.isDirectory()) continue;
-    if (e.name === 'apkstart') continue;   // 当前在用的快照
+    if (e.name === 'apkstart') continue;   // Current active snapshot
     const full = path.join(snapDir, e.name);
     out.push({
       kind: 'dir',
       path: full,
       size: dirSize(full),
-      note: e.name.startsWith('default_boot') ? '旧版遗留的快速启动快照' : '废弃的快照残留',
+      note: e.name.startsWith('default_boot') ? 'Legacy quickboot snapshot' : 'Abandoned snapshot remnants',
     });
   }
   return out;
@@ -270,21 +268,21 @@ function clean(items, { installDir }) {
   for (const it of items || []) {
     try {
       if (it.kind === 'dir') {
-        // 双保险：绝不删当前正在运行的目录
-        if (norm(it.path) === cur) { failed.push({ path: it.path, reason: '这是当前正在运行的版本' }); continue; }
-        if (!fs.existsSync(path.join(it.path, EXE))) { failed.push({ path: it.path, reason: '目录里没有 ' + EXE }); continue; }
+        // Double-check: never delete currently running directory
+        if (norm(it.path) === cur) { failed.push({ path: it.path, reason: 'This is the currently running version' }); continue; }
+        if (!fs.existsSync(path.join(it.path, EXE))) { failed.push({ path: it.path, reason: 'Directory does not contain ' + EXE }); continue; }
         if (rm(it.path)) { freed += it.size || 0; removed.push(it.path); }
-        else failed.push({ path: it.path, reason: '文件被占用（可能有窗口还开着）' });
+        else failed.push({ path: it.path, reason: 'File is in use (another window may still be open)' });
       } else if (it.kind === 'registry') {
         const r = execFileSync('reg', ['delete', it.path, '/f'], { windowsHide: true, timeout: 10000 });
         void r;
         removed.push(it.path);
       } else if (it.kind === 'temp') {
         if (rm(it.path)) { freed += it.size || 0; removed.push(it.path); }
-        else failed.push({ path: it.path, reason: '文件被占用' });
+        else failed.push({ path: it.path, reason: 'File is in use' });
       } else if (it.kind === 'shortcut') {
         if (rm(it.path)) removed.push(it.path);
-        else failed.push({ path: it.path, reason: '删除失败' });
+        else failed.push({ path: it.path, reason: 'Deletion failed' });
       }
     } catch (e) {
       failed.push({ path: it.path, reason: e.message });
