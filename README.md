@@ -7,15 +7,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6.svg)](#)
 
-**Windows 上的安卓应用运行器 —— 让安卓应用像 Windows 原生软件一样被安装和使用。**
-注：本项目为早期版本，作者自娱自乐产物，所有修改都是作者下班和休息日在处理，开源免费，不插广告，暂时也不是很好用，没有找过营销号推广，无妄之灾。
+**Windows Android app runner — install and use Android apps like native Windows software.**
+Note: this is an early release, a personal hobby project. All changes are made by the author after work and on days off. It's open-source and free, with no ads. It's not very polished yet, and has not been promoted by any marketing accounts, so don't blame me if it doesn't work out.
 
-- 🖱️ **双击 .apk 即安装**：注册 .apk 文件关联后，在资源管理器里双击 APK，自动解析 → 安装 → 生成桌面图标，全程无需打开任何模拟器界面。
-- 🧩 **每个应用一个桌面图标**：图标从 APK 内部离线提取并转为多尺寸 ICO，双击桌面图标 = 直接启动该应用，与打开一个原生 Windows 软件的体验一致。
-- 🪟 **应用就是一个窗口**：运行时以**带窗口**模式启动（无头模式下 Android 不出 VSYNC，应用进程活着但屏幕上是空的），ApkStart 把这块窗口改标题、换真实应用图标、按竖屏比例摆好位置，就是一个独立应用窗口；**全屏**铺满屏幕高度并居中，**窗口模式**可自由拖动缩放且按应用记忆尺寸。
-- 🔍 **能被 Windows 搜到**：安装后同时创建桌面 + 开始菜单（`程序\ApkStart\`）快捷方式，按应用名在开始菜单搜索即可直达，任务栏按应用分组。
-- 📁 **数据互通**：`%USERPROFILE%\ApkStartShared` ↔ 安卓内 `/sdcard/ApkStartShared` 持续双向同步，安卓应用存下的文件直接出现在本机。
-- 🪶 **极致轻量**：壳层本身零第三方依赖（连 ZIP / PNG / ICO / AXML 解析都是手写的），运行时按需拉起，空闲自动回收；也可以完全复用你机器上已有的安卓运行时，额外占用为零。
+- 🖱️ **Double-click .apk to install**：After registering the .apk file association, double-click an APK in Explorer and it automatically parses, installs, and creates a desktop icon, with no emulator UI ever opened.
+- 🧩 **Each app gets its own desktop icon**：Icons are extracted offline from inside the APK and converted to multi-size ICO; double-clicking the desktop icon directly launches that app, matching the experience of opening a native Windows app.
+- 🪟 **Each app is a window**：The runtime is launched in **windowed** mode (in headless mode Android emits no VSYNC, so the app process is alive but the screen is blank). ApkStart renames that window, swaps in the real app icon, and positions it at portrait aspect ratio, giving you a standalone app window. **Fullscreen** fills the screen height and centers it; **window mode** can be freely dragged and resized and remembers each app's size.
+- 🔍 **Findable from Windows search**：After install, shortcuts are created on both the desktop and the Start menu (`Programs\ApkStart\`); search the Start menu by app name to jump straight in, and the taskbar groups by app.
+- 📁 **Shared data folder**：`%USERPROFILE%\ApkStartShared` is synced bidirectionally with Android's `/sdcard/ApkStartShared`; files saved by Android apps show up instantly on the host.
+- 🪶 **Ultra-lightweight**：The shell itself has zero third-party dependencies (even ZIP / PNG / ICO / AXML parsing is hand-rolled), the runtime is spun up on demand and reclaimed when idle, and it can also fully reuse an Android runtime already on your machine for zero extra footprint.
 
 ![主界面](docs/images/app.png)
 
@@ -34,9 +34,9 @@
 └────────────────────────────────────────────────────────────┘
 ```
 
-## 下载即用（不想编译）
+## Ready-to-run downloads (no build needed)
 
-两个源内容一致，国内建议用 Gitee：
+The two sources have identical content; Gitee is recommended for users in China:
 
 - GitHub：[github.com/RoutineMiku/apkstart/releases](https://github.com/RoutineMiku/apkstart/releases)
 - Gitee：[gitee.com/daily-miku/apkstart/releases](https://gitee.com/daily-miku/apkstart/releases)（国内直连快得多）
@@ -45,10 +45,10 @@
 
 | 形态 | 文件名 | 何时选它 |
 |---|---|---|
-| 商店版 | `ApkStart_<四段版本>_x64.msix` | 从 Microsoft Store 装。内置完整运行时，装完不联网；自更新交给商店 |
-| 完整便携版 | `ApkStart-v*-win64-full.zip`（约 830 MB，解压 ~1.3 GB） | **不想装、也不想等下载**：解压即用，运行时（模拟器 + 系统镜像）全在包里 |
-| 安装版 | `ApkStart-v*-Setup.exe`（约 1.3 GB） | 想要桌面/开始菜单快捷方式、卸载项 |
-| 轻量便携版 | `ApkStart-v*-win64-portable.zip`（96 MiB，解压 ~227 MB） | 只想先试试，首次启动再联网下载运行时 |
+| Microsoft Store build | `ApkStart_<四段版本>_x64.msix` | Install from the Microsoft Store. The full runtime is bundled, so it doesn't need the network after install; self-updates are handled by the Store. |
+| Full portable build | `ApkStart-v*-win64-full.zip`（约 830 MB，解压 ~1.3 GB） | **Don't want to install or wait for a download?** Extract and run — the runtime (emulator + system image) is fully inside the package. |
+| Installer build | `ApkStart-v*-Setup.exe`（约 1.3 GB） | When you want desktop/Start menu shortcuts and an uninstall entry |
+| Portable (lightweight) build | `ApkStart-v*-win64-portable.zip`（96 MiB，解压 ~227 MB） | Just want to try it out; the runtime is downloaded on first launch |
 
 > 所有形态的 `ApkStart.exe` 都写入了**品牌图标 + 版本资源**（FileDescription = `ApkStart 安卓应用运行器`，
 > CompanyName = `RoutineMiku`，版本与 `package.json` 同步），不再是 Electron 的默认图标和 `33.x` 版本号。
@@ -73,13 +73,13 @@
 
 排版由「逻辑密度」决定：720 宽按 190dpi 算等于 **606dp**，正好越过 Android 的 600dp 平板断点，
 红果短剧的双列剧集页、设置页分栏都只在这个密度下出现（镜像默认 320dpi 只有 360dp，是手机排版）。
-这就是设置里的「平板排版」开关，默认打开；关掉会回到手机排版。
+这就是the "Tablet layout" switch in settings，默认打开；关掉会回到手机排版。
 
 ### 在线更新（自动选较快的源）
 
 设置 → **软件更新** → 「检查更新」，或托盘右键 → 「检查更新」。发现新版本后点「立即更新」即可。
 
-- 安装版下载 `ApkStart-v*-Setup.exe` 静默安装；
+- Installer build下载 `ApkStart-v*-Setup.exe` 静默安装；
 - 轻量版下载 `ApkStart-v*-win64-portable.zip`，解压后覆盖**程序目录**——运行时目录（`%APPDATA%\apkstart\runtime`）、已装应用与快照都不在程序目录里，所以更新不会丢东西；
 - 替换动作由一段独立 PowerShell 脚本完成（等主进程退出 → 覆盖 → 重新拉起），**不会出现「请手动关闭程序」的弹窗**，也不会在桌面上残留模拟器窗口。
 
@@ -171,7 +171,7 @@ node build/zip.js dist/ApkStart-win64-portable ApkStart-win64-portable.zip
 # 同时裁掉 emulator 里用不到的部分：arm64 的 QEMU、Vulkan 后端、多语言包、qsn/自检工具、VR 资源）
 npm run runtime
 
-# 再打成安装版 EXE（electron-builder nsis 目标，装到当前用户目录）
+# 再打成Installer build EXE（electron-builder nsis 目标，装到当前用户目录）
 npm run build:exe
 # 产出 dist/release/ApkStart-<版本>-Setup.exe
 ```
@@ -300,7 +300,7 @@ Android 版本、freeform 支持、共享目录双向同步，加 `--apk 某应�
 | **WHPX** | Windows 自带功能「Windows 虚拟机监控程序平台」 | 开这个功能时 | 要 |
 | **AEHD** | Google 自家内核驱动 | 装驱动时 | 不用 |
 
-- **安装版 / 便携版**：设置 → 环境自检 → 「未启用硬件加速」右侧点**修复**，会弹一次 UAC，自动开 WHPX；如果开不起来（系统不支持 / 你点了否），会自动改装 AEHD 驱动。
+- **Installer build / 便携版**：设置 → 环境自检 → 「未启用硬件加速」右侧点**修复**，会弹一次 UAC，自动开 WHPX；如果开不起来（系统不支持 / 你点了否），会自动改装 AEHD 驱动。
 - **微软商店（MSIX）版**：商店应用**不能自行提权**，所以点「修复」会直接帮你打开「启用或关闭 Windows 功能」对话框，勾选
   **「Windows 虚拟机监控程序平台」**（英文 HypervisorPlatform），确定后**重启电脑**一次即可。
 
@@ -334,7 +334,7 @@ Android 版本、freeform 支持、共享目录双向同步，加 `--apk 某应�
 
 ### 为什么我的 `adb devices` 看不到这台安卓设备
 
-ApkStart 的 adb 服务跑在**专用端口 5044**，和系统里你自己的 adb（5037）完全隔开 —— 这样你的 Android Studio / scrcpy 不会跟它抢设备，它也不会误杀你手动开的模拟器。
+ApkStart's adb service runs on a **dedicated port 5044**, completely isolated from your own adb on the system (5037), so your Android Studio / scrcpy won't fight it for the device, and it won't accidentally kill a manually started emulator.
 
 要用命令行连它：
 
@@ -343,22 +343,22 @@ $env:ANDROID_ADB_SERVER_PORT = 5044
 adb devices              # 会看到 emulator-5554
 ```
 
-⚠️ **不要**对着 `5555` 端口手动 `adb connect`：Play 版系统镜像会弹「允许 USB 调试吗」的系统对话框，而且它会盖在正在运行的安卓应用上，看起来像是程序出了问题。
+⚠️ **Don't** manually `adb connect` to port `5555`: the Play store system image will pop up the "Allow USB debugging?" system dialog, and it covers the currently running Android app, looking like the program is broken.
 
-## 关于作者
+## About the author
 
 ApkStart 由 **RoutineMiku** 开发维护。
 
 - GitHub：<https://github.com/RoutineMiku/apkstart>
-- 微信公众号：扫码关注
+- WeChat Official Account: scan the QR code to follow
 
 <p align="center"><img src="docs/images/brand.png" alt="关于面板：公众号二维码与项目链接" width="560" /></p>
 
 <p align="center"><i>Powered by <b>RoutineMiku</b></i></p>
 
-## 参与贡献
+## Contributing
 
-欢迎 Issue / PR。壳层保持零第三方依赖，提交前请跑 `npm test`；细节见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+Issues and PRs are welcome. The shell keeps zero third-party dependencies; run `npm test` before submitting; see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## 许可证
 
