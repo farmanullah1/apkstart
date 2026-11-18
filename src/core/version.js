@@ -1,9 +1,9 @@
 'use strict';
 /**
- * 版本号比较。独立成模块，避免 updater ↔ sources 互相 require 形成循环依赖。
+ * Version comparison utility. Separated into its own module to avoid circular dependencies between updater ↔ sources.
  */
 
-/** v0.3.2 / 0.3.2-preview / 1.0.0+build 归一化成可比较的数组 */
+/** Normalizes v0.3.2 / 0.3.2-preview / 1.0.0+build into a comparable array */
 function parseVer(v) {
   return String(v || '')
     .replace(/^v/i, '')
@@ -12,7 +12,7 @@ function parseVer(v) {
     .filter((x) => x !== '');
 }
 
-/** a>b 返回 1，a<b 返回 -1，相等 0 */
+/** Returns 1 if a > b, -1 if a < b, 0 if equal */
 function cmpVer(a, b) {
   const A = parseVer(a);
   const B = parseVer(b);

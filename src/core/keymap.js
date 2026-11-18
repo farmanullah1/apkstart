@@ -1,24 +1,24 @@
 'use strict';
 /**
- * 游戏按键映射 —— 纯数据层
+ * Game keymapping —— Pure data layer
  *
- * 把键盘按键映射到安卓触屏坐标。每个映射条目：
- *   { key: 'w', action: 'tap', x: 0.15, y: 0.85 }   // 相对坐标 (0~1)
+ * Maps keyboard keys to Android touch coordinates. Each entry:
+ *   { key: 'w', action: 'tap', x: 0.15, y: 0.85 }   // Relative coordinates (0~1)
  *   { key: 'space', action: 'tap', x: 0.5, y: 0.9 }
  *   { key: 'j', action: 'swipe', x1: 0.7, y1: 0.5, x2: 0.3, y2: 0.5, duration: 100 }
  *
- * 坐标是相对于 LCD 面板的归一化值 (0~1)，运行时乘以实际 wm size 得到像素。
+ * Coordinates are normalized to LCD panel (0~1), scaled by runtime wm size.
  *
- * 预设模板覆盖常见游戏类型：
- *   - fps: WASD 移动摇杆区域 + 鼠标瞄准（鼠标由 Qt 原生处理，这里只管键盘）
- *   - rpg: WASD 移动 + J/K/L 技能 + Space 确认
- *   - generic: 方向键 + Enter/Space
+ * Preset templates for common game categories:
+ *   - fps: WASD movement joystick area + mouse aim (mouse handled natively via Qt)
+ *   - rpg: WASD movement + J/K/L skills + Space confirm
+ *   - generic: Arrow keys + Enter/Space
  */
 
 const PRESETS = {
   fps: {
-    label: 'FPS / 射击类',
-    desc: 'WASD 控制左侧虚拟摇杆区域，J 射击，K 换弹，Space 跳跃',
+    label: 'FPS / Shooter',
+    desc: 'WASD for left virtual joystick area, J shoot, K reload, Space jump',
     mappings: [
       { key: 'w', action: 'tap', x: 0.15, y: 0.75 },
       { key: 'a', action: 'tap', x: 0.08, y: 0.82 },
@@ -30,8 +30,8 @@ const PRESETS = {
     ],
   },
   rpg: {
-    label: 'RPG / 动作类',
-    desc: 'WASD 移动，J 攻击，K 技能，L 大招，Space 确认/对话',
+    label: 'RPG / Action',
+    desc: 'WASD movement, J attack, K skill, L ultimate, Space interact/confirm',
     mappings: [
       { key: 'w', action: 'tap', x: 0.15, y: 0.75 },
       { key: 'a', action: 'tap', x: 0.08, y: 0.82 },
@@ -44,8 +44,8 @@ const PRESETS = {
     ],
   },
   generic: {
-    label: '通用 / 休闲类',
-    desc: '方向键移动，Enter 确认，Space 取消/返回',
+    label: 'Casual / Generic',
+    desc: 'Arrow keys movement, Enter confirm, Space back/cancel',
     mappings: [
       { key: 'ArrowUp', action: 'tap', x: 0.15, y: 0.75 },
       { key: 'ArrowLeft', action: 'tap', x: 0.08, y: 0.82 },
@@ -58,21 +58,21 @@ const PRESETS = {
 };
 
 /**
- * 把 Electron 的 key 名标准化为映射表里用的格式。
- * Electron KeyboardEvent.key 值如 'w', 'W', 'ArrowUp', ' ', 'Enter' 等。
+ * Normalizes Electron key names to the mapping format.
+ * Examples: 'w', 'W', 'ArrowUp', ' ', 'Enter'.
  */
 function normalizeKey(key) {
   if (!key) return '';
-  // 单字母统一小写
+  // Normalize single letters to lower case
   if (key.length === 1 && /[A-Za-z]/.test(key)) return key.toLowerCase();
   return key;
 }
 
 /**
- * 查找某个按键在当前映射表里的动作。
- * @param {Array} mappings 映射条目数组
+ * Looks up key action in current mapping table.
+ * @param {Array} mappings Mappings array
  * @param {string} key Electron KeyboardEvent.key
- * @returns {object|null} 匹配的映射条目
+ * @returns {object|null} Matched mapping entry
  */
 function lookup(mappings, key) {
   const nk = normalizeKey(key);
@@ -81,11 +81,11 @@ function lookup(mappings, key) {
 }
 
 /**
- * 把映射条目 + LCD 尺寸转成 adb shell 命令。
- * @param {object} mapping 映射条目
- * @param {number} width LCD 宽度（像素）
- * @param {number} height LCD 高度（像素）
- * @returns {string} adb shell 命令（如 'input tap 192 612'）
+ * Converts a mapping entry + LCD dimensions to an adb shell command.
+ * @param {object} mapping Mapping entry
+ * @param {number} width LCD width (px)
+ * @param {number} height LCD height (px)
+ * @returns {string} adb shell command (e.g. 'input tap 192 612')
  */
 function toCommand(mapping, width, height) {
   if (!mapping) return '';

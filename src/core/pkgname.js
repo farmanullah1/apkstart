@@ -1,15 +1,16 @@
 'use strict';
 /**
- * Android 包名合法性校验。
+ * Android package name validation.
  *
- * 包名来自 APK 的 AndroidManifest.xml（外部输入），却被直接拿去拼本地文件路径
- * （store.iconPath / apkPath）和 adb shell 命令（pm path / pidof / am start…）。
- * 不校验就等于把「../」、盘符、shell 元字符直接交给 path.join 和 shell：
- * 前者写出目标目录之外，后者命令注入。
+ * Package names originate from AndroidManifest.xml within an APK (untrusted input)
+ * and are used in local filesystem paths (store.iconPath / apkPath) and adb shell commands
+ * (pm path / pidof / am start…).
+ * Without validation, directory traversals ("../"), drive letters, or shell metacharacters
+ * could cause arbitrary writes or command injection.
  *
- * Android 包名的实际约束：点分隔的若干段，每段以字母/下划线开头，
- * 后面是字母/数字/下划线。这里按 ASCII 严格校验，宁可拒绝极少数奇怪的
- * 第三方包，也不放任何一个路径分隔符或 shell 字符进来。
+ * Practical Android package name constraints: dot-separated identifiers starting with
+ * a letter/underscore followed by letters/digits/underscores. Strictly validated via ASCII
+ * to prevent any path separators or shell metacharacters.
  */
 const RE_PKG = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$/;
 
@@ -17,7 +18,7 @@ function validPackageName(pkg) {
   return typeof pkg === 'string' && RE_PKG.test(pkg);
 }
 
-/** 非法包名改写成安全文件名（用于日志/兜底显示，不用于安装） */
+/** Rewrites invalid package names into safe filenames (for logging/fallback display only, not installation) */
 function safeFilePart(pkg) {
   if (validPackageName(pkg)) return pkg;
   return `invalid-${String(pkg || 'unknown').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64)}`;

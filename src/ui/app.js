@@ -350,7 +350,7 @@ function renderSetup(s) {
         ? 'Booting Android…'
         : allDone
           ? 'Components ready; double-click any APK or desktop shortcut to launch'
-          : `Missing ${left.join(', ')}; click 'One-Click Setup' below to install and launch automatically`,;
+          : `Missing ${left.join(', ')}; click 'One-Click Setup' below to install and launch automatically`,
     actions: s.deviceOnline
       ? '<button class="btn ghost sm" data-act="vmStop">Stop Runtime</button>'
       : '',
@@ -481,6 +481,8 @@ async function markInstalled() {
 /** Translate installation errors to actionable suggestions */
 function friendlyInstallErrorText(msg) {
   const s = String(msg || 'Unknown error');
+  // TODO(i18n): verify - "空间不足" is part of the match, not display copy: it matches the
+  // Chinese wording some Android/adb builds print, so it must stay in the pattern.
   if (/INSUFFICIENT_STORAGE|not enough space|空间不足|ENOSPC/i.test(s)) {
     return `${s}\nInsufficient storage in Android data partition: Settings → Performance & Resources → expand Data Partition.`;
   }
@@ -758,7 +760,7 @@ function bindAndroid() {
     const r = await api.android.set(key, value).catch(() => null);
     toast({
       type: r && r.ok ? 'ok' : 'error',
-      title: r && r.ok ? (msg || 'Applied') : `Failed: ${(r && r.error) || 'Runtime not ready'}`,;
+      title: r && r.ok ? (msg || 'Applied') : `Failed: ${(r && r.error) || 'Runtime not ready'}`,
     });
     if (r && r.ok) refreshAndroid();
   };
@@ -1648,7 +1650,7 @@ function bindSettings() {
       if (!gb) { toast({ title: 'Select capacity', body: 'Auto determines size based on free disk space', type: 'info' }); return; }
       const { response } = await api.confirm({
         title: 'Expand Android data partition now?',
-        message: `Adjusts /data partition to ${gb} GB (in-place expansion preserves installed apps and data).`,;
+        message: `Adjusts /data partition to ${gb} GB (in-place expansion preserves installed apps and data).`,
         detail: 'Requires stopping active apps. Next app launch will take ~15s longer to complete setup.',
         okLabel: 'Start Expansion',
       });
@@ -1663,7 +1665,7 @@ function bindSettings() {
         // Prompt confirmation before rebuild when quickboot overlay is active
         const again = await api.confirm({
           title: 'Reset required to resize data partition',
-          message: `Quickboot overlay prevents in-place resizing. To allocate ${gb} GB, /data must be rebuilt at new size.`,;
+          message: `Quickboot overlay prevents in-place resizing. To allocate ${gb} GB, /data must be rebuilt at new size.`,
           detail: 'Rebuilding wipes installed apps and user data (system image remains intact). Continue?',
           okLabel: 'Reset & Rebuild',
         });
@@ -1772,7 +1774,7 @@ function bindSettings() {
         title: mode === 'auto' ? 'Orientation: Follow App' : (mode === 'landscape' ? 'Orientation: Force Landscape' : 'Orientation: Force Portrait'),
         body: mode === 'auto'
           ? 'Panel dynamically matches app orientation; restarts runtime once if an orientation switch is required.'
-          : 'Restarts runtime once on next launch to switch panel orientation.'
+          : 'Restarts runtime once on next launch to switch panel orientation.',
         type: 'ok',
       });
     });
@@ -1824,7 +1826,7 @@ function bindSettings() {
       title: embed ? 'Switched to Embedded Mode' : 'Switched to Native Window',
       body: embed
         ? 'Takes effect on next launch. Embedded mode integrates into ApkStart frame with rotate controls.'
-        : 'Takes effect on next launch. Native window delivers optimal FPS and fluid resizing.'
+        : 'Takes effect on next launch. Native window delivers optimal FPS and fluid resizing.',
       type: 'ok',
     });
   });
@@ -1860,7 +1862,7 @@ function bindSettings() {
       if (r.cancelled) return;
       toast({
         title: 'Cleanup complete',
-        body: `Reclaimed ~${(r.saved / 1048576).toFixed(0)} MB (${r.removed.length} items); installed apps preserved.`,;
+        body: `Reclaimed ~${(r.saved / 1048576).toFixed(0)} MB (${r.removed.length} items); installed apps preserved.`,
         type: 'ok',
       });
       const u = await api.runtimeUsage();
@@ -1907,7 +1909,7 @@ function bindSettings() {
       }
       toast({
         title: 'Android data reset',
-        body: `Reclaimed ~${r.reclaimedMB} MB; app records cleared.`,;
+        body: `Reclaimed ~${r.reclaimedMB} MB; app records cleared.`,
         type: 'ok',
       });
       const u = await api.runtimeUsage();
@@ -1948,7 +1950,7 @@ function bindSettings() {
       }
       toast({
         title: 'Network restored',
-        body: `${(r.network && r.network.ip) || 'Connected'}${r.wiped ? ' (Android data reset for network repair; apps will reinstall on launch)' : ' (All user data preserved)'}`,;
+        body: `${(r.network && r.network.ip) || 'Connected'}${r.wiped ? ' (Android data reset for network repair; apps will reinstall on launch)' : ' (All user data preserved)'}`,
         type: 'ok',
       });
     } catch (e) {
@@ -1979,8 +1981,8 @@ function bindSettings() {
       const ok = await api.confirm({
         type: 'warning',
         title: 'Clean leftover files from previous versions?',
-        message: `Found ${items.length} leftover items (~${mb} MB):`,;
-        detail: `${lines.join('\n')}\n\nDeletes obsolete directories, broken uninstall entries, and update caches.\nActive installation and app data will not be touched.`,;
+        message: `Found ${items.length} leftover items (~${mb} MB):`,
+        detail: `${lines.join('\n')}\n\nDeletes obsolete directories, broken uninstall entries, and update caches.\nActive installation and app data will not be touched.`,
         buttons: ['Cancel', 'Start Cleanup'],
         defaultId: 1,
         cancelId: 0,
@@ -1994,7 +1996,7 @@ function bindSettings() {
       const failNote = (c.failed && c.failed.length) ? `, ${c.failed.length} items in use skipped` : '';
       toast({
         title: 'Leftover files cleaned',
-        body: `Removed ${c.removed.length} items, freed ${c.freedMB || 0} MB${failNote}.`,;
+        body: `Removed ${c.removed.length} items, freed ${c.freedMB || 0} MB${failNote}.`,
         type: 'ok',
       });
       const u = await api.runtimeUsage();
@@ -2056,7 +2058,7 @@ function bindSettings() {
       btn.disabled = false;
       toast({
         title: 'Portable version cannot auto-uninstall',
-        body: `Please manually delete program directory (${r.exeDir}) and data directory (${r.dataDir})`,;
+        body: `Please manually delete program directory (${r.exeDir}) and data directory (${r.dataDir})`,
         type: 'info', sticky: true,
       });
       return;

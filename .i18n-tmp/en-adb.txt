@@ -1,0 +1,262 @@
+* adb client wrapper
+* Only the parts apkstart needs: install / launch / stop / uninstall / file sync / screenshots
+* Value written to the guest for the in-image "auto-rotate" switch ('1' on / '0' off).
+* Panel orientation is not decided here - the setOrientation / resetDisplayOverrides chain right after it:
+* `wm user-rotation lock 0` + `wm set-ignore-orientation-request` is the orientation authority.
+* This only makes the toggle in system settings read "on", so apps that read that setting see what they expect.
+* Logical density for tablet layout.
+* 720 wide / (190/160) = 606dp >= 600dp, just past Android's tablet breakpoint;
+* 320dpi (the image default) is only 360dp, which is phone layout.
+* adb locations that may exist on the system. **Deliberately limited to the Android SDK and common manual install folders**:
+* adb bundled with third-party emulators (MuMu / LDPlayer / BlueStacks) is not listed - using theirs would
+* inherit someone else's server state (port, authorization, offline flapping), conflicting with "runs standalone".
+* Our own adb lives in the runtime folder and always has top priority (see engine.adbPath).
+* Turns the raw pm install failure reason into text users can understand.
+* The original error code is kept at the end for easier searching.
+'Install failed: this app only ships ARM native libraries (as most Chinese apps do), '
++ 'and the current system image has no ARM translation layer. ApkStart will switch to the bundled image with the newer translation layer and retry.',
+'Install failed: the app requires a newer Android version than the current runtime (needs a newer system image).',
+'Install failed: the APK has no valid signature and cannot be installed.',
+'Install failed: the signature does not match the installed version. Uninstall the old version first, then retry.',
+'Install failed: a newer version is already installed; downgrading over it is not allowed.',
+'Install failed: not enough disk space in the runtime. Free some space and retry.',
+'Install failed: the APK is corrupt or incomplete (the download may not have finished). Obtain it again.',
+INSTALL_FAILED_INVALID_URI: 'Install failed: the APK path contains special characters. Move the file to a plain ASCII path and retry.',
+INSTALL_FAILED_ALREADY_EXISTS: 'Install failed: an app with the same name but a different signature already exists. Uninstall it first.',
+INSTALL_FAILED_UPDATE_INCOMPATIBLE: 'Install failed: the signature does not match the installed version. Uninstall the old version first.',
+'Install failed: this app targets a very old Android version (targetSdk too low), which Android 14 blocks by default. '
++ 'ApkStart retries automatically with the official bypass flag.',
+INSTALL_FAILED_TEST_ONLY: 'Install failed: this is a test-only package; the test flag was added automatically and the install retried.',
+INSTALL_FAILED_MISSING_SHARED_LIBRARY: 'Install failed: the app depends on a device feature (such as a vendor library) that this runtime does not provide.',
+INSTALL_FAILED_USER_RESTRICTION: 'Install failed: the system restricted installation. Restart the runtime and retry.',
+INSTALL_FAILED_CONFLICTING_PROVIDER: 'Install failed: it conflicts with an existing app ContentProvider. Uninstall the conflicting app.',
+INSTALL_FAILED_INTERNAL_ERROR: 'Install failed: internal system error (usually low storage or an unfinished boot). Restart the runtime and retry.',
+return msg ? `${msg} (${tag})` : `Install failed: ${raw}`;
+/** Turns a post-launch crash log into a reason users can understand */
+return `${pkg || 'The app'} crashed after launch: the ARM translation layer is incompatible with this app signal handling.`
++ 'ApkStart will switch to the Android 14 compatibility image and retry.';
+return `${pkg || 'The app'} crashed after launch: a native device library is missing (the app may only ship ARM builds).`
++ 'It will retry after switching to the compatibility image that includes the ARM translation layer.';
+return `${pkg || 'The app'} crashed immediately on launch (an app-internal error, possibly caused by the emulator environment or missing Google services).`;
+return `${pkg || 'The app'} failed to start: the system rejected the launch request (permission or signature problem).`;
+return `${pkg || 'The app'} did not start${t ? `: ${t.slice(0, 240)}` : ' (process did not stay alive)'}`;
+* Parses the state column of a serial in `adb devices`.
+* Key detail: an unauthorized device also reports 'device' from `get-state`; only the state
+* column of the devices list distinguishes authorized / unauthorized / offline - boot probing relies on it for fast self-healing.
+/** Detects unauthorized from the shell error caused by an unanswered "Allow USB debugging" dialog */
+/** Extracts the real path of each APK from `pm path <pkg>` output */
+/** Cached launch entries (adbPath|pkg -> activity), valid for 10 minutes */
+* The Windows adb build handles non-ASCII paths poorly (Chinese user names and download folders are common).
+* Copy the APK to an ASCII-only temp folder before installing, and delete it afterwards.
+* Joins an Activity into the full component `am start -n` requires.
+* Both forms must work:
+*   - bare class name (what older apps.json files stored): `MainActivity` / `.MainActivity` -> `<pkg>/<activity>`
+*   - full component (output of `cmd package resolve-activity`): `com.a.b/.Main` -> used as-is
+* The old implementation always concatenated `${pkg}/${activity}`, turning a full component into `pkg/pkg/class`,
+* which made am start cancel outright (result code=-92) - seen by users as "tapping the icon only shows the Android desktop".
+/** Extracts the component belonging to pkg from `cmd package resolve-activity --brief` output (tolerates trailing blank or priority lines) */
+* adb install used to have a fixed 240s timeout, but a 2GB+ package on a slow disk
+* (push + install + dexopt) easily exceeds 4 minutes: the timeout was treated as a failure,
+* so users saw "the big package just does nothing / fails". Scale with package size, capped at 20 minutes.
+* Parses the output of `find -exec stat -c '%Y|%s|%n'`.
+* Returns null when the output does not look like stat results (the device does not support it).
+// Output exists but no line parses -> not stat format
+this._input = null;        // Resident `adb shell` process
+return 'adb'; // Delegate to PATH
+// The Play Store image enforces ADB authorization: the host adb server and the guest adbd must use the same
+// adbkey. The official approach shares %USERPROFILE%\.android\adbkey{,.pub} between adb and the emulator;
+// on start the emulator bakes adbkey.pub into the guest at /data/misc/adb/adb_keys.
+// Tell the adb server explicitly where to find the public key: in some setups ANDROID_SDK_HOME or a portable runtime
+// makes adb look for the key elsewhere, so every cold boot pops "Allow USB debugging" -> device unauthorized.
+// Shares the dedicated adb server port with the runtime emulator (default 5044), isolated from the
+// WSA / third-party emulator adb on 5037, so our registration is not repeatedly kicked and the device left offline
+// adb install reports the failure reason on stdout with a non-zero exit code;
+// older code only read stderr, so users only ever saw a vague "failed".
+const e = new AdbError(`adb ${finalArgs.join(' ')} failed: ${text}`, stderr, err.code);
+* Resident input channel.
+* Wheel/back are high-frequency input: execFile-ing an adb per wheel notch spawns a pile of processes
+* and the desktop visibly stutters. Reuse a single `adb shell`, one command per line, and echo an
+* end marker after each - so we know when a command truly finished, and it forms natural backpressure
+* that keeps swipe commands from queueing up inside the shell.
+// The whole line must equal the marker: some shells echo the command line back,
+// so using contains would mistake "just written" for "already executed" and swipes would pile up.
+p.stderr.on('data', () => { /* ignored: offline and similar are reported by the caller */ });
+p.stdin.on('error', () => { /* cleanup happens on exit */ });
+p.on('error', () => { this._failWaiters(new Error('adb shell failed to start')); });
+this._failWaiters(new Error('adb shell has exited'));
+/** Runs one whitelisted input command; a failure recycles the session so callers can fall back to one-shot adb */
+if (!isInputCommand(cmd)) throw new Error('Illegal input command');
+reject(new Error('input command timed out'));
+w.reject(new Error('input channel is closed'));
+} catch (_) { /* probably already connected */ }
+// get-state is unavailable without a serial; fall back to the devices list
+* Reads the real state of this serial from `adb devices`: device / unauthorized / offline / no-device.
+* isOnline() uses get-state, which cannot tell authorized from unauthorized (both report 'device'),
+* so boot probing uses this to detect a stuck authorization dialog and self-heal quickly.
+* Installs a single APK with automatic fallback:
+*  - drops -g by default (granting all permissions at once crashes PermissionController on some images);
+*  - adds --bypass-low-target-sdk-block so Android 14 accepts apps with an old targetSdk;
+*  - retries with a different form when adb rejects the flag / the path is non-ASCII / transfer errors occur;
+*  - throws a coded error for NO_MATCHING_ABIS so the caller can switch to the compatibility image.
+if (!fs.existsSync(apkPath)) throw new Error(`APK does not exist: ${apkPath}`);
+// -g grants runtime permissions up front, skipping in-app dialogs; dropped automatically when an image rejects it
+try { timeout = installTimeoutMs(fs.statSync(file).size); } catch (_) { /* fall back to the default when the size is unknown */ }
+// Old adb does not know the new flag / test-only marker -> switch to another form
+// Transfer errors (device dropped, adb server restarted) get one retry
+// No explicit error code: try the last form once more
+const err = new Error(friendlyInstallError(last || 'Install failed without a clear reason'));
+/** Split APKs (the parts extracted from .apks / .xapk) go through install-multiple */
+if (!apkPaths || !apkPaths.length) throw new Error('No split APKs to install');
+throw new Error('Split APK installation failed');
+// Some devices need an explicit user
+* Whether the app is really installed - never trust a single sentence from PackageManager.
+* When the snapshot and data partition disagree, `pm path` returns `package:/data/app/.../base.apk` (installed=true) because packages.xml still holds a record,
+* even though the APK file was rolled back and `am start` would simply fail. So verify every path pm reports with `test -f/-s`:
+* a missing (or empty) file means "not really installed",
+* and the caller reinstalls automatically.
+// Every split APK must be present; losing any one makes the app unlaunchable. Combined into one shell to save a round trip.
+/** Resolves the real launch Activity from the system (fallback when the manifest cannot be parsed) */
+/** The entry point can change after an app update, so drop the package from the cache before resolving */
+// Resolving the launch Activity costs one adb round trip (~200-400ms) and never changes within a launch session.
+// Cache it so the second tap on the same app skips it; it expires after 10 minutes, and reinstalls cannot pick a wrong entry.
+} catch (_) { /* fall back to monkey */ }
+/** Whether the app is really alive: am start returning success does not mean the process did not crash */
+// Without a crash log, do not declare failure: some large apps need 20-40s on first launch
+* Launches the app with three levels of fallback:
+*   freeform standalone window -> plain fullscreen -> monkey as a last resort;
+* every attempt verifies the process is alive, captures logcat on crash and throws a coded error so the caller can switch images.
+// The system-resolved LAUNCHER entry must be used, not just the main Activity parsed from the APK:
+// many apps (Hongguo short dramas among them) do their real initialization on the splash screen, and going
+// straight to the main Activity throws "had you called RpcService.init", which looks like a flash and then nothing.
+// resolved may be a full component (pkg/class) or just a class name (older apps.json);
+// normalize it to the full component am start -n wants, so the system does not cancel pkg/pkg/class.
+if (alive.uncertain) return `${out}\n(app is still loading)`;
+// When the crash log clearly points at the ARM translation layer, stop retrying and let the caller switch images
+// monkey fallback: some images cannot resolve a launcher from am start -a/-c/-p
+// Prefer explicit crash details when present, otherwise keep the original launch error
+/** Enables freeform (standalone window) support; failures do not block the main flow */
+// Combined into one adb shell: 4 separate execFile calls cost 600ms+ on Windows,
+// and this runs inside the "open the app" wait.
+// Android ls -l has both "with group" and "without group" layouts, and the date may be
+// "2026-11-12 18:52" or "Nov 12 18:52", so a fixed regex parses nothing.
+// The second number after the permission bits is the file size, and the last field is the name.
+// The file name follows the "HH:MM" token (the date part is 2-3 tokens and not fixed)
+* Remote listing with real mtimes (toybox stat).
+* ls -l dates are "Mon DD HH:MM" and cannot be converted reliably, which makes sync think everything changed.
+* Returns null when the device does not support stat; callers should fall back to listRemote.
+/** Clears app data */
+// Clearing data also drops permissions, so the next launch must re-grant them and must not hit the permGranted cache
+/** Exports app data (run-as on Windows/debug builds; otherwise adb backup as a fallback) */
+* Grants every runtime permission the app requests in one go.
+* Without it there are two consequences: (1) the first launch shows a system permission dialog, which users read as "the app did not open";
+* (2) after clearing data (pm clear) permissions are lost and the app gets stuck on the permission screen.
+* Performance: `dumpsys package` starts app_process inside the guest (measured 1-3s),
+* and every `pm grant` / `cmd appops set` starts it again. An app with a dozen permissions like Hongguo
+* burns 20+ seconds here alone (the log shows permissions granted slipping from +18s to +42s).
+* Once granted, the state persists until a reinstall or pm clear,
+* so record it in apps.json after granting and skip it on later launches; clear the flag on data clear/reinstall.
+} catch (_) { /* no record means not granted yet */ }
+if (/^\s{0,6}\S/.test(line)) break; // leave the runtime permissions section
+// Grant everything in one batch: each pm grant costs a separate process, 150ms+ on Windows,
+// four or five permissions make a second, and these commands have no dependencies on each other.
+// Special permissions go through appops, otherwise they still pop a dialog
+// Only record the flag once the commands really ran: a mid-way failure retries next time instead of leaving a false "granted"
+* Puts the system into "this is the app" state:
+*  - collapses the lock screen so boot does not stop there and block the app;
+*  - hides the status bar (keeping the bottom navigation keys so back/home still work without a mouse);
+*  - disables system animations, a large difference on low-end machines.
+* All settings-level commands, a few hundred ms each, harmless to repeat.
+// It used to send 7 commands serially, each starting a new adb process (150-250ms on Windows),
+// adding up to 1-1.7s entirely inside the "open the app" wait. One shell leaves a single round trip.
+// Large-screen taskbar: at tablet density Pixel Launcher pins a Taskbar at the bottom of the screen,
+// covering app content with its keys squeezed into the lower-left corner (the "misplaced buttons" users reported).
+// See disableLauncherTaskbar(): re-applied on every launch, idempotent and only one extra round trip.
+// Connectivity check: Android uses connectivitycheck.gstatic.com to decide "is the internet really reachable",
+// which is unreachable from China, so the system keeps flagging the network with "!" (connected but no internet),
+// and some apps then decide they are offline and refuse to load content. Switch to an endpoint that returns 204 locally.
+// Written on every launch (idempotent, inside a single shell, nearly free), so even when restored from an old snapshot
+// or after the user changed system settings manually, it corrects itself.
+// Note: do not write wm user-rotation / accelerometer_rotation here.
+// Orientation is decided centrally by setOrientation / resetDisplayOverrides from the current portrait/landscape state,
+// and hardcoding lock 0 here would override landscape back to portrait (leaving the picture on its side).
+/** Right mouse button / side buttons / shortcut mapping: goes through the resident input channel, so back has no 100ms latency */
+// When the runtime just restarted and the resident shell is not connected yet, fall back to one-shot adb instead of dropping the click
+* Switches between phone and tablet layout.
+* Key point: **never touch wm size**. Changing wm size alters the guest framebuffer dimensions
+* (720x1280 -> 1280x720) while the embedded Qt window keeps its original size and orientation, so the picture is
+* squeezed or rotated 90 degrees and mouse coordinates go wrong. Worse, the wm size override persists
+* in /data and survives a reboot - that is the root of the repeated "black bars / not filled / clicks land nowhere"
+* reports.
+* Now only logical density changes (wm density), and the framebuffer stays 720x1280 upright:
+*   - 320dpi -> smallestWidth 360dp -> phone layout
+*   - 190dpi -> smallestWidth 606dp (>=600dp) -> tablet / split layout
+* Size, orientation and touch mapping all stay the same, so nothing lies on its side, there are no black bars, and taps always match.
+// Auto-rotate defaults to on (0.5.9): write accelerometer_rotation=1 in the guest so the
+// toggle in system settings reads "on". Orientation itself is decided below by wm user-rotation lock 0
+// + set-ignore-orientation-request, independent of sensors, so it cannot spin.
+// Users can turn it off under Settings > "Image auto-rotate" to get the old locked-0 behaviour.
+// Orientation lock is **0** (not 1). The physical panel orientation is already set by hw.lcd.width/height
+// (see doctor.lcdFor); locking 1 here would rotate the landscape panel back into a portrait logical space,
+// leaving the picture on its side - exactly what breaks landscape.
+// The critical step: apps like Hongguo declare portrait themselves, and the system obeys, so
+// a landscape panel with init=1280x720 becomes a portrait logical space with cur=720x1280 and the picture lies down again.
+// Only "ignore the app orientation requests" makes the system lay out by panel orientation.
+// In portrait mode it must be turned off explicitly, otherwise a lingering true from the last landscape
+// run makes a portrait panel render landscape. API < 31 lacks this command; ignoring the failure is fine.
+// After enabling freeform / ignoring orientation requests, Android shows a one-time "See and do more" coach mark
+// ("Double-tap outside an app to reposition it..."). It floats above the app and users think the program broke.
+// Pre-mark it as acknowledged here, then send a back key press as a fallback.
+* Disables the large-screen taskbar (Android 12L+ Taskbar).
+* Why it is needed: tablet layout pushes density to 190dpi, 720 wide => sw606dp,
+* past Android's 600dp large-screen breakpoint. Pixel Launcher then pins a NAVIGATION_BAR_PANEL
+* taskbar at the bottom of the screen: translucent, covering app content, with
+* back/home/recents squeezed into the lower-left corner - the "misplaced buttons" from user screenshots.
+* It is not the system navigation bar (the gestural overlay), so policy_control immersive
+* cannot hide it; only global enable_taskbar works. And the Launcher reads it once at startup,
+* so an already-running one has to be restarted. Both launcher package names are triggered, covering Play and AOSP builds.
+// grep -c exits 1 when nothing matches; add || true so it is not treated as a command failure
+* Waits until the app really draws its first frame.
+* "The window is attached" and "the user can see the picture" are two different things: once the Application process is up,
+* Android 12+ shows a system Splash screen (app icon + white background), and only after the Activity's first frame
+* is it removed. If the boot animation fades out before that, the user sees a white screen and
+* thinks it froze - so the animation waits until the system Splash window is gone.
+* Test: no "Splash Screen" entry in the window list and focus is on the target package.
+* Returns false on timeout; the caller dismisses the animation anyway (never trap the user in the animation because a check failed).
+// `dumpsys window` (full WINDOW MANAGER) is required, not
+// `dumpsys window windows`: the latter only lists windows and **has no mCurrentFocus line**,
+// so focusOnApp is always false and the check always times out - the app has clearly drawn
+// its picture while the boot animation stays stuck for another 12 seconds.
+/** Clears leftover wm size / density overrides from older versions on startup (persisted in /data, keeps the picture lying down) */
+// density must be set **before the app starts**.
+// This used to unconditionally `wm density reset`, then _healOrientation (1.8s after the app
+// came up / every 60s) restored 190 - a configuration change while the app was running.
+// Apps that cache DisplayMetrics (Modu Reader is one) recompute dp with the old density, shrinking the picture into
+// a small block in the upper-left with a large empty area on the right - what users described as "Modu Reader does not fill the window".
+// Now it is reset together with size here, so the launch path no longer changes density midway.
+// Consistent with setOrientation: panel orientation rules, logical orientation locks to 0.
+// Once tablet density is set, the Launcher taskbar appears (sw>=600dp). It reads
+// enable_taskbar only at startup, so besides writing the toggle this also restarts it when it is already running.
+* Guarantees the guest has a keyboard that can type Chinese.
+* The system image (Google Play edition) only ships LatinIME (English keyboard), and the Gboard Chinese
+* language pack needs a download and is very unreliable inside the emulator. So a bundled AOSP Pinyin IME
+* (assets/PinyinIME.apk, with x86_64 native libraries) is installed silently and enabled after boot.
+* Idempotent: skipped when already installed, and a manually chosen default IME is never forced back.
+* @param {string} apkPath Absolute path to PinyinIME.apk
+* @param {object} [o] { setDefault } Whether to make it the default IME (default true)
+// The component name is hardcoded but verified: `ime list -s` only lists **enabled** IMEs, so using it to check
+// "is it installed" misjudges a fresh install as "service not registered" and ime enable is never reached.
+// The right check is whether the package is installed, cross-checked with `ime list -a` for the component name.
+return { ok: false, reason: 'IME APK is missing' };
+// Wait for the package manager to scan the package after install
+if (!installed) return { ok: false, justInstalled, reason: 'IME package is not registered' };
+// Enable and set as default (secure settings is writable without root).
+// Run every time: restoring from an old snapshot may lose the enabled flag, or the user may have changed the default IME.
+* Guarantees the system language is Simplified Chinese.
+* persist.sys.locale is a SELinux-protected read-only property and cannot be changed at runtime (it reports
+* "Failed to set property"); it really takes effect through the -prop injection at emulator start.
+* What can be done here is done: set the app-level locale and time zone so the UI is Chinese immediately and the clock is right.
+// 24-hour clock + the date format common in Chinese
+/** Current logical resolution (window aspect ratio is computed from it after a landscape switch) */
+/** Dismisses the authorization dialog with the back key while it is still on top (self-heals while the user is away) */
+* Display fitting: in fullscreen, change the Android resolution to the monitor size (content fills automatically),
+* in window mode restore the portrait preset. wm commands apply at runtime, no Android restart needed.

@@ -1,7 +1,7 @@
 'use strict';
 /**
- * adb 客户端封装
- * 只做 apkstart 需要的那部分：安装 / 启动 / 停止 / 卸载 / 文件同步 / 截图
+ * ADB client wrapper.
+ * Covers only what ApkStart needs: install / launch / stop / uninstall / file sync / screenshot.
  */
 const { execFile, spawn } = require('child_process');
 const fs = require('fs');
@@ -12,19 +12,20 @@ const store = require('./store');
 const { autoRotateSetting } = require('./orientation');
 
 /**
- * 镜像内「自动旋转」开关要写进 guest 的值（'1' 开 / '0' 关）。
- * 面板方向不由它决定 —— setOrientation / resetDisplayOverrides 里紧跟的
- * `wm user-rotation lock 0` + `wm set-ignore-orientation-request` 才是方向权威。
- * 这里只是让系统设置里的开关显示为「开」，满足应用读取该 setting 的期望。
+ * The in-guest "auto-rotate" toggle value that must be written ('1' = on / '0' = off).
+ * Panel orientation is NOT determined here — the `wm user-rotation lock 0` +
+ * `wm set-ignore-orientation-request` calls in setOrientation / resetDisplayOverrides
+ * are the authoritative source of rotation. This only keeps the system Settings
+ * toggle visually "on" so apps that read the setting get what they expect.
  */
 function guestAutoRotate() {
   try { return autoRotateSetting(store.getSettings()); } catch (_) { return '1'; }
 }
 
 /**
- * 平板排版的逻辑密度。
- * 720 宽 ÷ (190/160) = 606dp ≥ 600dp，正好越过 Android 的平板断点；
- * 320dpi（镜像默认）只有 360dp，是手机排版。
+ * Logical density for tablet layout.
+ * 720px ÷ (190/160) = 606dp ≥ 600dp, which crosses Android's tablet breakpoint;
+ * 320dpi (image default) gives only 360dp, which triggers phone layout.
  */
 const TABLET_DENSITY = 190;
 function tabletDensity() {
@@ -36,10 +37,11 @@ function tabletDensity() {
 }
 
 /**
- * 系统里可能存在的 adb 位置。**故意只列 Android SDK 与常见手动安装目录**：
- * 第三方模拟器自带的 adb（MuMu / 雷电 / 蓝叠）不在这里 —— 用它们的 adb 会连带
- * 继承别人的 server 状态（端口、授权、offline 抖动），与「独立运行」冲突。
- * 自己那份 adb 在运行时目录里，优先级永远最高（见 engine.adbPath）。
+ * Known adb locations on the system. **Only Android SDK and common manual install paths are listed.**
+ * Third-party emulator adb binaries (MuMu / LDPlayer / BlueStacks) are intentionally excluded —
+ * using their adb inherits a foreign server state (port, auth, offline jitter) that conflicts
+ * with ApkStart's isolated operation. The bundled adb in the runtime directory always has
+ * highest priority (see engine.adbPath).
  */
 const COMMON_ADB_PATHS = [
   path.join(process.env.LOCALAPPDATA || '', 'Android', 'Sdk', 'platform-tools', 'adb.exe'),
@@ -48,70 +50,71 @@ const COMMON_ADB_PATHS = [
 ];
 
 /**
- * 把 pm install 的原始失败原因翻译成用户能看懂的中文。
- * 保留原始错误码在末尾，便于搜索排查。
+ * Maps raw pm install failure codes to user-readable error messages.
+ * The original error code is appended at the end for searchability.
  */
 function friendlyInstallError(raw) {
   const code = /INSTALL_[A-Z_]+/.exec(raw);
   const tag = code ? code[0] : '';
   const table = {
     INSTALL_FAILED_NO_MATCHING_ABIS:
-      '安装失败：这个应用只提供 ARM 原生库（多数国产应用如此），'
-      + '当前系统镜像没有 ARM 转译层。ApkStart 会自动切换到内置新版翻译层的兼容镜像并重试。',
+      'Installation failed: this app only ships ARM native libraries (common for apps from China).'
+      + ' The current system image has no ARM translation layer. ApkStart will automatically switch to a compatible image with the built-in translation layer and retry.',
     INSTALL_FAILED_OLDER_SDK:
-      '安装失败：应用要求的 Android 版本高于当前运行时（需更高系统镜像）。',
+      'Installation failed: the app requires a higher Android version than the current runtime (a newer system image is needed).',
     INSTALL_PARSE_FAILED_NO_CERTIFICATES:
-      '安装失败：APK 没有有效签名，无法安装。',
+      'Installation failed: the APK has no valid signature and cannot be installed.',
     INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES:
-      '安装失败：与已安装版本签名不一致，请先卸载旧版再装。',
+      'Installation failed: signature mismatch with the installed version — please uninstall the old version first.',
     INSTALL_FAILED_VERSION_DOWNGRADE:
-      '安装失败：设备上已安装更高版本，不能降级覆盖。',
+      'Installation failed: a newer version is already installed — downgrade is not allowed.',
     INSTALL_FAILED_INSUFFICIENT_STORAGE:
-      '安装失败：运行时磁盘空间不足，请清理后重试。',
+      'Installation failed: not enough disk space in the runtime — please free up space and retry.',
     INSTALL_FAILED_INVALID_APK:
-      '安装失败：APK 文件损坏或不完整（可能下载未完成），请重新获取。',
-    INSTALL_FAILED_INVALID_URI: '安装失败：APK 路径含特殊字符，请把文件移到纯英文路径后重试。',
-    INSTALL_FAILED_ALREADY_EXISTS: '安装失败：已存在同名应用且签名不同，请先卸载。',
-    INSTALL_FAILED_UPDATE_INCOMPATIBLE: '安装失败：与已安装版本签名不一致，请先卸载旧版。',
+      'Installation failed: the APK file is corrupted or incomplete (download may not have finished) — please re-download it.',
+    INSTALL_FAILED_INVALID_URI: 'Installation failed: the APK path contains special characters — move the file to a path with only ASCII characters and retry.',
+    INSTALL_FAILED_ALREADY_EXISTS: 'Installation failed: an app with the same name but a different signature already exists — please uninstall it first.',
+    INSTALL_FAILED_UPDATE_INCOMPATIBLE: 'Installation failed: signature mismatch with the installed version — please uninstall the old version first.',
     INSTALL_FAILED_DEPRECATED_SDK_VERSION:
-      '安装失败：这是面向很老 Android 版本的应用（targetSdk 过低），Android 14 默认禁止安装。'
-      + 'ApkStart 会自动用官方绕过参数重试。',
-    INSTALL_FAILED_TEST_ONLY: '安装失败：这是仅供测试的应用包，已自动加上测试包参数重试。',
-    INSTALL_FAILED_MISSING_SHARED_LIBRARY: '安装失败：应用依赖的设备特性（如特定厂商库）在当前运行时不存在。',
-    INSTALL_FAILED_USER_RESTRICTION: '安装失败：系统限制了安装，请重启运行时后重试。',
-    INSTALL_FAILED_CONFLICTING_PROVIDER: '安装失败：与已有应用的 ContentProvider 冲突，请卸载冲突应用。',
-    INSTALL_FAILED_INTERNAL_ERROR: '安装失败：系统内部错误（常见于存储空间不足或开机未完成），请重启运行时后重试。',
+      'Installation failed: this app targets a very old Android API level (targetSdk too low); Android 14 blocks it by default.'
+      + ' ApkStart will automatically retry with the official bypass flag.',
+    INSTALL_FAILED_TEST_ONLY: 'Installation failed: this is a test-only package — ApkStart will retry with the test-package flag automatically.',
+    INSTALL_FAILED_MISSING_SHARED_LIBRARY: 'Installation failed: the app depends on device-specific features (e.g. a vendor library) that are not present in this runtime.',
+    INSTALL_FAILED_USER_RESTRICTION: 'Installation failed: the system is blocking installation — please restart the runtime and try again.',
+    INSTALL_FAILED_CONFLICTING_PROVIDER: 'Installation failed: a ContentProvider conflict with an already-installed app — please uninstall the conflicting app.',
+    INSTALL_FAILED_INTERNAL_ERROR: 'Installation failed: internal system error (often caused by insufficient storage or an incomplete boot) — please restart the runtime and try again.',
   };
   const msg = table[tag];
-  return msg ? `${msg}（${tag}）` : `安装失败：${raw}`;
+  return msg ? `${msg} (${tag})` : `Installation failed: ${raw}`;
 }
 
-/** 把启动后的崩溃日志翻译成能看懂的原因 */
+/** Maps post-launch crash logs to a user-readable explanation. */
 function friendlyLaunchError(raw, pkg) {
   const t = String(raw || '');
   if (/DoBadTrampoline|libndk_translation|houdini|SIGABRT.*arm/i.test(t)) {
-    return `${pkg || '应用'} 启动后崩溃：ARM 翻译层与该应用的信号处理不兼容。`
-      + 'ApkStart 会自动切换到 Android 14 兼容镜像后重试。';
+    return `${pkg || 'The app'} crashed on launch: the ARM translation layer is incompatible with this app's signal handling.`
+      + ' ApkStart will automatically switch to the Android 14 compatible image and retry.';
   }
   if (/UnsatisfiedLinkError|dlopen failed|couldn't find "lib|\.so.*not found/i.test(t)) {
-    return `${pkg || '应用'} 启动后崩溃：缺少设备原生库（应用可能只提供 ARM 版本）。`
-      + '会自动切换到带 ARM 翻译层的兼容镜像后重试。';
+    return `${pkg || 'The app'} crashed on launch: missing native library (the app may only ship an ARM version).`
+      + ' ApkStart will automatically switch to a compatible image with the ARM translation layer and retry.';
   }
   if (/ClassNotFoundException|NoClassDefFoundError|AndroidRuntime/i.test(t)) {
-    return `${pkg || '应用'} 启动即崩溃（应用内部异常，可能与模拟器环境或缺少 Google 服务有关）。`;
+    return `${pkg || 'The app'} crashed immediately on launch (internal app error — may be related to the emulator environment or missing Google services).`;
   }
   if (/java\.lang\.SecurityException|Permission Denial/i.test(t)) {
-    return `${pkg || '应用'} 启动失败：系统拒绝了启动请求（权限或签名问题）。`;
+    return `${pkg || 'The app'} failed to launch: the system denied the launch request (permission or signature issue).`;
   }
-  return `${pkg || '应用'} 未能启动${t ? `：${t.slice(0, 240)}` : '（进程未存活）'}`;
+  return `${pkg || 'The app'} failed to start${t ? `: ${t.slice(0, 240)}` : ' (process did not survive)'}`;
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * 解析 `adb devices` 里某个 serial 的 state 列。
- * 关键：unauthorized 的设备在 `get-state` 里也会回报 'device'，只有 devices 列表的
- * state 列能区分 authorized / unauthorized / offline —— 开机探测据此快速自愈。
+ * Parses the state column for a given serial from `adb devices` output.
+ * Key detail: an unauthorized device reports 'device' in `get-state`, so only
+ * the devices list state column can distinguish authorized / unauthorized / offline —
+ * the boot probe uses this method for fast self-healing.
  */
 function parseDeviceState(text, serial) {
   const lines = String(text || '').split(/\r?\n/).slice(1);
@@ -127,23 +130,23 @@ function parseDeviceState(text, serial) {
   return 'no-device';
 }
 
-/** 从「允许 USB 调试」对话框未确认导致的 shell 报错里识别出 unauthorized */
+/** Detects the unauthorized state from shell errors caused by an unconfirmed "Allow USB debugging" dialog. */
 function isUnauthorizedError(raw) {
   return /\bunauthorized\b|no permissions|confirm.*(allow|debug)/i.test(String(raw || ''));
 }
 
-/** 从 `pm path <pkg>` 的输出里取出每个 APK 的真实路径 */
+/** Extracts each APK's real path from `pm path <pkg>` output. */
 function parsePmPaths(text) {
   return String(text || '').split(/\r?\n/).map((l) => l.trim())
     .filter((l) => /^package:/.test(l)).map((l) => l.slice(8).trim()).filter(Boolean);
 }
 
-/** 已解析过的启动入口（adbPath|pkg → activity），10 分钟有效 */
+/** Resolved launcher entry cache (adbPath|pkg → activity), valid for 10 minutes. */
 const LAUNCHER_CACHE = new Map();
 
 /**
- * Windows 版 adb 对非 ASCII 路径处理不稳定（中文用户名/中文下载目录很常见）。
- * 安装前把 APK 复制到纯 ASCII 的临时目录，装完即删。
+ * Windows adb is unstable with non-ASCII paths (Chinese usernames / Chinese download folders are common).
+ * Before installing, copy the APK to a pure-ASCII temp directory; delete it when done.
  */
 function stageApk(apkPath) {
   const p = String(apkPath || '');
@@ -162,12 +165,13 @@ function unstage(staged) {
 }
 
 /**
- * 把「Activity」拼成 am start -n 需要的完整组件。
- * 两种形式都要支持：
- *   - 纯类名（老版本 apps.json 存的是这种）：`MainActivity` / `.MainActivity` → `<pkg>/<activity>`
- *   - 完整组件（`cmd package resolve-activity` 的输出）：`com.a.b/.Main` → 原样使用
- * 旧实现无条件拼 `${pkg}/${activity}`，遇到完整组件就变成 `pkg/pkg/class`，
- * am start 直接取消（result code=-92），表现是「点图标只看到安卓桌面」。
+ * Assembles an Activity into the full component form required by `am start -n`.
+ * Two forms must be supported:
+ *   - Plain class name (stored in older apps.json entries): `MainActivity` / `.MainActivity` → `<pkg>/<activity>`
+ *   - Full component (`cmd package resolve-activity` output): `com.a.b/.Main` → used as-is.
+ * The old implementation unconditionally prepended `${pkg}/`, which turned a full component
+ * into `pkg/pkg/class` — causing `am start` to cancel with result code=-92
+ * (symptom: tapping the icon only shows the Android home screen).
  */
 function componentArg(pkg, activity) {
   const a = String(activity || '').trim();
@@ -176,7 +180,7 @@ function componentArg(pkg, activity) {
   return `${pkg}/${a}`;
 }
 
-/** 从 `cmd package resolve-activity --brief` 的输出里取出属于 pkg 的组件（容忍尾部空行/priority 行） */
+/** Extracts the component belonging to pkg from `cmd package resolve-activity --brief` output (tolerates trailing blank lines / priority lines). */
 function parseResolvedActivity(pkg, out) {
   const lines = String(out || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   for (let i = lines.length - 1; i >= 0; i -= 1) {
@@ -187,9 +191,10 @@ function parseResolvedActivity(pkg, out) {
 }
 
 /**
- * adb install 的超时上限本来固定 240s，但 2GB+ 的安装包在慢盘上
- * 「push + 安装 + dexopt」很容易超过 4 分钟：一旦超时就会被当成安装失败，
- * 用户看到的就是「大包装了没反应/失败」。这里按包体放大，上限 20 分钟。
+ * The fixed 240s adb install timeout is too short for 2 GB+ packages on slow disks —
+ * "push + install + dexopt" can easily exceed 4 minutes, and when it times out the
+ * install is treated as a failure (the user just sees "big package hung / failed").
+ * This scales the timeout by package size, up to 20 minutes.
  */
 function installTimeoutMs(bytes) {
   const mb = Math.max(1, Number(bytes || 0) / 1048576);
@@ -205,8 +210,8 @@ class AdbError extends Error {
 }
 
 /**
- * 解析 `find -exec stat -c '%Y|%s|%n'` 的输出。
- * 返回 null 表示输出不像 stat 结果（设备不支持）。
+ * Parses `find -exec stat -c '%Y|%s|%n'` output.
+ * Returns null if the output does not look like stat results (device does not support stat).
  */
 function parseStatList(text) {
   const lines = String(text || '').split('\n').map((l) => l.trim()).filter(Boolean);
@@ -219,7 +224,7 @@ function parseStatList(text) {
     if (!rel || rel.endsWith('/')) continue;
     rows.push({ rel, size: Number(m[2]), mtime: Number(m[1]) * 1000 });
   }
-  // 有输出但一行都解析不出来 → 说明不是 stat 格式
+  // Output produced but no rows parsed → not stat format
   if (!rows.length) return null;
   return rows;
 }
@@ -228,7 +233,7 @@ class AdbClient {
   constructor({ adbPath, serial }) {
     this.adbPath = adbPath || 'adb';
     this.serial = serial || '';
-    this._input = null;        // 常驻 `adb shell` 进程
+    this._input = null;        // Persistent `adb shell` process
     this._inputSeq = 0;
     this._waiters = new Map(); // id -> { resolve, reject, timer, token }
   }
@@ -242,7 +247,7 @@ class AdbClient {
     for (const c of candidates) {
       try { if (fs.existsSync(c)) return c; } catch (_) { /* ignore */ }
     }
-    return 'adb'; // 交给 PATH
+    return 'adb'; // fall back to PATH
   }
 
   _args(args, withSerial = true) {
@@ -253,11 +258,13 @@ class AdbClient {
 
   _adbEnv() {
     const env = { ...process.env, ANDROID_ADB_SERVER_PORT: process.env.ANDROID_ADB_SERVER_PORT || '5044' };
-    // Play 商店镜像会强制 ADB 授权：host 的 adb server 与 guest 的 adbd 必须用同一把
-    // adbkey。官方做法是 adb/emulator 共用 %USERPROFILE%\.android\adbkey{,.pub}，
-    // emulator 启动时把 adbkey.pub 烤进 guest 的 /data/misc/adb/adb_keys。
-    // 显式告诉 adb server 去哪里找公钥：某些环境 ANDROID_SDK_HOME / 绿色版运行时
-    // 会让 adb 在别处找 key，于是每次冷启动都弹「允许 USB 调试」→ device unauthorized。
+    // Play Store images enforce ADB authorization: the host adb server and guest adbd must share
+    // the same adbkey. The official approach is for adb/emulator to share
+    // %USERPROFILE%\.android\adbkey{,.pub}, with the emulator baking adbkey.pub into
+    // /data/misc/adb/adb_keys at boot.
+    // Explicitly point adb server to the key location: some environments
+    // (ANDROID_SDK_HOME / portable runtimes) cause adb to look elsewhere, so every cold boot
+    // pops an "Allow USB debugging" dialog → device unauthorized.
     if (!env.ADB_VENDOR_KEYS) {
       const home = process.env.USERPROFILE || process.env.HOME || '';
       const keyDir = path.join(home, '.android');
@@ -274,15 +281,16 @@ class AdbClient {
         maxBuffer: 64 * 1024 * 1024,
         encoding: binary ? 'buffer' : 'utf8',
         windowsHide: true,
-        // 与运行时模拟器共用专用 adb server 端口（默认 5044），与 5037 上的
-        // WSA / 第三方模拟器 adb 隔离，避免注册被反复踢掉导致设备 offline
+        // Uses a dedicated adb server port shared with the runtime emulator (default 5044),
+        // isolated from WSA / third-party emulator adb on port 5037, so our device
+        // registration is never kicked out causing device offline.
         env: this._adbEnv(),
       }, (err, stdout, stderr) => {
         if (err) {
-          // adb install 的失败原因写在 stdout 且退出码非 0；
-          // 旧版只看 stderr，导致用户永远只看到一句空泛的「失败」。
+          // adb install failure reason is written to stdout with a non-zero exit code;
+          // the old implementation only checked stderr, so users always got a vague "failed" message.
           const text = [stdout, stderr, err.message].filter(Boolean).join('\n').trim();
-          const e = new AdbError(`adb ${finalArgs.join(' ')} 失败: ${text}`, stderr, err.code);
+          const e = new AdbError(`adb ${finalArgs.join(' ')} failed: ${text}`, stderr, err.code);
           e.stdout = stdout;
           e.raw = text;
           return reject(e);
@@ -298,11 +306,11 @@ class AdbClient {
   }
 
   /**
-   * 常驻输入通道。
-   * 滚轮/返回是高频输入：每格滚轮都 execFile 一个 adb 会起一堆进程，
-   * 桌面会明显发顿。这里复用一条 `adb shell`，每行一条命令，并在末尾
-   * echo 一个结束标记 —— 既知道命令何时真正跑完，也天然形成背压，
-   * 不会让滑动命令在 shell 里排成一长队。
+   * Persistent input channel.
+   * Scroll / back are high-frequency inputs — spawning a full execFile per scroll wheel tick
+   * creates a process storm that makes the desktop noticeably sluggish. This reuses a single
+   * `adb shell` process, one command per line, with an echo sentinel at the end — giving us
+   * both completion detection and natural back-pressure so scroll commands cannot pile up.
    */
   _inputSession() {
     const old = this._input;
@@ -322,8 +330,8 @@ class AdbClient {
         const line = buf.slice(0, i).trim();
         buf = buf.slice(i + 1);
         for (const [id, w] of this._waiters) {
-          // 必须整行等于标记：某些 shell 会把整条命令行回显出来，
-          // 用 contains 会把「刚写进去」误判成「已执行完」，滑动就会堆积。
+          // Must match the whole line: some shells echo back the full command, so using
+          // 'contains' would falsely detect "just written" as "already executed", causing scroll queue pile-up.
           if (line === w.token) {
             this._waiters.delete(id);
             clearTimeout(w.timer);
@@ -333,12 +341,12 @@ class AdbClient {
         }
       }
     });
-    p.stderr.on('data', () => { /* 忽略：设备离线等信息由调用方兜底 */ });
-    p.stdin.on('error', () => { /* 断开时由 exit 统一清理 */ });
-    p.on('error', () => { this._failWaiters(new Error('adb shell 启动失败')); });
+    p.stderr.on('data', () => { /* ignore: device-offline and similar errors are handled by callers */ });
+    p.stdin.on('error', () => { /* cleaned up by exit handler */ });
+    p.on('error', () => { this._failWaiters(new Error('adb shell failed to start')); });
     p.on('exit', () => {
       if (this._input === p) this._input = null;
-      this._failWaiters(new Error('adb shell 已退出'));
+      this._failWaiters(new Error('adb shell exited'));
     });
     return p;
   }
@@ -351,10 +359,10 @@ class AdbClient {
     this._waiters.clear();
   }
 
-  /** 执行一条白名单内的 input 命令；失败会回收会话，调用方可回退到一次性 adb */
+  /** Runs a whitelisted input command; on failure the session is recycled and the caller can fall back to one-shot adb. */
   async input(cmd, { timeout = 4000 } = {}) {
     const { isInputCommand } = require('./pointer');
-    if (!isInputCommand(cmd)) throw new Error('非法的输入命令');
+    if (!isInputCommand(cmd)) throw new Error('Invalid input command');
     const p = this._inputSession();
     const id = ++this._inputSeq;
     const token = `__APKSTART_${id}__`;
@@ -362,7 +370,7 @@ class AdbClient {
       const timer = setTimeout(() => {
         this._waiters.delete(id);
         this.disposeInput();
-        reject(new Error('input 命令超时'));
+        reject(new Error('input command timed out'));
       }, timeout);
       this._waiters.set(id, { resolve, reject, timer, token });
       try {
@@ -380,7 +388,7 @@ class AdbClient {
     this._input = null;
     for (const [, w] of this._waiters) {
       clearTimeout(w.timer);
-      w.reject(new Error('输入通道已关闭'));
+      w.reject(new Error('input channel closed'));
     }
     this._waiters.clear();
     if (p) {
@@ -399,7 +407,7 @@ class AdbClient {
     if (!this.serial.includes(':')) return true;
     try {
       await this.exec(['connect', this.serial], { withSerial: false, timeout: 15000 });
-    } catch (_) { /* 可能已连接 */ }
+    } catch (_) { /* may already be connected */ }
     return this.isOnline();
   }
 
@@ -408,7 +416,7 @@ class AdbClient {
       const { stdout } = await this.exec(['get-state'], { timeout: 8000 });
       return stdout.trim() === 'device';
     } catch (_) {
-      // get-state 在未指定 serial 时不可用，退化用 devices 列表
+      // get-state is unavailable without a specified serial; fall back to the devices list
       try {
         const { stdout } = await this.exec(['devices'], { withSerial: false, timeout: 8000 });
         return stdout.split('\n').some((l) => l.startsWith(this.serial) && l.includes('device'));
@@ -419,9 +427,9 @@ class AdbClient {
   }
 
   /**
-   * 读取本 serial 在 `adb devices` 里的真实状态：device / unauthorized / offline / no-device。
-   * isOnline() 用的 get-state 无法区分 authorized 与 unauthorized（两者都是 'device'），
-   * 开机探测靠这个方法来识别「授权对话框卡住」并快速自愈。
+   * Returns this serial's true state from `adb devices`: device / unauthorized / offline / no-device.
+   * isOnline() uses get-state which cannot distinguish authorized from unauthorized (both appear as 'device').
+   * The boot probe uses this method to detect a stalled "Allow USB debugging" dialog and self-heal quickly.
    */
   async deviceState() {
     try {
@@ -445,11 +453,11 @@ class AdbClient {
   }
 
   /**
-   * 安装单个 APK，带自动降级：
-   *  - 默认去掉 -g（自动授予全部权限在部分镜像上会让 PermissionController 崩掉）；
-   *  - 带 --bypass-low-target-sdk-block，解决 Android 14 拒绝安装老 targetSdk 应用；
-   *  - adb 版本不认该参数 / 中文路径 / 传输错误时自动换写法重试；
-   *  - NO_MATCHING_ABIS 抛带 code 的错误，交给上层自动切换兼容镜像。
+   * Installs a single APK with automatic fallback:
+   *  - `-g` (auto-grant all permissions) is included first; some images crash PermissionController with it, so it auto-degrades;
+   *  - `--bypass-low-target-sdk-block` works around Android 14 blocking old targetSdk apps;
+   *  - Retries with alternate invocations on unknown-option / non-ASCII path / transport errors;
+   *  - NO_MATCHING_ABIS throws a coded error so the caller can automatically switch to a compatible image.
    */
   async install(apkPath) {
     if (!fs.existsSync(apkPath)) throw new Error(`APK 不存在: ${apkPath}`);
