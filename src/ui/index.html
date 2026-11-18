@@ -233,12 +233,10 @@
         <div class="field">
           <label>Host Adaptive Profile</label>
           <div class="inline-note" id="autoProfileText">Detecting…</div>
-          <span class="sub">内存、核心数、渲染后端、端口、加速方式全部自动选择；启动失败会自动降级重试，不需要手动改。
-            ApkStart 用<b>专用 adb 服务端口 5044</b>（你系统里自己的 adb 是 5037），所以命令行里
-            <code>adb devices</code> 看不到这台安卓设备 —— 这是刻意的隔离。想连的话用
-            <code>$env:ANDROID_ADB_SERVER_PORT=5044</code> 再执行 adb。
-            注意：别对着 5555 端口手动 <code>adb connect</code>，那会在正在运行的应用上弹出
-            「允许 USB 调试吗」的系统弹窗。</span>
+          <span class="sub">Memory, CPU cores, graphics backend, port, and acceleration mode are configured automatically. Fallbacks trigger on failure without manual tweaks.
+            ApkStart uses a <b>dedicated adb server port 5044</b> (standard system adb is 5037) for deliberate process isolation, so standard <code>adb devices</code> will not list this device.
+            To connect manually, set <code>$env:ANDROID_ADB_SERVER_PORT=5044</code> before running adb commands.
+            Note: Do not run manual <code>adb connect</code> to port 5555, as it triggers an "Allow USB debugging?" dialog in running apps.</span>
         </div>
         <div class="field">
           <label>Total Disk Usage (Runtime + Android Data + Cache)</label>
@@ -285,8 +283,7 @@
             <option value="off">Disabled (Follows display mode above)</option>
             <option value="on">Enabled · Automatically fullscreen on launch</option>
           </select>
-          <span class="sub">打开后，每次点开应用直接铺满屏幕，不用再按 F11。配合下面的「横屏」使用效果最好
-            —— 横屏面板的宽高比本来就贴合屏幕，全屏不会留黑边。</span>
+          <span class="sub">When enabled, apps launch directly in fullscreen without pressing F11. Best paired with landscape orientation for seamless aspect ratio fit.</span>
         </div>
         <div class="field">
           <label>Screen Orientation</label>
@@ -295,11 +292,8 @@
             <option value="portrait">Force Portrait (Phone aspect ratio, ideal for vertical apps)</option>
             <option value="landscape">Force Landscape (Widescreen, ideal for videos and games)</option>
           </select>
-          <span class="sub">安卓的横竖屏是<b>虚拟手机面板的真实方向</b>决定的。面板方向和应用自己声明的方向不一致时，
-            安卓只会给应用中间一条窄画面、两侧补黑 —— 换窗口大小、改分辨率都填不满。
-            「跟随应用」会在Install APK 时读出应用的方向，启动时自动把面板换成一致的那个，
-            所以红果、墨读这类应用会正立且铺满。方向不对时才重启一次运行时（约十几秒），
-            之后再打开同一方向的应用都是秒进。</span>
+          <span class="sub">Android orientation is governed by the <b>virtual display panel</b>. When panel orientation mismatches app orientation, Android letterboxes the output with black sidebars.
+            "Follow App" detects native orientation on APK installation and matches panel configuration automatically. Runtime restarts only if an orientation change is required (~15s), with subsequent launches being instant.</span>
         </div>
         <div class="field">
           <label>Image Auto-Rotate</label>
@@ -307,8 +301,7 @@
             <option value="on">Enabled (Default) · Auto-rotate enabled in system settings</option>
             <option value="off">Disabled · Lock rotation to panel orientation</option>
           </select>
-          <span class="sub">安卓里<b>自动旋转开关默认打开</b>。注意这不影响画面方向：面板方向和屏幕方向仍由上面的
-            策略 + 忽略应用方向请求决定，不会被传感器带歪。只有个别应用读取这个开关值时才会用到。</span>
+          <span class="sub">Enables the Android system auto-rotate setting. Panel orientation remains strictly controlled by the orientation policy above.</span>
         </div>
         <div class="field">
           <label>Tablet Layout</label>
@@ -316,9 +309,7 @@
             <option value="on">Enabled (Recommended · 190 dpi density, triggers sw606dp tablet UI)</option>
             <option value="off">Disabled (Default density, standard phone UI)</option>
           </select>
-          <span class="sub">720 宽按 190dpi 算等于 606dp，正好越过 Android 的 600dp 平板断点，
-            红果短剧的双列剧集页、设置页的分栏都只在这个排版下出现。关掉会回到手机排版
-            （字更大、信息更少）。切换后下次打开应用生效。</span>
+          <span class="sub">At 720 width and 190 dpi, smallest width equals 606 dp, crossing Android's 600 dp tablet breakpoint. Enables dual-column tablet views in supported apps. Takes effect on next app launch.</span>
         </div>
         <div class="field">
           <label>Current Panel Orientation</label>
@@ -326,8 +317,7 @@
             <option value="portrait">Portrait Panel</option>
             <option value="landscape">Landscape Panel</option>
           </select>
-          <span class="sub">这是运行时<b>现在</b>用的物理面板方向，由上面那条策略自动写入。
-            只有在「强制」模式下它才完全由你决定。</span>
+          <span class="sub">The active physical panel orientation used by the runtime, dynamically managed by the orientation strategy.</span>
         </div>
         <div class="field">
           <label>Window Host Mode</label>
@@ -335,9 +325,7 @@
             <option value="detached">Native Window (Default/Recommended) · Emulator manages window directly, smoothest FPS and scaling</option>
             <option value="embed">Embedded Mode · Viewport embedded inside ApkStart frame with rotate button in titlebar</option>
           </select>
-          <span class="sub">原生窗口由模拟器直接渲染和排布，拖拽、缩放、旋转都跟手，不会出现黑边或点击错位，
-            代价是多一个任务栏图标（横屏用托盘菜单或 Ctrl+Alt+R）。嵌入模式会把模拟器窗口塞进我们的窗口，
-            观感更统一、自带旋转按钮，但在缩放/旋转/切换应用时容易掉帧并出现黑边。改动在下次打开应用时生效。</span>
+          <span class="sub">Native window is rendered directly by the emulator for fluid resizing and zero input offset. Embedded mode integrates the viewport into ApkStart with a rotate button, but may experience frame drops during window resize. Takes effect on next app launch.</span>
         </div>
         <div class="field" id="portraitField">
           <label>Portrait Resolution</label>
@@ -390,8 +378,7 @@
         <div class="field switch-field">
           <div>
             <label>Enable Keymapping</label>
-            <span class="sub">把键盘按键映射成安卓触屏点击/滑动。适合用键盘玩手游（WASD 移动、J/K 技能等）。
-              每个应用可以单独配置，右键应用卡片 → 「按键映射」选择预设模板或自定义。</span>
+            <span class="sub">Maps keyboard keys to Android touch taps and gestures (WASD movement, skill buttons, etc.). Configure per app by right-clicking app cards → "Keymapping".</span>
           </div>
           <input type="checkbox" id="setKeymapEnabled" class="switch" />
         </div>
@@ -457,14 +444,13 @@
             <option value="ja-JP">Japanese</option>
             <option value="ko-KR">한국어</option>
           </select>
-          <span class="sub">系统设置、权限弹窗、日期格式的语言。开机时注入到虚拟机，
-            <b>下次重启运行时生效</b>。中文输入法不受此项影响，单独在下面开关。</span>
+          <span class="sub">Language for Android system UI, permissions dialogs, and date formats. Injected during boot;
+            <b>takes effect upon runtime restart</b>.</span>
         </div>
         <div class="field switch-field">
           <div>
             <label>Chinese Pinyin IME</label>
-            <span class="sub">镜像只带英文键盘，勾上会静默安装并启用随包的谷歌拼音输入法，
-              这样在安卓应用里能直接打中文。关掉则保持系统原生输入法。</span>
+            <span class="sub">The system image includes an English keyboard by default. Enabling this option installs and activates Google Pinyin IME for Chinese text input.</span>
           </div>
           <input type="checkbox" id="setChineseIme" class="switch" />
         </div>
@@ -560,10 +546,8 @@
           <div class="field">
             <label>Gitee Read-Only Token (Usually not required)</label>
             <input id="setGiteeToken" type="password" placeholder="Leave blank: public repository allows anonymous read" />
-            <span class="sub">本项目仓库已公开，Gitee 的发行版列表匿名就能读，留空也能用 Gitee 源。
-              只有在「Gitee 被限流（返回 403/429）」或你想读私有分支时才需要填：
-              gitee.com → 设置 → 私人令牌，只勾「projects」即可，它只用于读取发行版列表，
-              不会上传任何东西。</span>
+            <span class="sub">The repository is public; release lists are anonymously readable.
+            Enter a token only if encountering rate-limiting (HTTP 403/429) from Gitee. Requires read-only "projects" scope.</span>
           </div>
         </details>
       </div>
@@ -571,9 +555,9 @@
       <div class="group" id="preflightGroup" data-cat="diag">
         <div class="group-title">Hardware Preflight & Auto-Configuration</div>
         <div class="field">
-          <span class="sub">先查一遍这台机器：CPU 虚拟化有没有开、Windows 的虚拟机监控程序平台在不在、
-            显卡是什么、显存多大、内存和系统版本够不够。能自动改的（内存 / 核心 / 画质 / 渲染后端）直接写进设置，
-            并把结果固化成一份驱动；必须管理员权限的给按钮；只能在 BIOS 里改的会告诉你怎么改。</span>
+          <span class="sub">Inspects CPU virtualization, Windows Hypervisor Platform status, GPU model, VRAM, and RAM.
+            Applies optimal settings (RAM / cores / resolution / renderer) and generates a hardware profile.
+            Provides one-click toggles for admin features and guided steps for BIOS settings.</span>
         </div>
         <div class="field">
           <div class="row">
@@ -590,9 +574,8 @@
       <div class="group" id="driverGroup" data-cat="diag">
         <div class="group-title">Drivers · Compatibility Patches</div>
         <div class="field">
-          <span class="sub">有些机器要改启动参数才跑得起来（老显卡 GLES 版本低、没开硬件加速、某版驱动一开硬件渲染就崩）。
-            驱动就是一份 JSON：声明「匹配哪些机器」+「命中后改哪些启动参数」。你可以自己写、导入、分享。
-            驱动只改白名单里的启动项，<b>不执行任何代码</b>；匹配不上就不生效。</span>
+          <span class="sub">Certain hardware configurations require custom startup flags (legacy GLES, software fallback, driver crashes).
+            A driver is a declarative JSON file matching specific hardware profiles and applying startup parameter overrides without executing arbitrary code.</span>
         </div>
         <div class="field">
           <span class="sub" id="drvSummary">Loading drivers…</span>
@@ -605,17 +588,15 @@
             <button class="btn ghost sm" id="btnDrvFolder">Open Drivers Folder</button>
             <button class="btn ghost sm" id="btnDrvExport">Export Host Template</button>
           </div>
-          <span class="sub">「导出本机模板」会把匹配条件按这台机器填好，改 <code>effect</code> 里的
-            <code>gpuMode</code> / <code>forceTcg</code> 就能用。字段说明见仓库里的 <code>docs/drivers.md</code>。</span>
+          <span class="sub">"Export Host Template" populates hardware match criteria for this machine. Edit <code>gpuMode</code> / <code>forceTcg</code> in <code>effect</code>. See <code>docs/drivers.md</code> for schema details.</span>
         </div>
       </div>
 
       <div class="group" id="autodebugGroup" data-cat="diag">
         <div class="group-title">Auto-Diagnostics & Health Check</div>
         <div class="field">
-          <span class="sub">后台定时把这台机器查一遍：安卓运行时有没有起来、adb 授权是否正常、磁盘还剩多少、
-            数据分区是不是被差量盘挡住、快照有没有坏、设置之间有没有互相打架。
-            只在发现<b>新</b>的严重问题时弹一次通知，其余都安静地列在下面。</span>
+          <span class="sub">Periodically inspects Android runtime readiness, adb authorization, remaining disk space, snapshot integrity, and configuration conflicts.
+            Alerts via notifications only when new critical issues arise.</span>
         </div>
         <div class="field switch-field">
           <div>
@@ -660,9 +641,8 @@
           <div class="row">
             <input id="setEngineLabel" type="text" readonly value="ApkStart Built-in Runtime (QEMU + Android 14, Isolated)" />
           </div>
-          <span class="sub">ApkStart 只跑自己的运行时：adb / emulator / 系统镜像都由它自己下载和管理，
-            不探测、不接管、不依赖你电脑上装的任何模拟器（MuMu / 雷电 / 蓝叠 / WSA 都不会被使用）。
-            这样换机器、别人装没装模拟器、模拟器怎么升级，都不影响这里。</span>
+          <span class="sub">ApkStart operates an isolated built-in runtime: adb, emulator, and system images are managed self-contained.
+            It does not detect, touch, or depend on third-party emulators (MuMu / LDPlayer / BlueStacks / WSA).</span>
         </div>
         <div class="field">
           <label>adb Path</label>
@@ -854,8 +834,8 @@
             <button class="btn ghost sm" id="btnBrowseAvdDir">Browse</button>
             <button class="btn ghost sm" id="btnOpenAvdDir">Open</button>
           </div>
-          <span class="sub">真正吃盘的是这一块：数据分区（默认 6 GB，可在上面对大）+ 快速启动快照（约 2–3 GB）。
-            磁盘紧张时把它指到另一个盘（如 D:），重启软件后生效；旧目录里的 <code>apkstart.avd</code> 可整体搬过去再删。</span>
+          <span class="sub">Contains primary data: data partition (default 6 GB) + quickboot snapshot (~2-3 GB).
+            Point to another drive (e.g. D:) when disk space is low. Takes effect after restart; move <code>apkstart.avd</code> before deleting original.</span>
         </div>
         <div class="field">
           <label>Uninstall ApkStart</label>
@@ -877,8 +857,7 @@
           </div>
           <div class="update-bar" id="updateBar" hidden><i id="updateBarFill"></i></div>
           <span class="sub" id="updateNote">
-            从 GitHub（RoutineMiku/apkstart）获取最新版本；轻量版会下载便携包并自动替换程序文件，
-            运行时、已装应用与快照都不受影响。
+            Fetches latest releases from GitHub (RoutineMiku/apkstart); automatically updates binaries while preserving runtime, installed apps, and snapshots.
           </span>
         </div>
       </div>
