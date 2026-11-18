@@ -206,8 +206,7 @@ ApkStart 是一个**自持**的项目，运行时组件全部由自己下载、�
 **设备兼容性（自动处理，无需干预）**
 
 - 没有硬件加速时自动回退软件模拟；启动失败按「渲染后端 → 加速方式 → 内存/冷启动」最多 4 组参数自动重试。
-- `-gpu` 按引擎版本自动选择（37.x 用 `software`，老版本用 `swiftshader_indirect`），不再使用已弃用的模式。
-- 内存/核心数按物理内存自动推导（2–4 GB / 2–4 核），数据分区从 16 GB 降到 4 GB；端口动态挑空闲的，中文路径自动转短路径，AVD 锁文件自动清理。
+- `-gpu` 按引擎版本自动选择（37.x 用 `software`，老版本用 `swif| Diagnostics & repair | System check · auto config, drivers · compatibility patches, auto-detect · smart diagnostics |6 GB 降到 4 GB；端口动态挑空闲的，中文路径自动转短路径，AVD 锁文件自动清理。
 - 失败原因会翻译成中文并附上修复建议；设置里可「导出诊断报告」。
 - 大文件下载默认 **8 线程分块 + 断点续传**，不支持 Range 的源自动回退单流。
 - **只用自带运行时，与其它模拟器无关**：ApkStart 不探测、不接管、也不驱动你机器上装的 MuMu / 雷电 / 蓝叠 / WSA；
