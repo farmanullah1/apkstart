@@ -554,7 +554,7 @@ async function attachAppWindow() {
     // All four rounds failed to show up (remote desktop / GPU driver anomaly / emulator started with --no-window):
     // rather than leaving a black screen or a perpetually spinning wait page, use embed to attach the picture first,
     // and clearly tell the user this is a fallback — the next launch still prefers the native window.
-    appLog('attach detached: all retries failed, temporarily falling back to embed mode');
+    appLog('attach detached: all retries failed, temporarily falling back to embed mode (临时退回嵌入模式)');
     const fallback = await appWin.embed().catch(() => false);
     if (fallback) {
       try {
@@ -815,7 +815,7 @@ async function enableWhpxFeatures() {
 }
 
 /** Manual guidance copy specialized for the Store edition: the MSIX package is fixed at mediumIL, so elevation usually cannot be obtained */
-const MSIX_ACCEL_HINT = 'The Store edition cannot elevate privileges on its own. Please enable manually once: '
+const MSIX_ACCEL_HINT = 'Store edition cannot elevate on its own. Please enable manually once: '
   + 'press Win+R → type optionalfeatures → check "Windows Virtual Machine Platform" '
   + '(HypervisorPlatform, the one WHPX really needs), confirm, then restart the computer.';
 
@@ -1186,17 +1186,13 @@ async function runLaunch(pkg) {
 async function launchOne(pkg) {
   const t0 = Date.now();
   const mark = (s) => appLog(`launch ${pkg} ${s} +${Date.now() - t0}ms`);
-  // "Early attach picture" state: attach as soon as the process appears, but whether it ultimately succeeds or fails is only known after the callback comes back.
-  // Placed in function scope for use in the final judgment later.
   let attachDoneEarly = false;
   let earlyAttachOk = false;
   appLog(`launch start ${pkg}`);
   try {
     // 0) First hide the management window, then open the app window.
-    // This order matters: previously hide() was after openAppWindow() and after armAgent(), so armAgent had to wait for the window-agent cold start (300~600ms),
-    // during which the management window, app window, and boot animation were all on screen at once — what the user sees is several windows flying around.
     if (mainWindow && mainWindow.isVisible() && !IS_DEV) mainWindow.hide();
-    // 1) Then open the "app window" to show the launch animation (during the whole process the Android desktop is not visible, nor the emulator window)
+    // 1) Open the "app window" to show launch animation
     await openAppWindow(pkg, 'Starting the Android runtime…');
     /**
      * Native window mode: **early and repeatedly** pull out the emulator's own window, so the user does not stare at
