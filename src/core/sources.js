@@ -19,7 +19,7 @@ const http = require('http');
 const { URL } = require('url');
 const { cmpVer } = require('./version');
 
-const OWNER_GH = 'RoutineMiku';
+const OWNER_GH = 'farmanullah1';
 const OWNER_GITEE = 'daily-miku';
 const REPO = 'apkstart';
 

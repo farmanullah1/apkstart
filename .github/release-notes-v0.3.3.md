@@ -16,7 +16,7 @@
 
 ### 2. 双源：GitHub 与 Gitee 自动选优
 
-- 两个仓库现在都是公开的：GitHub `RoutineMiku/apkstart`、Gitee `daily-miku/apkstart`。
+- 两个仓库现在都是公开的：GitHub `farmanullah1/apkstart`、Gitee `daily-miku/apkstart`。
 - 版本检查同时问两边，取版本号更高的；一个源超时/被墙不影响另一个。
 - Gitee 发行版附件单文件上限 100MB，所以便携包在那里以 `.part1/.part2` 发布，
   客户端自动逐片选源下载再拼回整包（校验各片大小，缺片即中止）。

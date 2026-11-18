@@ -12,7 +12,8 @@ try {
     # 而 package.json 里有中文 description，按 ANSI 读会得到乱码 → ConvertFrom-Json 直接抛错。
     $pkg = Get-Content (Join-Path $root 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $ver = ('{0}.0' -f $pkg.version)
-} catch {
+}
+catch {
     Write-Host '  [!] 读不到 package.json 的 version，退回按 0.5.3.0 找包' -ForegroundColor Yellow
     $ver = '0.5.3.0'
 }
@@ -27,7 +28,8 @@ Write-Host '  ──────────────────────
 if (-not (Test-Path $msix)) {
     Write-Host "  [!] 找不到安装包：$msix" -ForegroundColor Red
     Write-Host '      先跑 node build/msix.js 重新打包。' -ForegroundColor DarkGray
-} else {
+}
+else {
     $mb = [math]::Round((Get-Item $msix).Length / 1MB, 1)
     Write-Host "  [1] 安装包  $mb MB" -ForegroundColor Cyan
     Write-Host '      已选中在资源管理器里，上传时直接拖进去' -ForegroundColor DarkGray
@@ -49,5 +51,5 @@ if (Test-Path $listing) {
 
 Write-Host ''
 Write-Host '  顺序：新建产品 → 上传包 → 粘 listing → 提交' -ForegroundColor Yellow
-Write-Host '  隐私政策：https://github.com/RoutineMiku/apkstart/blob/main/docs/privacy.md' -ForegroundColor DarkGray
+Write-Host '  隐私政策：https://github.com/farmanullah1/apkstart/blob/main/docs/privacy.md' -ForegroundColor DarkGray
 Write-Host ''

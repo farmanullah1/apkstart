@@ -14,9 +14,9 @@
 | Price | Free |
 | Package | `dist/store/ApkStart_0.6.1.0_x64.msix`（x64，约 1.5 GB） |
 | 支持语言 | 简体中文 / English (United States) |
-| 官网 | https://github.com/RoutineMiku/apkstart |
+| 官网 | https://github.com/farmanullah1/apkstart |
 | 支持邮箱 | <!-- 填你的邮箱 --> |
-| 隐私政策 | https://github.com/RoutineMiku/apkstart/blob/main/docs/privacy.md（或自建页面） |
+| 隐私政策 | https://github.com/farmanullah1/apkstart/blob/main/docs/privacy.md（或自建页面） |
 
 ### 本版新增（Partner Center → **What's new in this version**，直接粘贴）
 
@@ -364,7 +364,7 @@ Notes:
 1. 打开 <https://partner.microsoft.com/dashboard>，进入 **Apps and games → New product → MSIX or PWA app**。
 2. 预留名称 `ApkStart`，进入 **Product management → Product identity**，
    复制 `Package/Identity/Name` 与 `Package/Identity/Publisher`。
-3. 身份值**已经是确认值**（`RoutineMiku.ApkStart` / `CN=58CA1DED-…`），
+3. 身份值**已经是确认值**（`farmanullah1.ApkStart` / `CN=58CA1DED-…`），
    直接 `node build/msix.js` 打出来的就是对的；`build/msix.js` 有守卫，
    Publisher 里没有 `58CA1DED` 会直接退出（退出码 3），不会再产出废包。
    仅当 Partner Center 显示的值与此不同才需要覆盖：

@@ -158,7 +158,7 @@ FydeOS（基于 ChromiumOS）本身就能跑安卓应用。在它上面再开一
 体验更好的那个模式。
 
 完整安装步骤、ADB 授权、以及已知的「一直 unauthorized」解法见
-[docs/fydeos.md](https://github.com/RoutineMiku/apkstart/blob/main/docs/fydeos.md)。
+[docs/fydeos.md](https://github.com/farmanullah1/apkstart/blob/main/docs/fydeos.md)。
 
 > **状态说明**：FydeOS 底座的逻辑（连接、授权、错误提示、能力声明）和 Linux 的
 > `.desktop` 生成都已有单元测试覆盖，但**尚未在真实 FydeOS 设备上跑过端到端流程**。
@@ -168,7 +168,7 @@ FydeOS（基于 ChromiumOS）本身就能跑安卓应用。在它上面再开一
 ## 五、底座选型说明
 
 顺手把「要不要换 Waydroid / WSA / 应用宝 / 换个轻量系统」彻底评估了一遍，结论在
-[docs/backend-roadmap.md](https://github.com/RoutineMiku/apkstart/blob/main/docs/backend-roadmap.md)。
+[docs/backend-roadmap.md](https://github.com/farmanullah1/apkstart/blob/main/docs/backend-roadmap.md)。
 简要版：
 
 | 方案 | 结论 |

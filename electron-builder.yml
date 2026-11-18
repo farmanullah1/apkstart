@@ -54,11 +54,11 @@ win:
 #   Package/Identity/Name 与 Package/Identity/Publisher。
 # 下面这两个值是 2026-11-16 从 Partner Center 抄下来的确认值；
 # 换产品身份时改这里（或设 APKSTART_MSIX_IDENTITY / APKSTART_MSIX_PUBLISHER）。
-# 注意：占位 Publisher（CN=RoutineMiku）打出来的包商店会直接拒收。
+# 注意：占位 Publisher（CN=farmanullah1）打出来的包商店会直接拒收。
 appx:
-  identityName: RoutineMiku.ApkStart
+  identityName: farmanullah1.ApkStart
   publisher: "CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D"
-  publisherDisplayName: RoutineMiku
+  publisherDisplayName: farmanullah1
   displayName: ApkStart
   applicationId: ApkStart
   # 全信任桌面应用唯一必需的能力。不要加 unvirtualizedResources /

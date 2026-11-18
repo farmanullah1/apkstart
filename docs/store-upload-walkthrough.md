@@ -8,7 +8,7 @@
 ## 0. 前置检查
 
 - [ ] `dist/store/ApkStart_0.6.1.0_x64.msix` 存在，约 1.5 GB
-- [ ] 包里身份已换成你的真实值（见第 2 步；当前仍是占位 `RoutineMiku.ApkStart`）
+- [ ] 包里身份已换成你的真实值（见第 2 步；当前仍是占位 `farmanullah1.ApkStart`）
 - [ ] 隐私政策有可公开访问的 URL
 
 ---
@@ -27,7 +27,7 @@
 **Product management → Product identity**，整行复制：
 
 ```
-Package/Identity/Name       = RoutineMiku.ApkStart
+Package/Identity/Name       = farmanullah1.ApkStart
 Package/Identity/Publisher  = CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D
 ```
 
@@ -39,7 +39,7 @@ Package/Identity/Publisher  = CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D
 > 若日后 Partner Center 里显示的值与此不同，重跑：
 >
 > ```powershell
-> node build/msix.js --identity "RoutineMiku.ApkStart" --publisher "CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D"
+> node build/msix.js --identity "farmanullah1.ApkStart" --publisher "CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D"
 > ```
 
 打包完我会核对：清单身份逐字一致、`Version="0.6.1.0"`、7 张 Assets 的 md5 与 `build/store-assets` 一致。
@@ -126,10 +126,10 @@ Windows 10 version 2004 (build 19041) or later, x64. "Virtual Machine Platform"
 ```
 - **Privacy policy URL** **[复制]**
   ```
-  https://github.com/RoutineMiku/apkstart/blob/main/docs/privacy.md
+  https://github.com/farmanullah1/apkstart/blob/main/docs/privacy.md
   ```
   （已合入 `main`，无需再处理分支可见性）
-- **Support contact**：填你的邮箱 + `https://github.com/RoutineMiku/apkstart/issues`
+- **Support contact**：填你的邮箱 + `https://github.com/farmanullah1/apkstart/issues`
 
 ---
 

@@ -2566,11 +2566,11 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(/iconIcoPath: ico/.test(installerJs), 'writeShortcut 要拿到应用图标');
     assert(!/iconIcoPath:\s*(APPICON|appicon|brandIcon)/.test(installerJs), '不能用 ApkStart 的品牌图标');
     // 每个应用一个 AUMID：任务栏按应用分组，固定项才认得出是哪个应用
-    assert(/appUserModelId: `RoutineMiku\.ApkStart\.\$\{app\.package\}`/.test(installerJs),
+    assert(/appUserModelId: `farmanullah1\.ApkStart\.\$\{app\.package\}`/.test(installerJs),
       '每个应用要有自己的 AUMID');
     // Windows 只在「进程 AUMID == 快捷方式 AUMID」时沿用快捷方式图标，
     // 所以打开某个应用时要把进程身份切过去，回管理窗口再切回 ApkStart。
-    assert(/const APP_AUMID = 'RoutineMiku\.ApkStart';/.test(mainJs), '要有统一的 AUMID 前缀');
+    assert(/const APP_AUMID = 'farmanullah1\.ApkStart';/.test(mainJs), '要有统一的 AUMID 前缀');
     assert(/setAumid\(`\$\{APP_AUMID\}\.\$\{pkg\}`\)/.test(mainJs), '开应用窗口前要切到该应用的 AUMID');
     assert(/function showWindow\(\) \{\s*\n\s*\/\/[^\n]*\n\s*setAumid\(APP_AUMID\);/.test(mainJs),
       '回管理窗口要切回 ApkStart 的 AUMID');

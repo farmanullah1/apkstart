@@ -2,8 +2,8 @@
 
 <p align="center"><img src="docs/images/logo.png" alt="ApkStart Logo" width="160" /></p>
 
-[![CI](https://github.com/RoutineMiku/apkstart/actions/workflows/ci.yml/badge.svg)](https://github.com/RoutineMiku/apkstart/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/RoutineMiku/apkstart?include_prereleases&sort=semver)](https://github.com/RoutineMiku/apkstart/releases)
+[![CI](https://github.com/farmanullah1/apkstart/actions/workflows/ci.yml/badge.svg)](https://github.com/farmanullah1/apkstart/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/farmanullah1/apkstart?include_prereleases&sort=semver)](https://github.com/farmanullah1/apkstart/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6.svg)](#)
 
@@ -17,7 +17,7 @@ Note: this is an early release, a personal hobby project. All changes are made b
 - 📁 **Shared data folder**：`%USERPROFILE%\ApkStartShared` is synced bidirectionally with Android's `/sdcard/ApkStartShared`; files saved by Android apps show up instantly on the host.
 - 🪶 **Ultra-lightweight**：The shell itself has zero third-party dependencies (even ZIP / PNG / ICO / AXML parsing is hand-rolled), the runtime is spun up on demand and reclaimed when idle, and it can also fully reuse an Android runtime already on your machine for zero extra footprint.
 
-![主界面](docs/images/app.png)
+![Main window](docs/images/app.png)
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -38,23 +38,23 @@ Note: this is an early release, a personal hobby project. All changes are made b
 
 The two sources have identical content; Gitee is recommended for users in China:
 
-- GitHub：[github.com/RoutineMiku/apkstart/releases](https://github.com/RoutineMiku/apkstart/releases)
+- GitHub：[github.com/farmanullah1/apkstart/releases](https://github.com/farmanullah1/apkstart/releases)
 - Gitee：[gitee.com/daily-miku/apkstart/releases](https://gitee.com/daily-miku/apkstart/releases)（国内直连快得多）
 
-安装包（三种形态，内容与版本号完全一致）：
+Installer packages (three forms, identical content and version number):
 
-| 形态 | 文件名 | 何时选它 |
+| Form | File name | When to choose it |
 |---|---|---|
-| Microsoft Store build | `ApkStart_<四段版本>_x64.msix` | Install from the Microsoft Store. The full runtime is bundled, so it doesn't need the network after install; self-updates are handled by the Store. |
-| Full portable build | `ApkStart-v*-win64-full.zip`（约 830 MB，解压 ~1.3 GB） | **Don't want to install or wait for a download?** Extract and run — the runtime (emulator + system image) is fully inside the package. |
-| Installer build | `ApkStart-v*-Setup.exe`（约 1.3 GB） | When you want desktop/Start menu shortcuts and an uninstall entry |
-| Portable (lightweight) build | `ApkStart-v*-win64-portable.zip`（96 MiB，解压 ~227 MB） | Just want to try it out; the runtime is downloaded on first launch |
+| Microsoft Store build | `ApkStart_<four-part-version>_x64.msix` | Install from the Microsoft Store. The full runtime is bundled, so it doesn't need the network after install; self-updates are handled by the Store. |
+| Full portable build | `ApkStart-v*-win64-full.zip`(about 830 MB, ~1.3 GB extracted) | **Don't want to install or wait for a download?** Extract and run — the runtime (emulator + system image) is fully inside the package. |
+| Installer build | `ApkStart-v*-Setup.exe`(about 1.3 GB) | When you want desktop/Start menu shortcuts and an uninstall entry |
+| Portable (lightweight) build | `ApkStart-v*-win64-portable.zip`(96 MiB, ~227 MB extracted) | Just want to try it out; the runtime is downloaded on first launch |
 
 > 所有形态的 `ApkStart.exe` 都写入了**品牌图标 + 版本资源**（FileDescription = `ApkStart 安卓应用运行器`，
-> CompanyName = `RoutineMiku`，版本与 `package.json` 同步），不再是 Electron 的默认图标和 `33.x` 版本号。
+> CompanyName = `farmanullah1`，版本与 `package.json` 同步），不再是 Electron 的默认图标和 `33.x` 版本号。
 > 自己从源码打包时：`npm run pack`（轻量）/ `npm run pack:full`（完整）/ `npm run build:msix`（商店包）。
 
-### 画面铺满是怎么做到的
+### How the screen is made to fill
 
 模拟器的**物理面板方向**（`hw.lcd.width/height`）就是画面的真实形状。面板方向和应用自己声明的
 `screenOrientation` 不一致时，Android 只会给应用一个信箱式的中间窄条 —— 两侧补黑，换窗口大小、
@@ -75,29 +75,25 @@ The two sources have identical content; Gitee is recommended for users in China:
 红果短剧的双列剧集页、设置页分栏都只在这个密度下出现（镜像默认 320dpi 只有 360dp，是手机排版）。
 这就是the "Tablet layout" switch in settings，默认打开；关掉会回到手机排版。
 
-### 在线更新（自动选较快的源）
+### Online updates (auto-pick the faster source)
 
-设置 → **软件更新** → 「检查更新」，或托盘右键 → 「检查更新」。发现新版本后点「立即更新」即可。
+Settings → **Software update** → "Check for updates", or right-click the tray icon → "Check for updates". After a new version is found, click "Update now".
 
-- Installer build下载 `ApkStart-v*-Setup.exe` 静默安装；
+- Installer build: downloads `ApkStart-v*-Setup.exe` and silently installs it;
 - 轻量版下载 `ApkStart-v*-win64-portable.zip`，解压后覆盖**程序目录**——运行时目录（`%APPDATA%\apkstart\runtime`）、已装应用与快照都不在程序目录里，所以更新不会丢东西；
-- 替换动作由一段独立 PowerShell 脚本完成（等主进程退出 → 覆盖 → 重新拉起），**不会出现「请手动关闭程序」的弹窗**，也不会在桌面上残留模拟器窗口。
+- Replacement is done by a separate PowerShell script (wait for the main process to exit → overwrite → relaunch), so there's **no "please close the program" popup**, and no emulator window is left on the desktop.
 
-更新链路不是死连 GitHub，而是**每次现测现选**：
+The update path doesn't blindly connect to GitHub; it **measures and picks on the spot** each time:
 
-1. 同时问 GitHub 与 Gitee 的最新版本，取版本号更高的那个（一个源超时/被墙不影响另一个）；
+1. Ask GitHub and Gitee for the latest version at the same time, and take the higher version number (a timeout or block on one source doesn't affect the other);
 2. 把「源站直连 / Gitee 同名资产 / 镜像前缀」列成候选，每个地址真下 256KB 测速，
    只算「收到首字节之后」的吞吐（握手时间不计入，否则高延迟大带宽的源会被误判成慢）；
-3. 按实测速度排序，用最快的那条分块并行下载；失败自动换下一条。
+3. Sort by measured speed and download in parallel chunks from the fastest one; automatically fall back to the next on failure.
 
-设置里的「下载与更新源」可以强制只用某一边（企业网络只放行一个域名时用），
-也可以关掉公共加速镜像、或改用自建镜像前缀。Gitee 附件单文件上限 100MB，
-便携包换用 7-Zip 的 deflate（`-mx=9`）压缩后是 **95.0MB**，所以 Gitee 上也是
-一个能直接双击解压的整包（以前要切成 `.part1/.part2` 手工拼接，那版已经废弃）。
-两个源的同名包体积并不完全一样，客户端按测速结果只挑一个源下完，不会混拼。
+The "Download & update source" setting can force a single side (useful on corporate networks that only allow one domain), turn off public acceleration mirrors, or use a custom mirror prefix.Gitee 附件单文件上限 100MB，
+The portable package is compressed with 7-Zip's deflate (`-mx=9`) to **95.0MB**, so it's a single package you can double-click to extract on Gitee too (the old split-into-`.part1/.part2` manual-merge version has been dropped). The same-named packages from the two sources are not exactly the same size; the client only downloads from one source based on the speed test result, never splicing them together.
 
-两个仓库都是公开的，Gitee 的发行版列表匿名就能读，不需要填任何 token。
-（只有在 Gitee 限流返回 403/429 时，才需要在设置里填一个只读 token 提高额度。）
+Both repos are public, and Gitee's release list can be read anonymously — no token needed. (Only when Gitee rate-limits with 403/429 do you need to enter a read-only token in settings to raise the quota.)
 
 
 **开箱即有的默认行为**（不用去设置里找）：
@@ -347,14 +343,14 @@ adb devices              # 会看到 emulator-5554
 
 ## About the author
 
-ApkStart 由 **RoutineMiku** 开发维护。
+ApkStart is developed and maintained by **farmanullah1**.
 
-- GitHub：<https://github.com/RoutineMiku/apkstart>
+- GitHub：<https://github.com/farmanullah1/apkstart>
 - WeChat Official Account: scan the QR code to follow
 
 <p align="center"><img src="docs/images/brand.png" alt="关于面板：公众号二维码与项目链接" width="560" /></p>
 
-<p align="center"><i>Powered by <b>RoutineMiku</b></i></p>
+<p align="center"><i>Powered by <b>farmanullah1</b></i></p>
 
 ## Contributing
 

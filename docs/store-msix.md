@@ -100,9 +100,9 @@ Partner Center → **Product management → Product identity** 里给出的
 当前默认值（占位用，真上架要换）：
 
 ```
-Identity Name      = RoutineMiku.ApkStart
-Identity Publisher = CN=RoutineMiku
-PublisherDisplayName = RoutineMiku
+Identity Name      = farmanullah1.ApkStart
+Identity Publisher = CN=farmanullah1
+PublisherDisplayName = farmanullah1
 ```
 
 三种改法，任选：
@@ -111,8 +111,8 @@ PublisherDisplayName = RoutineMiku
 # 1) 改 electron-builder.yml 的 appx.identityName / appx.publisher
 # 2) 改 build/msix.js 顶部的 IDENTITY / PUBLISHER 默认值
 # 3) 用环境变量或命令行参数覆盖（推荐，不动源码）
-node build/msix.js --identity "12345RoutineMiku.ApkStart" --publisher "CN=1a2b3c4d-1111-2222-3333-444455556666"
-$env:APKSTART_MSIX_IDENTITY="12345RoutineMiku.ApkStart"
+node build/msix.js --identity "12345farmanullah1.ApkStart" --publisher "CN=1a2b3c4d-1111-2222-3333-444455556666"
+$env:APKSTART_MSIX_IDENTITY="12345farmanullah1.ApkStart"
 $env:APKSTART_MSIX_PUBLISHER="CN=1a2b3c4d-1111-2222-3333-444455556666"
 ```
 

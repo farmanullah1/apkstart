@@ -21,7 +21,7 @@
 
 Windows 只有在「运行进程的 AUMID == 快捷方式的 AUMID」时，才会把正在运行的窗口和
 任务栏固定项合并、并沿用快捷方式的图标。每个应用的快捷方式写的是
-`RoutineMiku.ApkStart.<包名>`，而进程级身份原本是 `RoutineMiku.ApkStart` —— 对不上就会
+`farmanullah1.ApkStart.<包名>`，而进程级身份原本是 `farmanullah1.ApkStart` —— 对不上就会
 出现「固定项是应用图标，任务栏上却另起一个 ApkStart 按钮」。
 
 现在：打开某个应用前把进程身份切成该应用的 AUMID，回到管理窗口再切回 ApkStart 的。
@@ -34,7 +34,7 @@ CompanyName=GitHub, Inc.、版本 33.4.11，图标也是 Electron 的。现在�
 ```
 FileDescription  ApkStart 安卓应用运行器
 ProductName      ApkStart
-CompanyName      RoutineMiku
+CompanyName      farmanullah1
 FileVersion      0.5.3.0
 ProductVersion   0.5.3
 ```
@@ -53,7 +53,7 @@ ProductVersion   0.5.3
 ## 微软商店
 
 - 包体：`dist/store/ApkStart_0.5.3.0_x64.msix`（x64，约 850 MB，内置完整运行时）
-- 身份：`RoutineMiku.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+- 身份：`farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
 - 提交材料：`docs/store-listing.md`（含本版 What's new 中英文段）
 - 步骤：`docs/store-upload-walkthrough.md`
 
