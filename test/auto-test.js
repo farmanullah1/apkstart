@@ -199,12 +199,12 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
 
   await test('Android 14 老 targetSdk 应用失败有明确指引', () => {
     const s = friendlyInstallError('Failure [INSTALL_FAILED_DEPRECATED_SDK_VERSION: app must target at least 23]');
-    assert(s.includes('Android 14') && s.includes('自动'), s);
+    assert(s.includes('Android 14') && s.includes('automatically'), s);
   });
 
   await test('ARM 翻译层崩溃能给出可执行的中文结论', () => {
     const s = friendlyLaunchError('F DEBUG: DoBadTrampoline libndk_translation SIGABRT', 'com.phoenix.read');
-    assert(s.includes('ARM 翻译层') && s.includes('兼容镜像'), s);
+    assert(s.includes('ARM translation layer') && s.includes('compatibility image'), s);
   });
 
   console.log('\n[sharer 不再来回搬运（磁盘写满的元凶）]');
@@ -1381,7 +1381,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(!pointer.isInputCommand('sh -c anything'));
     const c = new AdbClient({ adbPath: 'adb', serial: 'test' });
     let blocked = false;
-    try { await c.input('input keyevent 4; rm -rf /'); } catch (e) { blocked = /非法/.test(e.message); }
+    try { await c.input('input keyevent 4; rm -rf /'); } catch (e) { blocked = /Illegal/.test(e.message); }
     assert(blocked, '非法命令必须在拉起 adb 之前被挡下');
     assert(c._input === null, '被挡下的命令不能创建常驻会话');
   });
