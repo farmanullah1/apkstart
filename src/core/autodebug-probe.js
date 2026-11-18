@@ -1,23 +1,23 @@
 'use strict';
 /**
- * 自动检测 · 采集层（只在主进程跑）
+ * Auto-detection · Probe layer (runs in main process only)
  *
- * 职责：把机器的真实状态采成一份**纯数据**快照 obs，交给 src/core/autodebug.js 判定。
- * 采集层允许失败 —— 拿不到就留空，让判定层「不知道」，绝不编造结论。
+ * Responsibility: Collect real machine status into a **pure data** snapshot `obs` and pass it to src/core/autodebug.js for evaluation.
+ * Probing is allowed to fail - leave missing values empty and let the evaluation layer treat them as "unknown", never fabricate conclusions.
  *
- * 采集项与耗时预算（一次全量约 2~5 秒）：
- *   - 运行时状态（引擎 status：环境 + adb 在线）
- *   - adb 设备授权状态
- *   - 磁盘余量、数据分区容量、共享目录可写性
- *   - AVD 残留锁、快照空壳、孤儿模拟器进程
- *   - 最近日志里的错误行
+ * Probe items and time budget (one full pass takes ~2-5s):
+ *   - Runtime status (engine status: environment + adb online)
+ *   - adb device authorization status
+ *   - Free disk space, data partition capacity, shared directory writability
+ *   - AVD leftover locks, hollow snapshots, orphan emulator processes
+ *   - Error lines in recent logs
  */
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const { AVD_NAME, SNAPSHOT_NAME } = require('./emulator');
 
-/** 引导阶段计时：第一次看到「在跑但没 ready」的时刻 */
+/** Boot phase timing: timestamp when first observed "running but not ready" */
 let bootingSince = 0;
 
 function withTimeout(promise, ms, fallback) {
@@ -27,7 +27,7 @@ function withTimeout(promise, ms, fallback) {
   ]);
 }
 
-/** 数 AVD 目录里残留的 .lock（文件或目录都算） */
+/** Count residual .lock entries in AVD directory (both files and directories count) */
 function countLocks(avdDir) {
   try {
     return fs.readdirSync(avdDir).filter((f) => /\.lock$/i.test(f)).length;
@@ -37,9 +37,9 @@ function countLocks(avdDir) {
 }
 
 /**
- * 快照是不是「空壳」：snapshot.pb 在但内存镜像没了或太小。
- * 这种快照每次开机都要「加载失败再冷启动」，等于白占几 GB 磁盘。
- * 只读判断，不在这里删 —— 删除交给用户确认或修复动作。
+ * Check if snapshot is a "hollow shell": snapshot.pb exists but RAM image is missing or too small.
+ * Such snapshots cause every boot to "fail loading then cold boot", wasting several GB of disk.
+ * Read-only check, does not delete here - deletion is left to user confirmation or fix action.
  */
 function inspectSnapshot(avdHome, avdName, snapshotName) {
   const base = path.join(avdHome, `${avdName}.avd`, 'snapshots', snapshotName);
@@ -52,7 +52,7 @@ function inspectSnapshot(avdHome, avdName, snapshotName) {
   return { present: true, stale, mb };
 }
 
-/** 数还活着的模拟器孤儿进程（emulator.exe / qemu-system*.exe） */
+/** Count surviving emulator orphan processes (emulator.exe / qemu-system*.exe) */
 function countOrphanProcesses() {
   return new Promise((resolve) => {
     let out = '';
@@ -69,7 +69,7 @@ function countOrphanProcesses() {
   });
 }
 
-/** 读最近日志文件里的错误行（最多看尾部 300 行） */
+/** Read error lines from recent log files (checks at most the last 300 lines) */
 function recentLogErrors(files, max = 300) {
   const out = [];
   for (const file of files) {
@@ -95,7 +95,7 @@ function recentLogErrors(files, max = 300) {
 }
 
 /**
- * 采一份快照
+ * Collect an observation snapshot
  * @param {object} ctx { runtime, store, doctor }
  * @returns {Promise<object>} obs
  */
@@ -112,20 +112,20 @@ async function collect(ctx) {
     accel: { checked: false },
   };
 
-  // ---- 设置（最便宜，先取） ----
+  // ---- Settings (cheapest, fetch first) ----
   let settings = {};
   try { settings = store.getSettings() || {}; } catch (_) { settings = {}; }
   obs.settings = {
     orientationMode: (settings.display && settings.display.orientationMode) || 'auto',
     landscape: !!(settings.display && settings.display.landscape),
-    // 0.6.0 起默认原生窗口：只有显式 true 才算嵌入模式
+    // Default to native window since 0.6.0: only explicit true counts as embedded mode
     windowEmbed: !!(settings.display && settings.display.windowEmbed === true),
     autoFullscreen: !!(settings.display && settings.display.autoFullscreenOnLaunch),
     keepSnapshot: !(settings.engine && settings.engine.keepSnapshot === false),
     resourceMode: (settings.engine && settings.engine.resourceMode) || '',
   };
 
-  // ---- 运行时状态 ----
+  // ---- Runtime status ----
   let status = null;
   try {
     status = await withTimeout(runtime.status(), 20000, null);
@@ -151,14 +151,14 @@ async function collect(ctx) {
     phase,
     ready,
     bootMs: bootingSince ? Date.now() - bootingSince : 0,
-    error: (status && status.error && !/缺少 adb/.test(status.error)) ? status.error : '',
+    error: (status && status.error && !/(?:缺少 adb|Missing adb)/i.test(status.error)) ? status.error : '',
     lastFailure: lastFailure ? { error: lastFailure.error || lastFailure.reason || '' } : null,
     locks: paths ? countLocks(paths.avdHome) : 0,
     orphans: null,
     snapshotStale: false,
   };
 
-  // ---- adb 设备授权状态 ----
+  // ---- adb device authorization status ----
   try {
     const client = runtime.client();
     if (client && typeof client.deviceState === 'function') {
@@ -167,9 +167,9 @@ async function collect(ctx) {
         obs.device = { checked: true, state };
       }
     }
-  } catch (_) { /* 探测不到就留 checked:false */ }
+  } catch (_) { /* Leave checked:false if undetectable */ }
 
-  // ---- 存储 ----
+  // ---- Storage ----
   try {
     const root = paths ? paths.root : null;
     if (root) {
@@ -198,7 +198,7 @@ async function collect(ctx) {
     }
   } catch (_) { /* ignore */ }
 
-  // ---- 快照 / 锁 / 孤儿 ----
+  // ---- Snapshot / locks / orphans ----
   try {
     if (paths) {
       const snap = inspectSnapshot(paths.avdHome, AVD_NAME, SNAPSHOT_NAME);
@@ -209,25 +209,25 @@ async function collect(ctx) {
 
   const orphans = await countOrphanProcesses();
   if (orphans !== null) {
-    // 正在跑的那台本身就是 emulator.exe + qemu 两个进程，不是残留。
+    // The running instance itself consists of emulator.exe + qemu (2 processes), not leftovers.
     const expected = running ? 2 : 0;
     obs.runtime.orphans = Math.max(0, orphans - expected);
   }
 
-  // ---- 网络 ----
+  // ---- Network ----
   try {
     const snap = typeof runtime._networkSnapshot === 'function' ? runtime._networkSnapshot() : null;
     if (snap) obs.network = { ok: !!snap.ok, reason: snap.reason || '', ip: snap.ip || '' };
   } catch (_) { /* ignore */ }
 
-  // ---- 加速 ----
+  // ---- Acceleration ----
   try {
     if (status && status.accel) {
       obs.accel = { checked: true, ok: !!status.accel.ok, note: status.accel.note || '' };
     }
   } catch (_) { /* ignore */ }
 
-  // ---- 日志 ----
+  // ---- Logs ----
   try {
     const dir = path.join(store.DATA_DIR, 'logs');
     const files = [path.join(store.DATA_DIR, 'app.log'), path.join(dir, 'emulator.log')];

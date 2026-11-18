@@ -93,7 +93,7 @@ function friendlyLaunchError(raw, pkg) {
   const t = String(raw || '');
   if (/DoBadTrampoline|libndk_translation|houdini|SIGABRT.*arm/i.test(t)) {
     return `${pkg || 'The app'} crashed on launch: ARM translation layer is incompatible with this app's signal handling.`
-      + ' ApkStart will automatically switch to a compatible image and retry.';
+      + ' ApkStart will automatically switch to a compatibility image and retry.';
   }
   if (/UnsatisfiedLinkError|dlopen failed|couldn't find "lib|\.so.*not found/i.test(t)) {
     return `${pkg || 'The app'} crashed on launch: missing native library (the app may only ship an ARM version).`
@@ -362,7 +362,7 @@ class AdbClient {
   /** Runs a whitelisted input command; on failure the session is recycled and the caller can fall back to one-shot adb. */
   async input(cmd, { timeout = 4000 } = {}) {
     const { isInputCommand } = require('./pointer');
-    if (!isInputCommand(cmd)) throw new Error('Invalid input command');
+    if (!isInputCommand(cmd)) throw new Error('Illegal input command');
     const p = this._inputSession();
     const id = ++this._inputSeq;
     const token = `__APKSTART_${id}__`;
