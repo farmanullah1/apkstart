@@ -1,6 +1,6 @@
 # ApkStart
 
-<p align="center"><img src="docs/images/logo.png" alt="ApkStart Logo" width="160" /></p>
+
 
 [![CI](https://github.com/farmanullah1/APK-START-English/actions/workflows/ci.yml/badge.svg)](https://github.com/farmanullah1/APK-START-English/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/farmanullah1/APK-START-English?include_prereleases&sort=semver)](https://github.com/farmanullah1/APK-START-English/releases)
@@ -18,7 +18,7 @@
 - 📁 **Bi-directional shared folder**: `%USERPROFILE%\ApkStartShared` syncs automatically and bidirectionally with Android's `/sdcard/ApkStartShared`. Files downloaded or saved inside Android apps appear immediately on the host.
 - 🪶 **Ultra-lightweight architecture**: The shell has zero third-party dependencies (even ZIP / PNG / ICO / AXML parsing is written from scratch in pure JavaScript), the runtime boots on demand and shuts down automatically when idle, and it can also reuse an existing Android runtime on the host with zero extra footprint.
 
-![Main window](docs/images/app.png)
+
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -175,7 +175,7 @@ Upon initial launch, the Setup Wizard handles deployment in a single automated s
 1. Downloads ADB, emulator engine, and system image automatically;
 2. Boots the environment and configures initial parameters; subsequent shortcut clicks launch instantly.
 
-![Runtime Setup Wizard](docs/images/setup.png)
+
 
 ### Automated Device Compatibility
 
@@ -251,7 +251,7 @@ electron . --smoke test\shot.png           # Headless launch and smoke screensho
 
 | Running ARM64 Application (Android 14 · AEHD Hardware Acceleration) |
 |:---:|
-| ![Application running in ApkStart compatibility mode](docs/images/compat-hongguo-playing.png) |
+
 
 ### Troubleshooting: "Hardware Acceleration Not Enabled"
 
@@ -302,7 +302,7 @@ ApkStart is maintained by **farmanullah1**.
 
 - GitHub: <https://github.com/farmanullah1/APK-START-English>
 
-<p align="center"><img src="docs/images/brand.png" alt="About panel: project links" width="560" /></p>
+
 
 <p align="center"><i>Powered by <b>farmanullah1</b></i></p>
 
