@@ -126,7 +126,7 @@ async function download(url, dest, opt = {}) {
       if (!m || !validRange(res, existing, Number(m[2]), Number(m[3])) || Number(m[2]) !== Number(m[3]) - 1) {
         res.resume();
         discardPartial(dest);
-        throw new Error('Server returned mismatched resume range (范围不匹配)');
+        throw new Error('Server returned mismatched resume range');
       }
     }
 
@@ -301,7 +301,7 @@ async function downloadParallel(url, dest, opt = {}) {
     }
     if (!validRange(res, c.pos, c.end, total)) {
       res.resume();
-      throw new Error('Server returned mismatched chunk range (范围不匹配)');
+      throw new Error('Server returned mismatched chunk range');
     }
     await new Promise((resolve, reject) => {
       // Must self-guard against promises that never settle
@@ -321,7 +321,7 @@ async function downloadParallel(url, dest, opt = {}) {
         // Reject data exceeding requested chunk range to prevent corrupting other chunks
         if (buf.length > c.end - c.pos + 1) {
           res.destroy();
-          return finish(new Error('Chunk response exceeded requested range (范围超出)'));
+          return finish(new Error('Chunk response exceeded requested range'));
         }
         try {
           fs.writeSync(fd, buf, 0, buf.length, c.pos);
@@ -509,7 +509,7 @@ async function downloadMulti(urls, dest, opt = {}) {
     }
     if (!validRange(res, c.pos, c.end, total)) {
       res.resume();
-      throw new Error('Server returned mismatched chunk range (范围不匹配)');
+      throw new Error('Server returned mismatched chunk range');
     }
     const startPos = c.pos;
     const startedAt = Date.now();
@@ -533,7 +533,7 @@ async function downloadMulti(urls, dest, opt = {}) {
         // Reject bytes beyond requested range to prevent corrupting chunk
         if (buf.length > c.end - c.pos + 1) {
           res.destroy();
-          return finish(new Error('Chunk response exceeded requested range (范围超出)'));
+          return finish(new Error('Chunk response exceeded requested range'));
         }
         try {
           fs.writeSync(fd, buf, 0, buf.length, c.pos);

@@ -220,7 +220,7 @@ class Sources {
   blockedReason(id) {
     const until = this._blocked.get(id) || 0;
     if (until <= Date.now()) return null;
-    return `Temporarily skipped (暂时跳过: will not retry for ${Math.ceil((until - Date.now()) / 60000)} minutes)`;
+    return `Temporarily skipped (will not retry for ${Math.ceil((until - Date.now()) / 60000)} minutes)`;
   }
 
   /**

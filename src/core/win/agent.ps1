@@ -42,13 +42,13 @@ public class ApkAgent
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowTextW(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool SetWindowTextW(IntPtr h, string s);
-    // 给模拟器原生窗口设图标（独立窗口模式下任务栏/Alt+Tab 显示当前应用图标）
+    // Set the icon on the emulator's native window (in standalone-window mode, the taskbar / Alt+Tab shows the current app icon)
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr LoadImageW(IntPtr inst, string file, uint type, int w, int h, uint flags);
     [DllImport("user32.dll")] static extern IntPtr SendMessageW(IntPtr h, uint msg, IntPtr wp, IntPtr lp);
     [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr h);
     [DllImport("user32.dll")] static extern IntPtr SetParent(IntPtr c, IntPtr p);
-    // 高 DPI：appwin.js 传来的是物理像素。不声明 DPI 感知时 Windows 会把它当逻辑像素再放大一次，
-    // 嵌入的模拟器窗口比宿主大（150% 缩放下大 1.5 倍）→ 画面右/下被裁、点击偏移（issue #40）。
+    // High DPI: appwin.js passes physical pixels. Without declaring DPI awareness, Windows treats them as logical pixels and scales them once more,
+    // so the embedded emulator window is larger than the host (1.5x at 150% scaling) → right/bottom cropped, click offset (issue #40).
     [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr ctx);
     [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
     [DllImport("user32.dll")] static extern IntPtr GetParent(IntPtr c);
@@ -56,7 +56,7 @@ public class ApkAgent
     [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr h, int i, int v);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hh, uint f);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int c);
-    // 裁剪嵌入窗口的可见区域：把压到标题栏上的那条外框去掉
+    // Clip the visible area of the embedded window: remove the frame that presses onto the title bar
     [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr h, IntPtr rgn, bool redraw);
     [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int l, int t, int r, int b);
     [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr o);
@@ -121,22 +121,22 @@ public class ApkAgent
     static readonly ConcurrentQueue<string> _events = new ConcurrentQueue<string>();
     static long _lastToolSweep = 0;
     static long _embedAt = 0;
-    // 常驻压制：默认一开机就开，把模拟器主窗 + 工具栏 + 控制台黑窗压住。
-    // 与「embed 完成就关掉」的旧逻辑不同，它是**常驻**的 —— sweep 会跳过已经嵌进
-    // 我们窗口的那一个窗口，其余一律藏起来（含 ApkStart 退出后回到桌面的那个黑窗）。
+    // Resident suppression: on by default from boot, suppressing the emulator main window + toolbar + console black window.
+    // Unlike the old logic that turned off "when embed completes", this is **resident** — the sweep skips the one window already embedded
+    // into our window, and hides everything else (including the black window that returns to the desktop after ApkStart exits).
     static volatile bool _quiet = true;
     static volatile bool _perfMode = false;
     static volatile bool _detachedMode = false;
     static long _bootHideSweep = 0;
-    // 控制台黑窗专用扫描时间戳。emulator 拉起 qemu 时 Windows 会给这个控制台
-    // 新开一个窗口（Win11 上是 Windows Terminal），它只活 200~300ms；主巡检
-    // 250ms 一轮抓不稳，所以前 15 秒额外用更密的节奏单独扫一遍控制台类窗口。
+    // Scan timestamp specialized for the console black window. When the emulator lifts qemu, Windows gives this console
+    // a new window (Windows Terminal on Win11), which only lives 200~300ms; the main patrol
+    // at 250ms per round is not stable enough, so for the first 15 seconds a denser rhythm is used to separately scan console-class windows once more.
     static long _consoleSweep = 0;
-    // 兜底超时：万一 embed 没来（用户只是打开了 ApkStart 没点应用），
-    // 不能让 120ms 一轮的扫描永远跑下去白烧 CPU。每次真藏到窗口就续期。
+    // Fallback timeout: in case embed never comes (the user only opened ApkStart and did not click an app),
+    // the 120ms-per-round scan must not run forever burning CPU. Each time a window is truly hidden, the deadline is extended.
     static long _bootHideUntil = 0;
     static long _bootHideStart = Environment.TickCount;
-    // 断线后的「守卫」截止时间（TickCount）。见 Serve() 里 sock == null 的分支。
+    // "Guard" deadline after disconnect (TickCount). See the sock == null branch in Serve().
     static long _lingerUntil = 0;
 
     // Which windows count as "ours": only those created by a process whose exe lives

@@ -1,7 +1,7 @@
 'use strict';
 /**
- * 安装 / 启动 / 卸载 编排层
- * 把「解析 APK → 安装进运行时 → 落本地元数据 → 生成桌面快捷方式」串成一条流水线。
+ * Install / launch / uninstall orchestration layer
+ * Pipes "parse APK → install into runtime → persist local metadata → generate Desktop shortcut" into one pipeline.
  */
 const fs = require('fs');
 const os = require('os');
@@ -14,15 +14,15 @@ const { iconToIco, writeShortcut, removeShortcut, safeFileName, shortcutExt } = 
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** APK 只有 ARM 原生库（国产 App 绝大多数如此） */
+/** APK only has ARM native libraries (as do the vast majority of domestic apps) */
 function isArmOnly(meta) {
   return !!(meta && meta.abis && meta.abis.length && !meta.abis.some((a) => /x86/i.test(a)));
 }
 
 /**
- * 拆分安装包（.apks / .xapk）：解出里面的分片 APK 到纯 ASCII 临时目录。
- * 用文件版 ZIP 读取器 + 流式落盘：拆分包动辄 2GB+，整包读内存会失败。
- * 返回 { meta, files, cleanup }；meta 来自带 AndroidManifest 的 base APK。
+ * Split install packages (.apks / .xapk): unpack the split APKs inside into a pure-ASCII temp directory.
+ * Uses the file-mode ZIP reader + streaming fall-disk: split packages are often 2GB+, and reading the whole package into memory will fail.
+ * Returns { meta, files, cleanup }; meta comes from the base APK that carries the AndroidManifest.
  */
 async function parseBundle(filePath) {
   const zip = new ZipFile(filePath);
@@ -31,21 +31,21 @@ async function parseBundle(filePath) {
   const cleanup = () => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) { /* ignore */ } };
   try {
     const apkNames = zip.names().filter((n) => /\.apk$/i.test(n));
-    if (!apkNames.length) throw new Error('这个安装包里没有找到 APK 分片（可能不是 .apks/.xapk）');
+    if (!apkNames.length) throw new Error('No APK split found in this install package (possibly not .apks/.xapk)');
     fs.mkdirSync(dir, { recursive: true });
     const files = [];
     for (let i = 0; i < apkNames.length; i++) {
       const target = path.join(dir, `split-${i}.apk`);
-      // 单个分片也可能是几百 MB：流式解压，不经过 Buffer
+      // A single split can also be several hundred MB: stream the decompression, do not go through a Buffer
       // eslint-disable-next-line no-await-in-loop
       await zip.pipeTo(apkNames[i], fs.createWriteStream(target));
       files.push(target);
     }
     let meta = null;
     for (const f of files) {
-      try { meta = parseApk(f); break; } catch (_) { /* 分片里没有清单 */ }
+             try { meta = parseApk(f); break; } catch (_) { /* no manifest in this split */ }
     }
-    if (!meta) throw new Error('拆分包的 base APK 解析失败');
+    if (!meta) throw new Error('Split package base APK parse failed');
     return { meta, files, cleanup };
   } catch (e) {
     cleanup();
@@ -83,14 +83,14 @@ class Installer {
     return path.join(dir, `${safeFileName(app.label)}${shortcutExt()}`);
   }
 
-  /**
-   * 桌面 + 开始菜单两份。
-   * Windows 搜索索引的是「开始菜单 \ 程序」里的 .lnk，只放桌面会搜不到；
-   * 有些机器的桌面被 OneDrive 重定向，开始菜单这份也保证入口不丢。
-   *
-   * Linux（FydeOS）那边对应的是 freedesktop 的 .desktop：
-   * 桌面一份，应用菜单 ~/.local/share/applications 一份。
-   */
+     /**
+    * Two copies: Desktop + Start menu.
+    * Windows Search indexes the .lnk under "Start menu \ Programs"; putting it only on the Desktop would make it unfindable;
+    * on some machines the Desktop is redirected by OneDrive, so the Start menu copy also guarantees the entry is not lost.
+    *
+    * On Linux (FydeOS) the equivalent is a freedesktop .desktop:
+    * one on the Desktop, one in the application menu at ~/.local/share/applications.
+    */
   shortcutPaths(app) {
     const out = [this.shortcutPath(app)];
     if (this.ctx.startMenuDir && store.getSettings().createStartMenuShortcut !== false) {

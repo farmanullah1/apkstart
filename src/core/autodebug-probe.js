@@ -151,7 +151,7 @@ async function collect(ctx) {
     phase,
     ready,
     bootMs: bootingSince ? Date.now() - bootingSince : 0,
-    error: (status && status.error && !/(?:缺少 adb|Missing adb)/i.test(status.error)) ? status.error : '',
+    error: (status && status.error && !/(?:Missing adb|Missing adb)/i.test(status.error)) ? status.error : '',
     lastFailure: lastFailure ? { error: lastFailure.error || lastFailure.reason || '' } : null,
     locks: paths ? countLocks(paths.avdHome) : 0,
     orphans: null,

@@ -77,26 +77,26 @@ relocateUserDataIfCrowded();
 
 // The app window embeds the emulator as a child window via SetParent. Chromium defaults to
 // an upper semi-transparent layer on DirectComposition (Intermediate D3D Window /
-// WS_EX_NOREDIRECTIONBITMAP）绘制网页，这层由 DWM 在窗口级别合成，
-// 会直接盖住嵌入的子窗口——表现就是"画面全黑但安卓其实在跑"。
-// 外壳界面只有一条 38px 标题栏和启动遮罩，走软件合成完全不卡，
-// 关掉硬件加速后 Chromium 直接画进 HWND，子窗口层级才真正生效。
-// 想对比效果时可以设 APKSTART_HWACCEL=1 启动。
+// WS_EX_NOREDIRECTIONBITMAP) to render web pages, and this layer is composited by DWM at the window level,
+// which directly covers the embedded child window — the symptom is "the screen is all black but Android is actually running".
+// The shell UI has only a 38px title bar and a launch overlay, so software composition is completely unnoticeable,
+// and after hardware acceleration is turned off Chromium draws directly into the HWND, so the child window z-order finally takes effect.
+// To compare the effect, start with APKSTART_HWACCEL=1 set.
 if (process.env.APKSTART_HWACCEL !== '1') app.disableHardwareAcceleration();
 
 const APP_ROOT = path.join(__dirname, '..');
 const IS_DEV = process.argv.includes('--dev');
 
 /**
- * 轻量文件日志：打包后没有控制台，出问题时用户可以把 app.log 发过来。
- * 只记关键节点和异常，正常路径几千行也不会撑爆。
+ * Lightweight file log: after packaging there is no console, so when something goes wrong the user can send app.log over.
+ * Only key nodes and exceptions are recorded; even when the normal path runs to thousands of lines it will not blow up.
  */
 function appLog(line) {
   try {
     const dir = path.join(store.DATA_DIR, 'logs');
     const limit = store.getSettings().engine.logLimitKB || 2048;
     require('./core/logfile').append(path.join(dir, 'app.log'), `${new Date().toISOString()} ${line}`, limit);
-  } catch (_) { /* 日志失败不能影响主流程 */ }
+  } catch (_) { /* log failure must not affect the main flow */ }
 }
 process.on('uncaughtException', (e) => appLog(`UNCAUGHT ${e && (e.stack || e.message)}`));
 process.on('unhandledRejection', (e) => appLog(`REJECT ${e && (e.stack || e.message || e)}`));

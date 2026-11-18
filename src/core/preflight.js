@@ -288,7 +288,7 @@ function evaluate({ hw = {}, settings = {}, edition = 'installer' } = {}) {
       level: 'bad',
       title: '"Hypervisor Platform" is not enabled',
       detail: 'Store edition cannot modify system features automatically. Press Win+R → enter optionalfeatures → check "Windows Hypervisor Platform" (HypervisorPlatform) and "Virtual Machine Platform" → OK → Restart.',
-      action: { kind: 'elevate', id: 'virtualization', label: 'Open "Windows Features" dialog (打开「Windows 功能」窗口)' },
+      action: { kind: 'elevate', id: 'virtualization', label: 'Open "Windows Features" dialog' },
     });
   } else {
     add({
@@ -296,7 +296,7 @@ function evaluate({ hw = {}, settings = {}, edition = 'installer' } = {}) {
       level: 'bad',
       title: '"Hypervisor Platform" is not enabled',
       detail: 'Clicking the button below will automatically enable HypervisorPlatform + VirtualMachinePlatform (requires administrator confirmation), then restart your computer.',
-      action: { kind: 'elevate', id: 'virtualization', label: 'Enable with one click (一键开启，需管理员)' },
+      action: { kind: 'elevate', id: 'virtualization', label: 'Enable with one click (admin required)' },
     });
   }
 

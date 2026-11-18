@@ -1,9 +1,9 @@
 'use strict';
 /**
- * 运行时自举（Provisioning）
+ * Runtime self-bootstrapping (Provisioning)
  *
- * ApkStart 不依赖任何第三方模拟器：adb、QEMU、系统镜像全部由自己下载/校验/管理。
- * 所有运行时文件都放在 %APPDATA%\apkstart\runtime 下，保证在任何安装位置都可写。
+ * ApkStart depends on no third-party emulator: adb, QEMU, and system images are all downloaded / verified / managed by itself.
+ * All runtime files are placed under %APPDATA%\apkstart\runtime, so they are writable at any install location.
  */
 const fs = require('fs');
 const path = require('path');
@@ -26,20 +26,20 @@ const SOURCES = {
   qemuFallback: [
     'https://qemu.weilnetz.de/w64/qemu-w64-setup-20260811.exe',
   ],
-  // Google 官方 SDK 索引：emulator 与系统镜像的真实地址从这里动态解析，不写死版本号
+  // Google official SDK index: the real addresses of the emulator and system images are dynamically resolved from here, version numbers are not hard-coded
   sdkIndex: 'https://dl.google.com/android/repository/repository2-3.xml',
   sysImgIndexes: [
     'https://dl.google.com/android/repository/sys-img/android/sys-img2-3.xml',
     'https://dl.google.com/android/repository/sys-img/google_apis/sys-img2-3.xml',
   ],
   aehdFallback: 'https://dl.google.com/android/repository/aehd-windows_v2.2.zip',
-  // 兜底：索引不可用时直接用的已知版本
+  // Fallback: known versions used directly when the index is unavailable
   emulatorFallback: 'https://dl.google.com/android/repository/emulator-windows_x64-16847572.zip',
   sysimgFallback: 'https://dl.google.com/android/repository/sys-img/google_apis_playstore/x86_64-34_r14.zip',
-  // ARM 兼容镜像（Google Play 版，内置 native bridge）
+  // ARM compatibility image (Google Play edition, with built-in native bridge)
   playImgIndex: 'https://dl.google.com/android/repository/sys-img/google_apis_playstore/sys-img2-3.xml',
   playImgFallback: 'https://dl.google.com/android/repository/sys-img/google_apis_playstore/x86_64-34_r14.zip',
-  // Android-x86 9.0-r2（x86_64）：仅在用户已自备 ISO 时使用
+  // Android-x86 9.0-r2 (x86_64): only used when the user already supplies their own ISO
   iso: [
     'https://master.dl.sourceforge.net/project/android-x86/Release%209.0/android-x86_64-9.0-r2.iso?viasf=1',
     'https://nchc.dl.sourceforge.net/project/android-x86/Release%209.0/android-x86_64-9.0-r2.iso',
@@ -47,23 +47,23 @@ const SOURCES = {
     'https://downloads.sourceforge.net/project/android-x86/Release%209.0/android-x86_64-9.0-r2.iso',
   ],
   isoSizeHint: 900 * 1024 * 1024,
-  // 轻量版（不带运行时）从这里拿「运行时整包」：本项目自己的 GitHub Release。
-  // 以前轻量版要从 dl.google.com 分别下 emulator / 系统镜像，国内网络经常
-  // 卡在几十 KB/s 甚至直接 404；改成整包 + 本项目 GitHub 之后，下载源和更新源
-  // 是同一个地方，出了问题也只需要在一个地方修。
+  // Lightweight edition (without runtime) gets the "runtime full package" from here: this project's own GitHub Release.
+  // Previously the lightweight edition had to download the emulator / system image separately from dl.google.com, and the domestic network often
+  // stuck at tens of KB/s or returned 404 directly; after switching to a full package + this project's GitHub, the download source and the update source
+  // are the same place, and when something goes wrong it only needs to be fixed in one place.
   ghReleaseApi: 'https://api.github.com/repos/farmanullah1/APK-START-English/releases',
   ghReleasePage: 'https://github.com/farmanullah1/APK-START-English/releases',
-  // 同内容的 Gitee 镜像：国内直连 api.github.com 常常几十秒才响应，Gitee 一般几百毫秒。
-  // 两边都问一次，谁先给出「带运行时整包的最高版本」就用谁。
+  // Same-content Gitee mirror: domestic direct connections to api.github.com often take tens of seconds to respond, Gitee is usually a few hundred milliseconds.
+  // Ask both sides once; whichever gives back the "highest version with runtime full package" first is used.
   giteeReleaseApi: 'https://gitee.com/api/v5/repos/daily-miku/apkstart/releases',
   giteeReleasePage: 'https://gitee.com/daily-miku/apkstart/releases',
 };
 
 /**
- * SDK 索引里的 <url> 是相对路径，基准目录各不相同：
+ * The <url> inside the SDK index is a relative path, and the base directory differs for each:
  *   repository2-3.xml      → https://dl.google.com/android/repository/
  *   sys-img/android/*.xml  → https://dl.google.com/android/repository/sys-img/android/
- * 所以基准目录一律取「索引文件自身所在目录」。此前直接拿文件名当 URL 会抛 Invalid URL。
+ * So the base directory is always taken as "the directory the index file itself is in". Previously using the bare filename as a URL threw Invalid URL.
  */
 const REPO_BASE = 'https://dl.google.com/android/repository/';
 
