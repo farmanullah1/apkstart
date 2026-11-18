@@ -100,39 +100,39 @@ function appLog(line) {
 }
 process.on('uncaughtException', (e) => appLog(`UNCAUGHT ${e && (e.stack || e.message)}`));
 process.on('unhandledRejection', (e) => appLog(`REJECT ${e && (e.stack || e.message || e)}`));
-// 退出时留一行退出码：静默退出（没有崩溃栈、没有 before-quit）时，靠它区分
-// 「正常退出」「被任务管理器结束」「被系统关机带走」。
+// Leave one line of exit code on exit: when a silent exit (no crash stack, no before-quit) happens, use it to distinguish
+// "normal exit", "ended by Task Manager", "taken away by system shutdown".
 process.on('exit', (code) => appLog(`process exit code=${code}`));
 
 /**
- * 完整版（内置运行时）自动接管：
- * 发行包里 ApkStart.exe 旁边带有 runtime/（emulator + platform-tools + AEHD + ARM 兼容镜像）。
- * 首次启动（settings.json 尚不存在）时直接把 runtime.dir 指向它并开启兼容模式，
- * 用户无需任何下载与设置，开箱即用。之后用户仍可在设置里改回在线版。
+ * Full edition (built-in runtime) auto-takeover:
+ * the release package carries runtime/ beside ApkStart.exe (emulator + platform-tools + AEHD + ARM compatibility image).
+ * On first launch (when settings.json does not yet exist), directly point runtime.dir at it and enable compatibility mode,
+ * so the user needs no downloads or settings and it works out of the box. Afterwards the user can still switch back to the online edition in settings.
  */
 /**
- * 随安装包带来的运行时目录（完整版 exe 旁边的 runtime/、微软商店 MSIX 的
- * app\resources\runtime）。非空 = 模拟器和镜像都是本地的：开机动画不该提
- * 「下载」，autoDeploy 也不该联网。
+ * Bundled runtime directory shipped with the install package (runtime/ beside the full-edition exe, or
+ * app\resources\runtime for Microsoft Store MSIX).
+ * Non-empty = the emulator and images are local: the boot animation should not mention "download", and autoDeploy should not go online either.
  *
- * 必须在 bootstrapBundledRuntime() 之前声明：那个函数在模块加载时立刻执行，
- * 用 `let` 声明在它后面会撞上 TDZ（赋值直接抛错，被 catch 吞掉，标志永远为空）。
+ * Must be declared before bootstrapBundledRuntime(): that function executes immediately on module load,
+ * and a `let` declared after it will hit the TDZ (the assignment throws directly, is swallowed by catch, and the flag is always empty).
  */
 let bundledRuntimeDir = null;
 
 function bootstrapBundledRuntime() {
   try {
     const exeDir = path.dirname(process.execPath);
-    // 便携版把运行时放在 exe 旁边；electron-builder 的 portable 会把资源解到
-    // resources/ 下，进程 exe 和 resources 同级，所以几个候选位置都看一下。
+    // Portable edition puts the runtime beside the exe; electron-builder's portable unpacks resources under
+    // resources/, and the process exe and resources are at the same level, so look at several candidate locations.
     const candidates = [
       path.join(exeDir, 'runtime'),
       path.join(path.dirname(exeDir), 'runtime'),
       path.join(process.resourcesPath || '', 'runtime'),
       path.join(process.resourcesPath || '', 'app', 'runtime'),
     ];
-    // 内置运行时只要求「有 emulator + 任意一套完整系统镜像」，不写死 API 版本：
-    // 单文件发行版带的可能是更小的 AOSP 镜像，写死 API34 会让它误判成没有运行时。
+    // The built-in runtime only requires "has emulator + any set of complete system images"; the API version is not hard-coded:
+    // the single-file release may carry a smaller AOSP image, and hard-coding API34 would misjudge it as having no runtime.
     const hasImage = (dir) => {
       const root = path.join(dir, 'system-images');
       let apis = [];
@@ -145,8 +145,8 @@ function bootstrapBundledRuntime() {
           try { abis = fs.readdirSync(path.join(root, api, tag)); } catch (_) { continue; }
           for (const abi of abis) {
             const d = path.join(root, api, tag, abi);
-            // 单文件发行版里的镜像是压缩存放的（system.img.xz / .gz），解压在首次启动时做。
-            // 这里只认 system.img 会让「包里明明带了镜像」被判成没带，转而去联网下载。
+            // Images inside the single-file release are stored compressed (system.img.xz / .gz), and decompression happens at first boot.
+            // Recognizing only system.img here would judge "the package clearly carries an image" as not carried, and go online to download instead.
             const hasSys = ['system.img', 'system.img.xz', 'system.img.gz']
               .some((f) => fs.existsSync(path.join(d, f)));
             if (hasSys && fs.existsSync(path.join(d, 'kernel-ranchu'))) return true;
@@ -160,51 +160,51 @@ function bootstrapBundledRuntime() {
     if (!bundled) return;
 
     const s = store.getSettings();
-    // 旧版只在 settings.json 不存在时接管：用户先装过在线版再解压完整版，
-    // 就会一直走「缺组件」的部署向导。现在只要当前运行时目录里没有 emulator 就接管。
+    // The old version only took over when settings.json did not exist: if the user had installed the online edition first and then unpacked the full edition,
+    // it would always go through the "missing component" deployment wizard. Now it takes over whenever the current runtime directory has no emulator.
     const explicit = String(s.runtime.dir || '').trim();
     const current = explicit || path.join(store.DATA_DIR, 'runtime');
-    // 「另一个安装包的运行时」：路径是 <某目录>/resources/runtime，但不在本次 EXE 的目录树里。
-    // 这只可能来自「解压了新版便携包、settings.json 还记着旧包路径」——
-    // 实测后果很隐蔽：新包启动，实际跑的是上个版本的 emulator/镜像/快照，
-    // 用户升级后仍然卡顿、方向参数还是旧的，甚至旧包一删就彻底起不来。
-    // 用户自己挑的目录（D:\ApkStartRuntime 之类）不会被这条规则误伤。
+    // "Another install package's runtime": the path is <some dir>/resources/runtime, but not inside this EXE's directory tree.
+    // This can only come from "a new version portable package was unpacked, but settings.json still remembers the old package path" —
+    // the practical consequence is very hidden: the new package starts but actually runs the previous version's emulator/image/snapshot,
+    // so after the user upgrades it is still laggy, the orientation parameters are still the old ones, and even deleting the old package can make it fail to start entirely.
+    // A directory the user chose themselves (like D:\ApkStartRuntime) is not mis-hit by this rule.
     const looksForeignBundle = /[\\/]resources[\\/]runtime$/i.test(current)
       && !path.resolve(current).toLowerCase().startsWith(path.resolve(exeDir).toLowerCase());
     if (looksForeignBundle && fs.existsSync(path.join(bundled, 'emulator', 'emulator.exe'))) {
       store.saveSettings({ runtime: { dir: bundled } });
       bundledRuntimeDir = bundled;
-      appLog(`运行时目录指向别的安装包（${current}），改用随包内置运行时 ${bundled}`);
+      appLog(`Runtime directory points to another install package (${current}), switching to the bundled runtime ${bundled}`);
       return;
     }
     const currentExe = path.join(current, 'emulator', 'emulator.exe');
-    // 便携版被移动/升级（解压到新目录）后，settings 里记的还是旧路径：
-    // 必须只认「本次 EXE 所在目录下的 runtime」，否则会一直用旧包里的组件
-    // （实测踩过：旧包的 emulator 缺 emulator-check → 加速探测失败 → 退回 TCG 软件模拟）。
+    // After a portable edition is moved / upgraded (unpacked to a new directory), settings still records the old path:
+    // must only recognize "the runtime under this EXE's directory", otherwise it will keep using components from the old package
+    // (practical pitfall hit: the old package's emulator lacks emulator-check → acceleration probe fails → falls back to TCG software emulation).
     const sameTree = path.resolve(current).toLowerCase()
       .startsWith(path.resolve(exeDir).toLowerCase());
     const currentOk = fs.existsSync(currentExe) && sameTree;
-    // 用户自己挑的目录（不在 EXE 目录树里，例如 D:\ApkStartRuntime 或别的盘）
-    // 一律尊重：他可能就是为了省 C 盘空间、或让多个便携版共用一个运行时。
-    // 旧版在这里无条件覆盖成 exe 旁边的 bundled runtime，表现就是
-    // 「设置里改了运行时数据目录，结果还是下到旧目录 / AppData」（issue #23）。
+    // A directory the user chose themselves (not in the EXE directory tree, e.g. D:\ApkStartRuntime or another drive)
+    // is always respected: they may be doing it to save C: space, or to let multiple portable editions share one runtime.
+    // The old version unconditionally overwrote it to the bundled runtime beside the exe here, with the symptom being
+    // "changed the runtime data directory in settings, but it still downloaded to the old directory / AppData" (issue #23).
     if (explicit && !sameTree && fs.existsSync(currentExe)) {
       if (s.engine.gpuMode === 'swiftshader_indirect' || s.engine.memoryMB === 4096) {
         store.saveSettings({ engine: { gpuMode: 'auto', autoMemory: true, memoryMB: 0, cores: 0 } });
       }
       return;
     }
-    // 已有可用运行时（含在线版）就尊重它：AVD 用户数据就在该目录下，不能悄悄搬走
+    // An available runtime (including the online edition) is respected: the AVD user data lives under that directory, and cannot be silently moved
     if (currentOk) {
-      // 运行时就在 EXE 目录树里 = 它是安装包自带的（完整版 / 商店版）
+      // The runtime is inside the EXE directory tree = it is shipped with the install package (full edition / Store edition)
       bundledRuntimeDir = current;
-      // 但仍把自动参数打开，旧配置里的硬编码 4G/4核/弃用 GPU 模式不能继续用
+      // But still turn on the automatic parameters; the hard-coded 4G/4 cores/deprecated GPU mode in the old configuration must not continue to be used
       if (s.engine.gpuMode === 'swiftshader_indirect' || s.engine.memoryMB === 4096) {
         store.saveSettings({ engine: { gpuMode: 'auto', autoMemory: true, memoryMB: 0, cores: 0 } });
       }
       return;
     }
-    // 包里带的是 Google Play 镜像才开兼容模式；AOSP 镜像带的是原生 x86_64 库
+    // Only when the package carries a Google Play image is compatibility mode turned on; an AOSP image carries native x86_64 libraries
     let playBundled = false;
     try {
       const root = path.join(bundled, 'system-images');
@@ -213,25 +213,25 @@ function bootstrapBundledRuntime() {
           if (/playstore|google_apis/i.test(tag)) playBundled = true;
         }
       }
-    } catch (_) { /* 忽略 */ }
+    } catch (_) { /* ignore */ }
     store.saveSettings({
       runtime: { dir: bundled, compatImage: playBundled },
       engine: { gpuMode: 'auto', autoMemory: true },
     });
     bundledRuntimeDir = bundled;
-  } catch (_) { /* 接管失败不阻塞启动，走在线引导 */ }
+  } catch (_) { /* takeover failure must not block startup; fall through to online guidance */ }
 }
 bootstrapBundledRuntime();
 
-// 冒烟截图等自动化场景下跳过注册表探测（避免依赖 reg.exe）
+// Skip registry probe in automated scenarios such as smoke screenshots (avoid depending on reg.exe)
 const NO_SHELL_PROBE = process.argv.includes('--smoke') || process.env.APKSTART_NO_SHELL_PROBE === '1';
 const ICON_PNG = loadBrandIcon().toPNG();
 
 let mainWindow = null;
 let tray = null;
 let runtime = null;
-// 「哪些窗口算我们的」由 whenReady 里赋值（见 agentScope）。放模块级是因为
-// runLaunch / 预热定时器都早于那段代码定义，闭包里的 const 在它们的作用域外看不到。
+// "Which windows count as ours" is assigned in whenReady (see agentScope). Placed at module level because
+// runLaunch / the preheat timer are both defined before that code, and a const inside a closure is not visible outside their scope.
 let armAgent = async () => ({ ok: false });
 let installer = null;
 let sharer = null;
@@ -245,22 +245,22 @@ let updateBusy = false;
 let updateInfo = null;
 
 /**
- * 开机动画窗口的状态放在模块级。
+ * Boot animation window state is placed at module level.
  *
- * 之前是写在 app.whenReady() 的回调里（const splashWin/splashDone），而
- * runLaunch() / autoDeploy() 定义在更外层作用域 —— 它们里的
- * `typeof splashDone === 'function'` 永远是 false，于是：
- *   - 进度文字永远不更新（一直显示「正在准备…」）；
- *   - 启动成功后 splash 永远不关闭，480x360 的 alwaysOnTop 窗口就钉在
- *     屏幕中央、压在安卓画面上面。
- * 这就是用户反馈的「打开应用出现多个窗口」：管理窗口/splash/应用窗口同时在场。
- * 提升到模块级之后这些调用才真正生效。
+ * Previously it was written inside the app.whenReady() callback (const splashWin/splashDone), while
+ * runLaunch() / autoDeploy() are defined in a wider outer scope — inside them
+ * `typeof splashDone === 'function'` is always false, so:
+ *   - the progress text is never updated (always showing "Preparing…");
+ *   - after a successful launch the splash is never closed, and the 480x360 alwaysOnTop window is pinned
+ *     to the center of the screen, pressing on top of the Android picture.
+ * This is what users reported as "multiple windows appear when opening an app": the management window / splash / app window were all present at once.
+ * After lifting it to module level these calls finally take effect.
  */
 let splashWin = null;
 let splashProgress = () => {};
 let splashDone = () => {};
 
-// ---------------- 命令行解析 ----------------
+// ---------------- Command-line parsing ----------------
 
 function parseArgs(argv) {
   const args = argv.slice(IS_DEV ? 2 : 1).filter((a) => !a.startsWith('--allow-file-access'));
@@ -268,7 +268,7 @@ function parseArgs(argv) {
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--launch') {
-      // Electron 会往 argv 里塞自己的开关和 app 路径，只认形如 com.foo.bar 的包名
+      // Electron stuffs its own switches and app path into argv; only recognizes a package name shaped like com.foo.bar
       const v = args.slice(i + 1).find((x) => x && /^[a-zA-Z][\w]*(\.[\w]+)+$/.test(x));
       if (v) { out.launch = v; out.silent = true; }
     } else if (a === '--silent' || a === '--autostart') out.silent = true;
@@ -277,7 +277,7 @@ function parseArgs(argv) {
   return out;
 }
 
-/** Chromium 能解 WebP，nativeImage 不能；用隐藏窗口把 APK 图标转成 PNG */
+/** Chromium can decode WebP, nativeImage cannot; use a hidden window to turn the APK icon into PNG */
 let decodeWindow = null;
 async function decodeIcon(raw) {
   if (!decodeWindow || decodeWindow.isDestroyed()) {
@@ -298,54 +298,54 @@ async function decodeIcon(raw) {
   return Buffer.from(String(url).split(',')[1] || '', 'base64');
 }
 
-/** 开机自启：默认开启，不需要用户去设置里勾 */
+/** Auto-start on boot: on by default, no need for the user to check it in settings */
 function applyAutoStart() {
-  if (!app.isPackaged) return; // 开发时不写注册表
+  if (!app.isPackaged) return; // Do not write to the registry during development
   const on = !!store.getSettings().autoStart;
   try {
-    // 必须显式给 name，否则注册表里的启动项会叫 "electron.app.Electron"
+    // Must explicitly give a name, otherwise the startup item in the registry is called "electron.app.Electron"
     app.setLoginItemSettings({
       openAtLogin: on,
       name: 'ApkStart',
       path: process.execPath,
       args: ['--autostart'],
     });
-    // 清掉旧版本（没传 name）留下的那条，避免重复启动
+    // Clear the entry left by old versions (which did not pass a name), to avoid duplicate startup
     app.setLoginItemSettings({ openAtLogin: false, name: 'electron.app.Electron' });
-  } catch (_) { /* 组策略禁止时忽略 */ }
+  } catch (_) { /* ignore when Group Policy forbids it */ }
 }
 
-// ---------------- 显示模式：全屏自适应 / 竖屏窗口可调 ----------------
+// ---------------- Display mode: fullscreen auto-fit / portrait window adjustable ----------------
 
 function displaySettings() { return store.getSettings().display || {}; }
 
 /**
- * Windows 任务栏 / 通知的身份。
+ * Identity for the Windows taskbar / notifications.
  *
- * 为什么要按应用切换：每个安卓应用的桌面快捷方式都写了自己的 AUMID
- * （`farmanullah1.ApkStart.<包名>`，见 installer.createShortcut），而且快捷方式的
- * 图标是**那个应用自己的图标**。Windows 只有在「运行进程的 AUMID == 快捷方式的
- * AUMID」时，才会把正在运行的窗口和任务栏固定项合并成同一个按钮、并沿用快捷方式
- * 的图标。身份对不上就会出现「固定项是应用图标、任务栏上却另起一个 ApkStart 图标」。
+ * Why switch by app: each Android app's Desktop shortcut writes its own AUMID
+ * (`farmanullah1.ApkStart.<package name>`, see installer.createShortcut), and the shortcut's
+ * icon is **that app's own icon**. Windows only merges the running window and the taskbar pinned item into the same button, and reuses the shortcut's
+ * icon, when "the AUMID of the running process == the AUMID of the shortcut".
+ * When the identities do not match, you get "the pinned item is the app icon, but a separate ApkStart icon is started on the taskbar".
  *
- * setAppUserModelId 官方建议只调一次；实践中对**之后创建**的窗口有效（VS Code 这类
- * 一个进程跑多个应用的壳层就是这么做的）。这里只在开窗口之前切，且全程 try/catch ——
- * 万一某个 Windows 版本忽略它，也只是退化成按 exe 图标显示，不影响功能。
+ * setAppUserModelId is officially recommended to be called only once; in practice it is effective for windows **created afterwards** (this is exactly how shells like
+ * VS Code, which run multiple apps in one process, do it). Here it is switched only before opening a window, and the whole thing is wrapped in try/catch —
+ * even if some Windows version ignores it, it only degrades to displaying by the exe icon, with no effect on functionality.
  */
 const APP_AUMID = 'farmanullah1.ApkStart';
 function setAumid(id) {
-  try { app.setAppUserModelId(String(id || APP_AUMID).slice(0, 128)); } catch (_) { /* 非 Windows 或旧版本忽略 */ }
+  try { app.setAppUserModelId(String(id || APP_AUMID).slice(0, 128)); } catch (_) { /* non-Windows or old version ignores it */ }
 }
 
 /**
- * 这个应用应该用横屏面板还是竖屏面板？
+ * Should this app use a landscape panel or a portrait panel?
  *
- * 模拟器的物理面板（hw.lcd）是画面的「真实形状」，Android 不会为了
- * 一个跟面板方向不一致的应用去旋转整块面板 —— 它只会给应用一个信箱式的
- * 中间窄条，两侧留黑。所以「铺满窗口」的唯一出路是：面板方向 = 应用方向。
+ * The emulator's physical panel (hw.lcd) is the "real shape" of the picture; Android will not
+ * rotate the whole panel for an app whose direction does not match the panel — it only gives the app a mailbox-shaped
+ * narrow strip in the middle, leaving black on both sides. So the only way to "fill the window" is: panel direction = app direction.
  *
- * 优先级：设置里的强制模式 > 单个应用的手动覆盖 > APK 清单解析出的天然方向
- * > 当前面板方向（应用声明跟随重力时不折腾重启）。
+ * Priority: forced mode in settings > manual override of a single app > the natural direction parsed from the APK manifest
+ * > current panel direction (when the app declares that it follows gravity, do not bother restarting).
  */
 function wantLandscapeFor(pkg) {
   const ds = displaySettings();
@@ -359,13 +359,13 @@ function wantLandscapeFor(pkg) {
 }
 
 /**
- * 旋转当前应用的统一入口：算一次目标方向 → 写 per-app 覆盖 → 重启面板。
+ * Unified entry point for rotating the current app: compute a target direction once → write per-app override → restart the panel.
  *
- * 以前标题栏按钮、托盘菜单、Ctrl+R 各算各的「下一个方向」，基准还不一致
- * （一个看 display.landscape，一个看 appWin.state.landscape）。点一下旋转，
- * 写进 apps.json 的覆盖值和真正切过去的面板方向可能正好相反，下次启动
- * wantLandscapeFor 又把它翻回去 —— 这就是「红果怎么都横不过来」的根因。
- * 现在一律以 wantLandscapeFor(pkg) 为唯一基准，取反后同时写覆盖 + 切面板。
+ * Previously the title bar button, the tray menu, and Ctrl+R each computed their own "next direction", with inconsistent baselines
+ * (one looked at display.landscape, the other at appWin.state.landscape). After one click of rotate,
+ * the override value written into apps.json and the panel direction actually switched could be exactly opposite, and on the next launch
+ * wantLandscapeFor flipped it back — this is the root cause of "Hongguo just cannot go landscape no matter what".
+ * Now everything uniformly uses wantLandscapeFor(pkg) as the sole baseline, flips it, and writes the override + switches the panel at the same time.
  */
 async function rotateCurrentApp() {
   const pkg = appWin && appWin.pkg;
@@ -375,8 +375,8 @@ async function rotateCurrentApp() {
     store.upsertApp({ package: pkg, orientationOverride: orientation.overrideValue(next) });
     appLog(`orientation override ${pkg} = ${orientation.overrideValue(next)}`);
   }
-  // appWin.rotate 负责更新标题栏状态与贴合窗口；传入统一的 next 作为目标方向，
-  // 由它内部调用 restartForOrientation 完成面板切换（只重启一次）。
+  // appWin.rotate is responsible for updating the title bar state and fitting the window; pass the unified next as the target direction,
+  // and it internally calls restartForOrientation to complete the panel switch (restarting only once).
   if (appWin && appWin.isOpen) {
     await appWin.rotate((want) => restartForOrientation(want, { reloadApp: false }), next).catch(() => {});
   } else {
@@ -386,12 +386,12 @@ async function rotateCurrentApp() {
 }
 
 /**
- * 运行期「学习」应用真正的方向。
+ * "Learn" the app's real direction at runtime.
  *
- * 离线解析 AndroidManifest 对红果这类应用够用（几十个 Activity 写死 portrait），
- * 但有的应用全部声明成 sensor / fullSensor，清单里看不出倾向。这种就等它真的
- * 跑起来后问安卓自己要了一次（ActivityRecord 的 requestedOrientation 是系统
- * 按应用实际请求算出来的最终值）。学到之后写进 apps.json，下次启动就能选对面板。
+ * Offline parsing of AndroidManifest is enough for apps like Hongguo (dozens of Activities written as portrait),
+ * but some apps declare everything as sensor / fullSensor, and their tendency cannot be seen from the manifest. For those, wait until
+ * it really runs, then ask Android itself once (ActivityRecord's requestedOrientation is the final value
+ * the system computes from the app's actual request). After learning it, write it into apps.json, and the next launch can pick the right panel.
  */
 async function learnAppOrientation(pkg) {
   const app = store.getApp(pkg);
@@ -421,10 +421,10 @@ let currentAppPkg = null;
 let wheelRouter = null;
 const deviceSize = { value: null };
 
-/** 滚轮注入需要知道 Android 侧分辨率；缓存一次，转屏/重启运行时后失效 */
+/** Wheel injection needs to know the Android-side resolution; cache once, invalidated after rotation / runtime restart */
 async function getDeviceSize() {
   if (deviceSize.value) return deviceSize.value;
-  try { deviceSize.value = await runtime.client().wmSize(); } catch (_) { /* 运行时还没起来 */ }
+  try { deviceSize.value = await runtime.client().wmSize(); } catch (_) { /* runtime not up yet */ }
   if (!deviceSize.value || !deviceSize.value.width || !deviceSize.value.height) {
     const p = portraitSize();
     deviceSize.value = { width: p.w, height: p.h };
@@ -437,45 +437,45 @@ function portraitSize() {
   return display.portraitSize(d.portrait || '540x960');
 }
 
-/** 设置页改动鼠标键位后，立刻按当前窗口焦点同步一次钩子配置 */
+/** After the settings page changes the mouse key mapping, immediately synchronize the hook configuration once against the current window focus */
 function refreshPointerMapping() {
   if (appWin && appWin.isOpen) appWin.refreshPointer();
   else if (winAgent && winAgent.hooked) winAgent.setHook(false).catch(() => {});
 }
 
 /**
- * 旋转 = 换物理面板尺寸并重启模拟器。
+ * Rotate = change the physical panel size and restart the emulator.
  *
- * 这是唯一能得到「正立 + 铺满」横屏的方式（三种错路都踩过）：
- *   - wm size：只改逻辑分辨率，物理 LCD 仍是竖的 -> 画面躺倒 90°、只占左上角一条；
- *   - wm density：framebuffer 尺寸不变 -> 画面不铺满，最大化后右侧一大片空白；
- *   - adb emu rotate：只转画面内容，系统里还是竖屏。
- * 只有把 hw.lcd.width/height 换成横屏并重启，Qt 才会按横屏面板开窗口、画面正立铺满。
+ * This is the only way to get a "upright + full" landscape (the three wrong paths were all hit):
+ *   - wm size: only changes the logical resolution, the physical LCD is still portrait → the picture lies down 90°, occupying only a strip in the upper left;
+ *   - wm density: framebuffer size unchanged → the picture does not fill, and after maximizing there is a large blank area on the right;
+ *   - adb emu rotate: only rotates the picture content; inside the system it is still portrait.
+ * Only by swapping hw.lcd.width/height to landscape and restarting will Qt open the window according to the landscape panel, with the picture upright and full.
  */
 async function restartForOrientation(landscape, { reloadApp = true } = {}) {
   if (!appWin || !appWin.isOpen) return false;
   const pkg = appWin.pkg;
   store.saveSettings({ display: { landscape: !!landscape } });
-  send('runtime:log', landscape ? '切换到横屏：正在重启安卓运行时…' : '切换回竖屏：正在重启安卓运行时…');
+  send('runtime:log', landscape ? 'Switching to landscape: restarting the Android runtime…' : 'Switching back to portrait: restarting the Android runtime…');
   try {
-    // 重启会把模拟器窗口销毁、再重新建一个。这段时间屏幕上不能空着，
-    // 独立窗口模式下先把带提示的壳窗口亮出来（新窗口接上后 openDetached 会收掉）。
+    // A restart destroys the emulator window and then rebuilds one. During this time the screen must not be empty,
+    // so in standalone-window mode first show the shell window with a prompt (after the new window attaches, openDetached will tear it down).
     try {
       appWin.showWaiting(landscape
-        ? '正在切换到横屏（重启安卓环境，约 40 秒，只需一次）…'
-        : '正在切换回竖屏（重启安卓环境，约 40 秒，只需一次）…');
+        ? 'Switching to landscape (restarting the Android environment, about 40 seconds, only once)…'
+        : 'Switching back to portrait (restarting the Android environment, about 40 seconds, only once)…');
     } catch (_) { /* 窗口可能刚关 */ }
     // 先把嵌入窗口摘下来，避免重启过程中在桌面留下黑窗
     try { await appWin.agent.detach(); } catch (_) { /* ignore */ }
     await runtime.stop({ graceful: false }).catch(() => {});
     /**
-     * 等 adb 侧真正看不到这台设备，再重新拉起。
+     * Wait until adb truly can no longer see this device, then re-launch.
      *
-     * 模拟器进程退出和 adb 侧状态更新之间有几百毫秒的空档：这段时间
-     * `adb -s emulator-5554 get-state` 仍然回 "device"。紧接着调 ensure()，
-     * 它会走 isOnline() 直接判定「运行时就绪（reused）」并秒返回，
-     * 但后面每一条 adb 命令都是 `device 'emulator-5554' not found` ——
-     * 换面板方向时整条启动链就这么崩了（实测 0.2 秒"就绪"，然后全部失败）。
+     * There is a gap of a few hundred milliseconds between the emulator process exiting and the adb-side status updating: during this time
+     * `adb -s emulator-5554 get-state` still returns "device". Calling ensure() immediately after,
+     * it goes through isOnline() and directly judges "runtime ready (reused)" and returns in an instant,
+     * but every adb command afterward is `device 'emulator-5554' not found` —
+     * the whole launch chain collapses like this when switching panel direction (practically measured 0.2 seconds "ready", then all fail).
      */
     try {
       const c = runtime.client();
@@ -492,10 +492,10 @@ async function restartForOrientation(landscape, { reloadApp = true } = {}) {
       onLog: (m) => { send('runtime:log', m); appLog(`  rt ${m}`); },
     });
     if (!rt || !rt.ok) { appWin.waitingForRestart = false; return false; }
-    // 这里**不再**等网络。刚重启的模拟器 WiFi 要 20 秒以上才就绪，而调用方
-    // （launcher 的 beforeStart → installer.launch）紧接着还会走一遍 waitForNetwork，
-    // 两段等待纯属叠加：实测切换方向时第一段白等满 25 秒超时，第二段又等 23 秒，
-    // 一次换向从 100 秒拖到 125 秒。让 launch 流程统一等一次就够。
+    // **No longer** wait for the network here. Just-restarted emulator WiFi takes 20+ seconds to be ready, and the caller
+    // (launcher's beforeStart → installer.launch) will immediately go through waitForNetwork once more,
+    // and the two waits are pure stacking: practically measured, when switching direction the first stage waits the full 25 seconds for timeout, and the second stage waits another 23 seconds,
+    // dragging one direction switch from 100 seconds to 125 seconds. Having the launch flow wait once uniformly is enough.
     if (reloadApp && pkg) {
       const app = store.getApp(pkg);
       if (app) {
@@ -516,28 +516,28 @@ async function restartForOrientation(landscape, { reloadApp = true } = {}) {
 }
 
 /**
- * 把安卓画面接到用户眼前。两种模式：
- *   - 原生窗口（默认）：让模拟器开自己的窗口，方向、缩放、输入都由它自己管，
- *     不存在嵌入方式固有的黑边、坐标错位、铺不满、掉帧；
- *   - 嵌入：SetParent 进我们自己的窗口，观感统一、标题栏带旋转按钮。
- *   由设置 display.windowEmbed 控制（true 才是嵌入）。
+ * Bring the Android picture to the user's eyes. Two modes:
+ *   - Native window (default): let the emulator open its own window; direction, scaling, and input are all managed by itself,
+ *     so there is no inherent black border, coordinate misalignment, incomplete fill, or frame drop from the embedding method;
+ *   - Embed: SetParent into our own window, unified appearance, and the title bar carries a rotate button.
+ *   Controlled by the setting display.windowEmbed (true is embed).
  */
 async function attachAppWindow() {
   if (!appWin) return false;
   const embedMode = displaySettings().windowEmbed === true;
   if (!embedMode) {
     /**
-     * 原生窗口接管要重试。
+     * Native window takeover needs retries.
      *
-     * 模拟器窗口出现在系统里的时间点，和 `am start` 返回的时间点并不同步：
-     * 冷启动、快照恢复、刚换过面板方向之后，Qt 那扇窗口往往要晚几百毫秒到
-     * 一两秒才可见。以前只试一次，失败后什么都不做 —— 壳窗口那张「正在启动」
-     * 的美化等待页就留在屏幕上，用户看到的就是「启动的还是你们那个美化窗口」，
-     * 而且再也接不上画面（日志里的 attach failed (detached): unknown）。
+     * The moment the emulator window appears in the system is not synchronous with the moment `am start` returns:
+     * after a cold boot, snapshot restore, or just after switching panel direction, Qt's window often takes a few hundred milliseconds to
+     * one or two seconds to become visible. Previously only one try was made, and after failure nothing was done — the shell window's
+     * beautified "starting" wait page stayed on the screen, and what the user saw was "the startup is still your beautified window",
+     * and the picture could never be attached again (attach failed (detached): unknown in the logs).
      */
     for (let i = 0; i < 4; i += 1) {
       if (!appWin.isOpen) {
-        appLog(`attach detached: 壳窗口已关闭（第 ${i + 1} 轮）`);
+        appLog(`attach detached: shell window already closed (round ${i + 1})`);
         return false;
       }
       // eslint-disable-next-line no-await-in-loop
@@ -546,19 +546,19 @@ async function attachAppWindow() {
         return false;
       });
       if (ok) return true;
-      appLog(`attach detached #${i + 1} 失败: ${appWin.lastEmbedError || 'unknown'}`);
+      appLog(`attach detached #${i + 1} failed: ${appWin.lastEmbedError || 'unknown'}`);
       // 逐轮拉长等待：窗口代理的 show/layout 也可能正好撞上窗口重建
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, 400 + i * 600));
     }
-    // 四轮都没露出来（远程桌面 / 显卡驱动异常 / 模拟器被 --no-window 起过）：
-    // 与其留一屏黑或者一张永远转圈的等待页，不如先用嵌入把画面接上，
-    // 并明确告诉用户这是兜底 —— 下次启动仍然优先原生窗口。
-    appLog('attach detached: 重试全部失败，临时退回嵌入模式');
+    // All four rounds failed to show up (remote desktop / GPU driver anomaly / emulator started with --no-window):
+    // rather than leaving a black screen or a perpetually spinning wait page, use embed to attach the picture first,
+    // and clearly tell the user this is a fallback — the next launch still prefers the native window.
+    appLog('attach detached: all retries failed, temporarily falling back to embed mode');
     const fallback = await appWin.embed().catch(() => false);
     if (fallback) {
       try {
-        send('toast', { type: 'info', message: '模拟器原生窗口没能显示，本次临时用内置窗口接管画面' });
+        send('toast', { type: 'info', message: 'The emulator native window could not be displayed; this time the built-in window temporarily takes over the picture' });
       } catch (_) { /* 主窗口可能已关闭 */ }
     }
     return fallback;
@@ -572,25 +572,25 @@ async function attachAppWindow() {
 }
 
 /**
- * 打开（或复用）那个「一个应用一个干净窗口」。
+ * Open (or reuse) that "one app, one clean window".
  *
- * 切换应用时必须先把**上一个**应用真正关掉，否则会出现用户反馈的
- * 「点开第二个应用，第一个没响应 / ANR」：
- *   - appWin.open() 里对旧窗口用的是 close({keepApp:true})，它只收窗口、
- *     **不调 endApp**，于是旧应用进程既没被 force-stop，也留在
- *     runtime._activeApps 里；
- *   - 新应用 beginApp 时 `first = _activeApps.size === 0` 因此判断错误，
- *     优先级 / 快照逻辑全乱；
- *   - 两个应用同时抢同一个模拟器的前台 → 旧的卡死弹 ANR。
- * 所以这里先 await 把旧应用停干净，再开新窗口。
+ * When switching apps, the **previous** app must first be truly closed, otherwise the user-reported
+ * "open a second app, the first one does not respond / ANR" appears:
+ *   - appWin.open() uses close({keepApp:true}) on the old window, which only tears down the window,
+ *     **does not call endApp**, so the old app process is neither force-stopped nor left in
+ *     runtime._activeApps;
+ *   - when the new app beginApp runs, `first = _activeApps.size === 0` therefore judges incorrectly,
+ *     and the priority / snapshot logic is all scrambled;
+ *   - two apps simultaneously fight for the same emulator's foreground → the old one freezes and pops an ANR.
+ * So here await stopping the old app cleanly first, then open the new window.
  */
 async function openAppWindow(pkg, tip) {
-  // 只有「切到另一个应用」才需要关旧的；重复点同一个走复用路径，不打断。
+  // Only "switching to another app" needs to close the old one; clicking the same one repeatedly takes the reuse path, no interruption.
   if (currentAppPkg && currentAppPkg !== pkg && appWin && appWin.isOpen) {
     const prev = currentAppPkg;
     try {
-      // 先摘画面再停进程：独立窗口模式下模拟器原生窗口是用户正看着的那扇，
-      // park 把它藏好，避免销毁宿主时在桌面留下黑窗。
+      // Detach the picture first, then stop the process: in standalone-window mode the emulator native window is the one the user is looking at,
+      // park hides it, avoiding leaving a black window on the desktop when the host is destroyed.
       await appWin.close({ keepApp: true });
       await runtime.endApp(prev, { onIdle: onContainerActive }).catch(() => {});
       appLog(`switch: closed ${prev} before launching ${pkg}`);
@@ -598,19 +598,19 @@ async function openAppWindow(pkg, tip) {
       appLog(`switch close ${prev} failed: ${e && e.message}`);
     }
   } else if (currentAppPkg && currentAppPkg !== pkg) {
-    // 窗口已经不在了，但进程可能还挂在 _activeApps 里，同样要收尾。
+    // The window is already gone, but the process may still be hanging in _activeApps, and needs the same cleanup.
     await runtime.endApp(currentAppPkg).catch(() => {});
   }
   const rec = store.getApp(pkg);
   const land = wantLandscapeFor(pkg);
   const p0 = portraitSize();
   const detached = displaySettings().windowEmbed === false;
-  // 面板方向和应用方向不一致 → beforeStart 会重启一次运行时（约 40 秒）。
+  // Panel direction and app direction do not match → beforeStart will restart the runtime once (about 40 seconds).
   const willRestart = land !== !!displaySettings().landscape;
-  // 独立窗口模式下壳窗口平时不显示，但**等待期间**必须给用户一个可见的交代：
-  //   - 有开机动画（首次启动）时由动画负责；
-  //   - 没有动画（切换应用）时必须把壳窗口显示出来，否则桌面上 40 秒什么都没有，
-  //     用户会以为程序崩了。
+  // In standalone-window mode the shell window is usually not shown, but **during the wait** a visible explanation must be given to the user:
+  //   - when there is a boot animation (first launch), the animation is responsible;
+  //   - when there is no animation (switching apps), the shell window must be shown, otherwise there is nothing on the desktop for 40 seconds,
+  //     and the user will think the program crashed.
   const splashVisible = !!(splashWin && !splashWin.isDestroyed());
   const label = (rec && rec.label) || pkg;
   // 先把这个应用的身份切过去，再开窗口：任务栏才会沿用快捷方式里那个应用的图标
@@ -631,10 +631,10 @@ async function openAppWindow(pkg, tip) {
   appWin.setIcon(rec && rec.icoPath);
   // 打开时按已保存的方向初始化（物理面板方向在 doctor.lcdFor 里决定）
   appWin.setState({
-    // 需要重启换面板时，直接把「为什么慢」写在提示里，别让用户对着 40 秒空屏猜
+    // When a restart is needed to switch the panel, write "why it is slow" directly in the prompt, so the user does not guess at a 40-second blank screen
     tip: willRestart
-      ? `正在为《${String(label).slice(0, 20)}》切换到${land ? '横屏' : '竖屏'}（重启安卓环境，约 40 秒，只需一次）…`
-      : (tip || '正在启动安卓运行时…'),
+      ? `Switching ${String(label).slice(0, 20)} to ${land ? 'landscape' : 'portrait'} (restarting the Android environment, about 40 seconds, only once)…`
+      : (tip || 'Starting the Android runtime…'),
     ready: false,
     landscape: land,
   });
@@ -645,35 +645,35 @@ async function toggleDisplayMode() {
   const next = store.saveSettings({
     display: { mode: displaySettings().mode === 'fullscreen' ? 'window' : 'fullscreen' },
   });
-  const full = next.display.mode === 'fullscreen';
+      const full = next.display.mode === 'fullscreen';
   if (appWin && appWin.isOpen) {
-    // 独立窗口模式下画面在模拟器原生窗口里，maximize 壳窗口毫无视觉效果，
-    // 走 appWin.toggleMaximize 才会把模拟器窗口铺满/还原。
+    // In standalone-window mode the picture is inside the emulator native window; maximizing the shell window has no visual effect,
+    // so appWin.toggleMaximize is what fills / restores the emulator window.
     if (displaySettings().windowEmbed === false) {
       appWin.toggleMaximize().catch(() => {});
     } else if (full) appWin.win.maximize();
     else appWin.win.unmaximize();
     appWin.scheduleFit(6);
-    // 注意：这里**不再**顺手把面板方向也切了。
-    // 全屏和横屏是两件事：面板方向现在由「应用自己声明的方向」决定
-    // （见 wantLandscapeFor）。以前 F11 会连带重启运行时切横屏，结果竖屏应用
-    // 被塞进横屏面板 → 两侧黑边 → 用户以为「全屏没生效」。
+    // Note: **no longer** opportunistically switch the panel direction here too.
+    // Fullscreen and landscape are two different things: the panel direction is now decided by "the direction the app itself declares"
+    // (see wantLandscapeFor). Previously F11 would also restart the runtime to switch to landscape, with the result that a portrait app
+    // was stuffed into a landscape panel → black borders on both sides → the user thought "fullscreen did not take effect".
   }
   return next.display.mode;
 }
 
-/** 首次运行把 adb / emulator / 系统镜像一次装完，不再分 1~5 步 */
+/** On first run, install adb / emulator / system image all at once, no longer split into steps 1~5 */
 let deploying = false;
 async function autoDeploy({ force = false } = {}) {
   if (deploying || !store.getSettings().autoDeploy) return { ok: false, error: 'skipped' };
-  // 下载失败冷却：以前只要 checkEnv() 还缺组件，每次启动 ApkStart 都会重新
-  // 拉一遍 1.5GB 的运行时包，用户看到的就是「一直重复下载」。
-  // 失败后记一个时间戳，30 分钟内不再自动重试；用户手动点「一键部署」时
-  // force=true 可以立刻重试。成功或人为强制都清掉冷却。
+  // Download failure cooldown: previously as long as checkEnv() still lacked components, every time ApkStart started it would re-pull
+  // the 1.5GB runtime package once, and what the user saw was "keep repeating the download".
+  // After a failure record a timestamp; do not auto-retry within 30 minutes; when the user manually clicks "one-click deploy"
+  // force=true allows an immediate retry. Success or manual force both clear the cooldown.
   const COOLDOWN_MS = 30 * 60 * 1000;
   const lastFail = Number(store.getSettings().runtime.deployFailedAt || 0);
   if (!force && lastFail && Date.now() - lastFail < COOLDOWN_MS) {
-    appLog(`autoDeploy 冷却中（上次失败于 ${new Date(lastFail).toISOString()}），跳过自动重试`);
+    appLog(`autoDeploy in cooldown (last failed at ${new Date(lastFail).toISOString()}), skipping auto retry`);
     return { ok: false, error: 'cooldown', cooldown: true, until: lastFail + COOLDOWN_MS };
   }
   deploying = true;
@@ -686,52 +686,52 @@ async function autoDeploy({ force = false } = {}) {
   try {
     const env = await runtime.provisioner.checkEnv();
     const needEngine = !env.emulator.ok || !env.sysimg.ok;
-    // 随包自带运行时（完整版安装包 / 微软商店版）：**一律不联网**。
-    // 镜像已经在包里（压缩形态），第一次开机由 engine.ensure() 就地展开；
-    // 这里再下一套 1.5GB 纯属浪费，也正是用户抱怨的「装完还在下镜像」。
+    // Runtime shipped with the package (full install package / Microsoft Store edition): **never go online**.
+    // The image is already in the package (compressed form), and the first boot expands it locally via engine.ensure();
+    // pulling another 1.5GB here is pure waste, and is exactly what users complained about as "after installing it is still downloading the image".
     if (bundledRuntimeDir && env.adb.ok && env.emulator.ok && env.sysimg.ok) {
-      appLog(`autoDeploy 跳过：运行时随包内置（${bundledRuntimeDir}），无需联网`
-        + (env.needsExtract ? '，镜像将在首次启动时本地展开' : ''));
-      // 这是**成功**，不是失败。以前这里直接 return 没置 succeeded，finally 就按
-      // 失败写了 deployFailedAt —— 随包内置运行时的机器每 30 分钟被记一次
-      // 「部署失败」，日志里那句「上次失败于 …」其实来自一次正常的跳过，
-      // 用户看到设置页的「重试部署」也会一头雾水。
+      appLog(`autoDeploy skipped: runtime is bundled with the package (${bundledRuntimeDir}), no network needed`
+        + (env.needsExtract ? ', the image will be expanded locally at first boot' : ''));
+      // This is **success**, not failure. Previously returning directly here without setting succeeded caused finally to
+      // write deployFailedAt as a failure — machines with a bundled runtime were recorded as "deploy failed" every 30 minutes,
+      // and the log line "last failed at …" actually came from a normal skip,
+      // so the user would be baffled by "retry deploy" on the settings page.
       succeeded = true;
       return { ok: true, source: 'bundled', needsExtract: !!env.needsExtract };
     }
     if (bundledRuntimeDir && !env.emulator.ok) {
-      appLog(`autoDeploy 跳过联网下载：运行时目录随包内置（${bundledRuntimeDir}），交给诊断流程`);
-      // 交回诊断流程同样不是「下载失败」，别进冷却。
+      appLog(`autoDeploy skipped network download: runtime directory is bundled with the package (${bundledRuntimeDir}), handed to the diagnostics flow`);
+      // Handing back to the diagnostics flow is likewise not "download failed"; do not enter cooldown.
       succeeded = true;
       return { ok: false, error: 'bundled', bundled: true };
     }
-    // 轻量版优先用「本项目 GitHub 的运行时整包」：一个文件搞定 emulator + 系统镜像，
-    // 下载源和更新源统一在 GitHub 上（国内比 dl.google.com 稳得多）。
-    // 整包拿不到（没网 / 还没发过该资产 / 被限流）再逐个从官方源装。
+    // Lightweight edition prefers "this project's GitHub runtime full package": one file covers emulator + system image,
+    // and the download source and update source are unified on GitHub (more stable than dl.google.com domestically).
+    // If the full package cannot be obtained (no network / that asset has not been released yet / rate-limited), then install each piece from the official source.
     if (needEngine && store.getSettings().runtime.preferGithubRuntime !== false) {
       try {
-        progress({ message: '正在从 GitHub 下载运行时…' });
+        progress({ message: 'Downloading runtime from GitHub…' });
         await runtime.provisioner.installRuntimePack(progress);
         const afterPack = await runtime.provisioner.checkEnv();
         if (afterPack.emulator.ok && afterPack.sysimg.ok) {
           succeeded = true;
           return { ok: true, source: 'github' };
         }
-        progress({ message: '运行时整包不完整，改用官方源补齐…' });
+        progress({ message: 'Runtime full package incomplete, switching to official source to fill gaps…' });
       } catch (e) {
-        progress({ message: `GitHub 运行时不可用（${e.message}），改用官方源…` });
+        progress({ message: `GitHub runtime unavailable (${e.message}), switching to official source…` });
       }
     }
     if (!env.adb.ok) {
-      progress({ message: '正在准备 adb…' });
+      progress({ message: 'Preparing adb…' });
       await runtime.provisioner.installAdb(progress);
     }
     if (!env.emulator.ok) {
-      progress({ message: '正在准备 Android 运行时…' });
+      progress({ message: 'Preparing the Android runtime…' });
       await runtime.provisioner.installEmulator(progress);
     }
     if (!env.sysimg.ok) {
-      progress({ message: '正在准备 Android 系统镜像…' });
+      progress({ message: 'Preparing the Android system image…' });
       await runtime.provisioner.installSystemImage(progress);
     }
     const after = await runtime.provisioner.checkEnv();
@@ -740,10 +740,10 @@ async function autoDeploy({ force = false } = {}) {
   } catch (e) {
     return { ok: false, error: e.message };
   } finally {
-    // 只有「真失败」才进冷却；部署成功要把旧失败记录清掉。
+    // Only a "real failure" enters cooldown; a successful deploy must clear the old failure record.
     try {
       store.saveSettings({ runtime: { deployFailedAt: succeeded ? 0 : Date.now() } });
-    } catch (_) { /* 设置写不进去不影响本次结果 */ }
+    } catch (_) { /* the settings write failing does not affect this result */ }
     deploying = false;
   }
 }
@@ -755,7 +755,7 @@ function launcherInfo() {
   return { target: process.execPath, args: `"${APP_ROOT}"`, cwd: APP_ROOT };
 }
 
-/** 递归复制目录内容（best-effort，不删源；用于共享目录改路径时一次性搬迁旧文件） */
+/** Recursively copy directory contents (best-effort, does not delete the source; used to migrate old files in one go when the shared directory changes path) */
 function copyDirContents(src, dest) {
   if (!fs.existsSync(src)) return;
   fs.mkdirSync(dest, { recursive: true });
@@ -765,17 +765,17 @@ function copyDirContents(src, dest) {
     try {
       if (entry.isDirectory()) copyDirContents(s, d);
       else fs.copyFileSync(s, d);
-    } catch (_) { /* 单文件失败不影响其余 */ }
+    } catch (_) { /* a single file failure does not affect the rest */ }
   }
 }
 
-/** 以管理员权限启用一个 Windows 可选功能（如 VirtualMachinePlatform / HypervisorPlatform） */
+/** Enable a Windows optional feature with administrator privileges (such as VirtualMachinePlatform / HypervisorPlatform) */
 /**
- * 提权开启一个 Windows 可选功能。
+ * Elevate privileges to enable a Windows optional feature.
  *
- * 返回 { ok, cancelled, code, feature }：
- *   cancelled 用 1223（ERROR_CANCELLED）区分「用户在 UAC 里点了否」和「真的失败」——
- *   以前两者都是 ok:false，UI 只能笼统说「未能开启」，用户完全不知道自己点了取消。
+ * Returns { ok, cancelled, code, feature }:
+ *   cancelled uses 1223 (ERROR_CANCELLED) to distinguish "the user clicked No in UAC" from "really failed" —
+ *   previously both were ok:false, and the UI could only vaguely say "failed to enable", and the user had no idea they clicked cancel.
  */
 function enableWindowsFeature(feature) {
   return new Promise((resolve) => {
@@ -787,23 +787,23 @@ function enableWindowsFeature(feature) {
     const proc = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps],
       { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     proc.on('exit', (code) => resolve({
-      ok: code === 0, cancelled: code === 1223, restart: true, code, feature,
+      ok: code === 0, cancelled: code === 1223, restart: true, code, feature
     }));
-    proc.on('error', () => resolve({ ok: false, feature, error: '无法启动 PowerShell' }));
+    proc.on('error', () => resolve({ ok: false, feature, error: 'Cannot start PowerShell' }));
   });
 }
 
 /**
- * 开启系统自带的 WHPX（Windows Hypervisor Platform）。
+ * Enable the system-built-in WHPX (Windows Hypervisor Platform).
  *
- * 注意：真正让 Android 模拟器用上 WHPX 的功能叫
- * **「Windows 虚拟机监控程序平台」(HypervisorPlatform)**；
- * 「虚拟机平台」(VirtualMachinePlatform) 是 WSL2 用的，单独开它 WHPX 仍然不可用。
- * 两个都开一次，覆盖不同机器上的差异（顺序上先开真正需要的那个）。
+ * Note: the feature that really lets the Android emulator use WHPX is called
+ * **"Windows Virtual Machine Platform" (HypervisorPlatform)**;
+ * "Virtual Machine Platform" (VirtualMachinePlatform) is used by WSL2, and enabling it alone still leaves WHPX unavailable.
+ * Enable both once, covering the differences on different machines (in order, enable the one truly needed first).
  *
- * 也不再拿 WinHvPlatform.dll 是否存在当开关：那个 DLL 在现代 Windows 上本来就在
- * （实测本机 WinHvPlatform.dll 存在，但跑的是 AEHD）——用它判断「能不能开 WHPX」
- * 只会把真正需要开的机器挡在门外。
+ * No longer use whether WinHvPlatform.dll exists as a switch: that DLL is already present on modern Windows
+ * (practically measured: this machine's WinHvPlatform.dll exists, but it runs AEHD) — using it to judge "whether WHPX can be enabled"
+ * only blocks the machines that truly need to be enabled out the door.
  */
 async function enableWhpxFeatures() {
   const steps = [];
@@ -814,10 +814,10 @@ async function enableWhpxFeatures() {
   return { ok: steps.some((s) => s.ok), cancelled: steps.every((s) => s.cancelled), steps };
 }
 
-/** 商店版专用的手动引导文案：MSIX 包固定 mediumIL，提权通常拿不到 */
-const MSIX_ACCEL_HINT = '商店版无法自行提权。请手动开启一次：'
-  + '按 Win+R → 输入 optionalfeatures → 勾选「Windows 虚拟机监控程序平台」'
-  + '（HypervisorPlatform，WHPX 真正需要的那个），确定后重启电脑。';
+/** Manual guidance copy specialized for the Store edition: the MSIX package is fixed at mediumIL, so elevation usually cannot be obtained */
+const MSIX_ACCEL_HINT = 'The Store edition cannot elevate privileges on its own. Please enable manually once: '
+  + 'press Win+R → type optionalfeatures → check "Windows Virtual Machine Platform" '
+  + '(HypervisorPlatform, the one WHPX really needs), confirm, then restart the computer.';
 
 // ---------------- 主窗口 ----------------
 
@@ -845,15 +845,15 @@ function createWindow({ show = true } = {}) {
   mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'));
   if (show) mainWindow.once('ready-to-show', () => mainWindow.show());
 
-  // 冒烟测试时把渲染进程的报错打到 stdout：界面空白、按钮点了没反应，
-  // 十有八九是 app.js 里某个 id 改动后抛了异常，正常运行看不到。
+  // During smoke tests, dump the renderer process's errors to stdout: a blank UI and buttons that do nothing when clicked
+  // are in eight or nine cases out of ten an exception thrown after some id change in app.js, which is invisible during normal running.
   if (process.argv.includes('--smoke')) {
     mainWindow.webContents.on('console-message', (_e, level, message, line, source) => {
       if (level >= 2) console.log(`[renderer] ${message} (${String(source).split('/').pop()}:${line})`);
     });
   }
 
-  // 外链一律交给系统浏览器（公众号/GitHub 等），绝不把应用窗口导航走
+  // External links are all handed to the system browser (Official Accounts / GitHub, etc.); never navigate the app window away
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
@@ -868,7 +868,7 @@ function createWindow({ show = true } = {}) {
     if (quitting) return;
     e.preventDefault();
     mainWindow.hide();
-    notify('ApkStart 仍在后台运行', '点击托盘图标可重新打开；右键托盘可退出。');
+    notify('ApkStart is still running in the background', 'Click the tray icon to reopen; right-click the tray to quit.');
   });
 
   if (IS_DEV) mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -876,7 +876,7 @@ function createWindow({ show = true } = {}) {
 }
 
 function showWindow() {
-  // 回到管理窗口 = 回到 ApkStart 自己的身份（不然任务栏会沿用上一个应用的图标）
+  // Returning to the management window = returning to ApkStart's own identity (otherwise the taskbar would reuse the previous app's icon)
   setAumid(APP_AUMID);
   if (!mainWindow) createWindow();
   if (mainWindow.isMinimized()) mainWindow.restore();
@@ -896,18 +896,18 @@ function send(channel, payload) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload);
 }
 
-// ---------------- 自动检测（自动 debug）----------------
+// ---------------- Auto-diagnostics (auto debug) ----------------
 
 /**
- * 自动检测 = 定时把机器的真实状态采一遍，按「问题清单」推给界面。
+ * Auto-diagnostics = periodically sample the machine's real state and push it to the UI as a "problem list".
  *
- * 三条原则（都是被踩过的坑换来的）：
- *  1) 采集与判定分离：采集在 src/core/autodebug-probe.js（会调系统命令），
- *     判定在 src/core/autodebug.js（纯函数，可单测）。
- *  2) 探测失败 ≠ 有问题：拿不到状态就留空，判定层当「不知道」，
- *     绝不为了「有东西可报」而编一条出来。误报一次，用户就不信了。
- *  3) 只在「新问题出现」时打扰用户：老问题已经提示过，
- *     每轮都弹窗就是噪音；恢复了也只静默记账。
+ * Three principles (all earned by hitting the pits):
+ *  1) Separate collection from judgment: collection is in src/core/autodebug-probe.js (it calls system commands),
+ *     judgment is in src/core/autodebug.js (pure functions, unit-testable).
+ *  2) Probe failure != there is a problem: when the status cannot be obtained, leave it blank, and the judgment layer treats it as "don't know",
+ *     and never fabricate an entry just to have "something to report". One false report, and the user stops trusting.
+ *  3) Only bother the user when "a new problem appears": old problems have already been prompted,
+ *     popping a window every round is noise; when restored, only silently bookkeep it.
  */
 let autodebugState = { issues: [], summary: null, at: 0, running: false };
 let autodebugTimer = null;
@@ -939,18 +939,18 @@ async function runAutodebug({ force = false } = {}) {
     autodebugState = { issues, summary, at: Date.now(), running: false };
     send('autodebug:state', autodebugState);
     if (cfg.notify) {
-      // 只有「新的 error」才提醒：warn/info 留给设置页自己看，不打断用户。
+      // Only "new errors" are notified: warn/info are left for the settings page to look at itself, and do not interrupt the user.
       const fresh = added.filter((i) => i.severity === 'error');
       if (fresh.length) {
-        const text = fresh.map((i) => i.title).join('；');
-        send('toast', { type: 'error', message: `自动检测发现新问题：${text}（设置 → 诊断与修复）` });
-        notify('自动检测发现新问题', `${text}。打开 ApkStart 的「设置 → 诊断与修复」可以一键处理。`);
+        const text = fresh.map((i) => i.title).join('; ');
+        send('toast', { type: 'error', message: `Auto-diagnostics found new problems: ${text} (Settings → Diagnostics & Fix)` });
+        notify('Auto-diagnostics found new problems', `${text}. Open ApkStart's "Settings → Diagnostics & Fix" to handle them with one click.`);
         appLog(`autodebug new issues: ${fresh.map((i) => i.code).join(',')}`);
       }
     }
     return autodebugState;
   } catch (e) {
-    // 检测本身失败不能影响主流程：记一条日志，下一轮再试。
+    // The detection itself failing must not affect the main flow: log one line, and retry next round.
     appLog(`autodebug failed: ${e && e.message}`);
     autodebugState = { ...autodebugState, running: false, error: String((e && e.message) || e) };
     send('autodebug:state', autodebugState);
@@ -973,7 +973,7 @@ function scheduleAutodebug() {
   if (autodebugTimer.unref) autodebugTimer.unref();
 }
 
-// ---------------- 托盘 ----------------
+// ---------------- Tray ----------------
 
 function buildTray() {
   const icon = loadTrayIcon();
@@ -984,11 +984,11 @@ function buildTray() {
   }
   const refresh = () => {
     const apps = store.getApps().slice(0, 8);
-    // 独立窗口模式主界面是隐藏的，托盘就成了唯一随时可达的入口 ——
-    // 「关闭当前应用」必须放这里，否则用户根本没法关掉正在跑的应用。
-    // 判断「有没有应用在跑」要同时看 currentAppPkg 和 runtime.activeApps：
-    // endApp 会从 activeApps 里删掉包名，所以关掉后这里自动变 false。
-    // 但 currentAppPkg 可能还指着上一个应用（endApp 不清它），所以要双重判断。
+    // In standalone-window mode the main UI is hidden, so the tray becomes the only always-reachable entry point —
+    // "Close current app" must be placed here, otherwise the user has no way at all to close the app that is running.
+    // Judging "whether an app is running" must look at both currentAppPkg and runtime.activeApps:
+    // endApp removes the package name from activeApps, so after closing this auto-becomes false.
+    // But currentAppPkg may still point at the previous app (endApp does not clear it), so a double judgment is needed.
     const hasRunning = currentAppPkg && runtime && runtime.activeApps
       ? runtime.activeApps.includes(currentAppPkg)
       : false;
@@ -996,36 +996,36 @@ function buildTray() {
       ? ((store.getApp(currentAppPkg) || {}).label || currentAppPkg)
       : '';
     const menu = Menu.buildFromTemplate([
-      { label: '打开 ApkStart', click: () => showWindow() },
+      { label: 'Open ApkStart', click: () => showWindow() },
       { type: 'separator' },
       ...(apps.length
         ? apps.map((a) => ({ label: a.label, click: () => runLaunch(a.package) }))
         : [{ label: '还没有安装应用', enabled: false }]),
       { type: 'separator' },
       {
-        label: hasRunning ? `关闭当前应用（${runningLabel}）` : '关闭当前应用',
+        label: hasRunning ? `Close current app (${runningLabel})` : 'Close current app',
         enabled: !!hasRunning,
         click: () => {
           const pkg = currentAppPkg;
           if (!pkg) return;
-          // 复用 app:stop 的同一条路径，不在两处写同样的逻辑
+          // Reuse the same path as app:stop; do not write the same logic in two places
           stopApp(pkg).then(() => refresh());
         },
       },
       {
-        label: wantLandscapeFor(currentAppPkg) ? '切回竖屏（需重启运行时）' : '切换横屏（需重启运行时）',
+        label: wantLandscapeFor(currentAppPkg) ? 'Switch back to portrait (requires restarting the runtime)' : 'Switch to landscape (requires restarting the runtime)',
         enabled: !!currentAppPkg,
         click: () => { rotateCurrentApp().catch(() => {}); },
       },
       {
-        label: displaySettings().mode === 'fullscreen' ? '切回竖屏窗口' : '全屏（自适应屏幕）',
+        label: displaySettings().mode === 'fullscreen' ? 'Switch back to portrait window' : 'Fullscreen (auto-fit screen)',
         click: () => { toggleDisplayMode(); },
       },
-      { label: '重建桌面/开始菜单快捷方式', click: () => { installer.ensureShortcuts().catch(() => {}); } },
-      { label: '同步共享目录', click: () => sharer.sync() },
-      { label: '设置', click: () => { showWindow(); send('ui:navigate', 'settings'); } },
+      { label: 'Rebuild Desktop / Start menu shortcuts', click: () => { installer.ensureShortcuts().catch(() => {}); } },
+      { label: 'Sync shared directory', click: () => sharer.sync() },
+      { label: 'Settings', click: () => { showWindow(); send('ui:navigate', 'settings'); } },
       {
-        label: updateInfo && updateInfo.hasUpdate ? `发现新版本 ${updateInfo.tag}` : '检查更新',
+        label: updateInfo && updateInfo.hasUpdate ? `New version found: ${updateInfo.tag}` : 'Check for updates',
         click: async () => {
           showWindow();
           send('ui:navigate', 'settings');
@@ -1034,22 +1034,22 @@ function buildTray() {
           if (info && info.hasUpdate && info.asset) {
             const r = await dialog.showMessageBox(mainWindow || undefined, {
               type: 'question',
-              title: '发现新版本',
-              message: `ApkStart ${info.tag} 已发布，当前版本 v${app.getVersion()}。现在更新吗？`,
+              title: 'New version found',
+              message: `ApkStart ${info.tag} has been published; current version is v${app.getVersion()}. Update now?`,
               detail: (info.notes || '').slice(0, 600),
-              buttons: ['立即更新', '稍后'],
+              buttons: ['Update now', 'Later'],
               defaultId: 0,
               cancelId: 1,
             });
             if (r.response === 0) runUpdate();
           } else if (info && !info.hasUpdate) {
-            notify('已是最新版本', `ApkStart v${app.getVersion()}`);
+            notify('Already the latest version', `ApkStart v${app.getVersion()}`);
           }
         },
       },
       { type: 'separator' },
       {
-        label: '退出',
+        label: 'Quit',
         click: async () => {
           try { appWin.close({ keepApp: true }); } catch (_) { /* ignore */ }
           quitting = true;
@@ -1059,51 +1059,51 @@ function buildTray() {
     ]);
     tray.setContextMenu(menu);
   };
-  tray.setToolTip('ApkStart — 安卓应用运行器');
-  // Windows 托盘的惯例是单击就打开主窗口（双击当然也可以）。
-  // 之前只绑了 double-click，用户单击没反应，会以为托盘图标坏了。
-  // 右键才出菜单，所以这里单击直接 showWindow 不会和菜单冲突。
+  tray.setToolTip('ApkStart — Android app runner');
+  // On Windows the tray convention is to open the main window on single-click (double-click of course also works).
+  // Previously only double-click was bound, so the user's single-click having no response would make them think the tray icon was broken.
+  // The right-click brings up the menu, so a single-click directly calling showWindow here will not conflict with the menu.
   tray.on('click', () => showWindow());
   tray.on('double-click', () => showWindow());
   refresh();
   setInterval(refresh, 5000).unref?.();
 }
 
-// ---------------- 核心动作 ----------------
+// ---------------- Core actions ----------------
 
-let installBusy = null;   // 正在安装的文件路径：双击 APK 连点会走 second-instance，不能并发装
+let installBusy = null;   // File path currently being installed: rapid double-clicks of an APK go through second-instance, cannot install concurrently
 let lastInstallErr = { msg: '', at: 0 };
 
 async function runInstall(filePath) {
   showWindow();
-  // 同一个包正在装（用户连点了几次图标 / 拖了好几次）→ 只提示一次，别重复跑一遍安装
+  // The same package is being installed (the user rapidly clicked the icon / dragged it several times) → prompt only once, do not re-run the install
   if (installBusy) {
     if (installBusy === filePath) {
-      send('toast', { type: 'info', message: '这个 APK 正在安装中，请稍等…' });
-      return { ok: false, error: '正在安装中' };
+      send('toast', { type: 'info', message: 'This APK is currently installing, please wait…' });
+      return { ok: false, error: 'Installing' };
     }
-    send('toast', { type: 'info', message: '已有安装任务在进行，请等它装完。' });
-    return { ok: false, error: '已有安装任务在进行' };
+    send('toast', { type: 'info', message: 'Another install task is in progress, please wait for it to finish.' });
+    return { ok: false, error: 'Another install task is in progress' };
   }
   installBusy = filePath;
   send('install:start', { file: filePath });
   try {
     const result = await installer.install(filePath, (p) => send('install:progress', p));
     send('install:done', result);
-    // 新建的桌面图标要让资源管理器立刻刷新，否则用户会以为「没创建快捷方式」
+    // The newly created Desktop icon must let Explorer refresh immediately, otherwise the user will think "no shortcut was created"
     windowctl.refreshShell().catch(() => {});
-    notify('安装完成', `${result.app.label} 已安装${result.app.shortcutPath ? '，桌面快捷方式已创建' : ''}`);
+    notify('Installation complete', `${result.app.label} installed${result.app.shortcutPath ? ', Desktop shortcut created' : ''}`);
     return result;
   } catch (e) {
     send('install:error', { message: e.message, file: filePath });
     if (e.needsSetup) send('ui:navigate', 'setup');
-    // 同一条错误 8 秒内只弹一次系统通知：连续重试时不会在右下角刷屏
+    // The same error only pops a system notification once within 8 seconds: during continuous retries it will not spam the lower-right corner
     const now = Date.now();
     if (e.message !== lastInstallErr.msg || now - lastInstallErr.at > 8000) {
       lastInstallErr = { msg: e.message, at: now };
-      // 窗口在前台时用户已经看到界面里的提示，不必再弹系统通知
+      // When the window is in the foreground the user already sees the prompt in the UI, so no need to pop a system notification
       if (!mainWindow || !mainWindow.isVisible() || mainWindow.isMinimized()) {
-        notify('安装失败', e.message.slice(0, 120));
+        notify('Installation failed', e.message.slice(0, 120));
       }
     }
     throw e;
@@ -1113,17 +1113,17 @@ async function runInstall(filePath) {
 }
 
 /**
- * 下载并安装新版本，然后由 update-apply 脚本接管「替换 + 重启」。
- * 界面与托盘菜单共用这一条路径。
+ * Download and install the new version, then hand off "replace + restart" to the update-apply script.
+ * The UI and the tray menu share this one path.
  */
 async function runUpdate() {
   if (updateBusy) return { ok: false, error: '正在更新中' };
-  // 商店（MSIX）版不能自更新：安装目录 C:\Program Files\WindowsApps 是只读的，
-  // 覆盖 exe 不仅会失败，还可能让包完整性校验失效、应用直接起不来。
-  // 更新走 Microsoft Store（ms-windows-store: 协议）。
+  // The Store (MSIX) edition cannot self-update: the install directory C:\Program Files\WindowsApps is read-only,
+  // and overwriting the exe not only fails, but may also invalidate the package integrity check and make the app fail to start entirely.
+  // Updates go through the Microsoft Store (ms-windows-store: protocol).
   if (store.STORE_BUILD) {
     shell.openExternal('ms-windows-store://downloadsandupdates').catch(() => {});
-    return { ok: false, error: '商店版更新由 Microsoft Store 负责，已打开商店的「下载和更新」', manual: true };
+    return { ok: false, error: 'Store edition updates are handled by the Microsoft Store; the Store\'s "Downloads and updates" has been opened', manual: true };
   }
   updateBusy = true;
   const sendProgress = (p) => send('update:progress', p);
@@ -1135,11 +1135,11 @@ async function runUpdate() {
       shell.openExternal(info.htmlUrl || Updater.repoUrl()).catch(() => {});
       return { ok: false, error: '该版本没有可直接安装的包，已打开 GitHub 发布页', manual: true };
     }
-    sendProgress({ stage: 'download', percent: 0, message: '准备下载…' });
+    sendProgress({ stage: 'download', percent: 0, message: 'Preparing download…' });
     const job = await updater.prepare(info);
-    sendProgress({ stage: 'apply', percent: 100, message: '正在替换程序并重启…' });
+    sendProgress({ stage: 'apply', percent: 100, message: 'Replacing the program and restarting…' });
     updater.apply(job);
-    // 给界面一点时间显示「即将重启」，然后走正常退出流程（before-quit 会把模拟器窗口藏好）
+    // Give the UI a little time to show "about to restart", then go through the normal exit flow (before-quit will hide the emulator window)
     setTimeout(() => { quitting = true; app.quit(); }, 900);
     return { ok: true, version: info.version, mode: job.mode };
   } catch (e) {
@@ -1153,17 +1153,17 @@ async function runUpdate() {
 /**
  * 启动串行化。
  *
- * 一次启动最长要 80 秒（换面板重启 + 冷启动）。这期间用户完全可能再点一个应用、
- * 或者双击同一个图标两次、或者托盘菜单里点一下 —— 以前这些都会真的并发跑第二遍：
- * openAppWindow 会把正在启动的那个应用关掉（close + endApp），而虚拟机正在重启，
- * 结果两边一起失败，日志里是 `cmd: Can't find service: activity` / `device not found`，
- * 用户看到的是「点了没反应，然后弹回主界面」。
+ * A single launch can take up to 80 seconds (restarting to switch panels + cold boot). During this time the user can absolutely click another app,
+ * or double-click the same icon twice, or click once in the tray menu — previously all of these really did concurrently run a second pass:
+ * openAppWindow would close the app that was launching (close + endApp), while the VM was restarting,
+ * and the result was both sides failing together, with `cmd: Can't find service: activity` / `device not found` in the logs,
+ * and what the user saw was "clicked but nothing happened, then it bounced back to the main UI".
  *
- * 现在：同一个应用 → 直接复用进行中的那次（连点等于一次）；换应用 → 等前一次
- * 收尾再开始，而不是把它的运行时抽走。
+ * Now: the same app → directly reuse the in-flight one (rapid clicks equal one); switching apps → wait for the previous one
+ * to finish cleanup before starting, instead of yanking its runtime away.
  */
 let launchInFlight = null;
-// 「软件模拟」提醒每个进程只弹一次，避免每次切应用都来一条系统通知
+// "Software emulation" reminder pops only once per process, to avoid a system notification line every time an app is switched
 let accelWarned = false;
 
 async function runLaunch(pkg) {
@@ -1172,7 +1172,7 @@ async function runLaunch(pkg) {
       appLog(`launch reused in-flight ${pkg}`);
       return launchInFlight.promise;
     }
-    appLog(`launch queued ${pkg}（等待 ${launchInFlight.pkg} 启动完成）`);
+    appLog(`launch queued ${pkg} (waiting for ${launchInFlight.pkg} to finish launching)`);
     await launchInFlight.promise.catch(() => {});
   }
   const entry = { pkg };
@@ -1186,30 +1186,30 @@ async function runLaunch(pkg) {
 async function launchOne(pkg) {
   const t0 = Date.now();
   const mark = (s) => appLog(`launch ${pkg} ${s} +${Date.now() - t0}ms`);
-  // 「提前接画面」的状态：进程一出现就接，但最终成败要等回调回来才知道。
-  // 放在函数作用域，供后面的最终判定使用。
+  // "Early attach picture" state: attach as soon as the process appears, but whether it ultimately succeeds or fails is only known after the callback comes back.
+  // Placed in function scope for use in the final judgment later.
   let attachDoneEarly = false;
   let earlyAttachOk = false;
   appLog(`launch start ${pkg}`);
   try {
-    // 0) 先把管理窗口收起来，再去开应用窗口。
-    // 顺序很重要：以前是 openAppWindow() 之后、armAgent() 之后才 hide()，
-    // 而 armAgent 要等窗口代理冷启动（300~600ms），这段里「管理窗口 +
-    // 应用窗口(+ 开机动画)」是同时在屏幕上的 —— 用户看到的就是多个窗口乱飞。
+    // 0) First hide the management window, then go open the app window.
+    // The order matters: previously hide() was after openAppWindow() and after armAgent(),
+    // and armAgent has to wait for the window agent cold start (300~600ms), during which "management window +
+    // app window (+ boot animation)" are all on the screen at the same time — what the user sees is multiple windows flying around.
     if (mainWindow && mainWindow.isVisible() && !IS_DEV) mainWindow.hide();
-    // 1) 再把「应用窗口」打开显示启动动画：整个过程看不到安卓桌面，也看不到模拟器窗口
-    await openAppWindow(pkg, '正在启动安卓运行时…');
+    // 1) Then open the "app window" to show the launch animation: during the whole process the Android desktop is not visible, nor the emulator window
+    await openAppWindow(pkg, 'Starting the Android runtime…');
     /**
-     * 原生窗口模式：**尽早、反复**把模拟器自己的窗口接出来，别让用户先对着
-     * 我们那张「正在启动」的壳窗口干等。
+     * Native window mode: **early and repeatedly** pull out the emulator's own window, so the user does not stare at
+     * our "starting" shell window waiting first.
      *
-     * 以前这里什么都不做，壳窗口（标题栏 + Logo + 转圈）就成了用户看到的第一屏，
-     * 而原生窗口要等到 am start 之后才接 —— 冷启动 / 换面板方向时那是 30 秒以上。
-     * 用户的感受就是「启动的还是你们那个美化窗口」。
+     * Previously nothing was done here, and the shell window (title bar + Logo + spinning) became the first screen the user saw,
+     * while the native window had to wait until after am start to be attached — after a cold boot / panel direction switch that is 30+ seconds.
+     * The user's feeling was "what starts is still your beautified window".
      *
-     * 冷启动时 Qt 窗口要等运行时起来才被创建，一次尝试必然失败，所以这里做成
-     * 轮询：每 1.5 秒试一次，成功即停（最多 30 秒）。换面板方向重启运行时时，
-     * 旧窗口随运行时消失、新窗口起来后同样会被这里接住。
+     * During a cold boot, the Qt window must wait for the runtime to come up before it is created, so one attempt inevitably fails, so here it is made into
+     * Polling: try once every 1.5 seconds, stop on success (up to 30 seconds). When restarting the runtime after switching panel direction,
+     * the old window disappears with the runtime, and after the new window comes up it is likewise attached here.
      */
     if (displaySettings().windowEmbed === false && appWin && appWin.isOpen) {
       let tries = 0;
@@ -1217,11 +1217,11 @@ async function launchOne(pkg) {
       const preAttach = async () => {
         if (!appWin || !appWin.isOpen) return;
         rounds += 1;
-        // 硬上限：无论让路还是失败，最多跑 45 轮（约 1 分钟）就收手，
-        // 避免换向失败后这个定时器一直挂着空转。
+        // Hard upper limit: no matter whether yielding or failing, run at most 45 rounds (about 1 minute) and then give up,
+        // to avoid this timer hanging and spinning empty after a direction switch fails.
         if (rounds > 45) return;
-        // 正在换面板方向、准备重启运行时：这时候去接画面只会把刚亮起的
-        // 等待窗口藏掉，屏幕上就没东西了。让路，等重启完成再接手。
+        // Currently switching panel direction, preparing to restart the runtime: attaching the picture at this moment would only hide the
+        // freshly-lit wait window, leaving nothing on the screen. Yield, and take over after the restart completes.
         if (appWin.waitingForRestart) {
           setTimeout(preAttach, 1500);
           return;
@@ -1234,9 +1234,9 @@ async function launchOne(pkg) {
       };
       preAttach();
     }
-    // 开机阶段把模拟器主窗 + qemu / netsimd 的控制台黑窗藏起来，避免任何闪现。
-    // 压制是常驻的（embed 后它会自动跳过被嵌入的那一个窗口，见 appwin.embed）。
-    // 这里必须 await：不等压制生效就往下走，黑窗会在启动瞬间露出来。
+    // During the boot stage, hide the emulator main window + the console black window of qemu / netsimd, to avoid any flash.
+    // Suppression is resident (after embed it will automatically skip the one window that is embedded, see appwin.embed).
+    // Must await here: going down without waiting for the suppression to take effect leaves the black window exposed at the instant of startup.
     if (winAgent) { try { await armAgent(winAgent); } catch (_) { /* ignore */ } }
 
     const r = await installer.launch(pkg, {
@@ -1246,29 +1246,29 @@ async function launchOne(pkg) {
         if (typeof splashProgress === 'function') splashProgress({ message: m });
       },
       onMark: mark,
-      // 应用进程一出现就把画面接上去，不等后面那 4 秒的「确认不会崩」观察期。
-      // 那 4 秒对稳定性有意义，但用户看到的是「点了没反应」；先让他看到应用在加载，
-      // 观感差别很大（实测点开到出画面 7.2s → 约 3s）。
-      // 这里故意不 await：接画面和存活判定并行，谁先完成都不影响另一边。
+      // Attach the picture as soon as the app process appears, without waiting for the 4-second "confirm it won't crash" observation period afterward.
+      // Those 4 seconds matter for stability, but what the user sees is "clicked and nothing happened"; let him see the app loading first,
+      // and the perception difference is large (practically measured: from click to picture appearing 7.2s → about 3s).
+      // Deliberately not await here: picture attachment and liveness judgment run in parallel, and whichever completes first does not affect the other.
       onAppUp: () => {
         attachDoneEarly = true;
-        mark('app up (提前接画面)');
+        mark('app up (early attach)');
         attachAppWindow()
           .then(async (ok) => {
             earlyAttachOk = ok;
             mark(`early attach=${ok}`);
             if (!ok) return;
-            // 画面接上 ≠ 首帧画出来：Android 12+ 在 Activity 首帧之前会先挂一屏
-            // 系统 Splash（应用图标 + 白底）。开机动画此时如果淡出，用户看到的就是
-            // 一张白底图，以为卡死。守到系统 Splash 撤掉（首帧上屏）再收动画，
-            // 超时也照常收（不能因为判定失败把用户永远关在动画里）。
+            // Picture attached != first frame drawn: Android 12+ hangs a system Splash (app icon + white background)
+            // before the Activity first frame. If the boot animation fades out at this moment, what the user sees is
+            // a white-background picture and thinks it is frozen. Guard until the system Splash is withdrawn (first frame up) before tearing down the animation,
+            // and a timeout still tears down as usual (cannot, because the judgment failed, leave the user forever locked inside the animation).
             let painted = true;
             try {
               const c = runtime.client();
               if (c && typeof c.waitForAppFirstFrame === 'function') {
-                // 红果这类重应用从 am start 到真正画出首帧可能超过 15 秒，
-              // 12 秒就放弃会让开机动画提前收掉、露出系统 Splash 的白底图标。
-              // 20 秒给足余量；真画不出来也只是多等一会儿，不会卡死流程。
+                // For heavy apps like Hongguo, from am start to actually drawing the first frame may exceed 15 seconds,
+              // and giving up at 12 seconds would make the boot animation tear down early and expose the white-background icon of the system Splash.
+              // 20 seconds gives enough margin; even if it really cannot be drawn, it is only waiting a little longer, and will not freeze the flow.
               painted = await c.waitForAppFirstFrame(pkg, { timeoutMs: 20000 });
               }
             } catch (_) { /* 判定失败按已就绪处理 */ }
@@ -1276,40 +1276,40 @@ async function launchOne(pkg) {
             if (typeof splashDone === 'function') splashDone();
           })
           .catch(() => { earlyAttachOk = false; });
-        // 应用刚起来时 Activity 还在重建，会按自己声明的方向（portrait）再转一次，
-        // 把刚锁好的方向覆盖掉 —— 这就是「平板/横屏模式下画面总是 90 度躺着」。
-        // 等它稳定后补一次方向自愈（读 init/cur，只有真躺倒才写）。
+        // When the app has just come up, the Activity is still rebuilding, and will rotate once more according to its declared direction (portrait),
+        // overwriting the direction just locked — this is exactly "in tablet/landscape mode the picture is always lying down 90 degrees".
+        // After it stabilizes, supplement a direction self-heal once (read init/cur; only write when it really lies down).
         setTimeout(() => {
           runtime._healOrientation?.().catch(() => {});
-          // 顺带记下这个应用真正的方向（清单里全是 sensor 的应用只能这样学）
+          // Also record this app's real direction (apps whose manifests are all sensor can only be learned this way)
           learnAppOrientation(pkg).catch(() => {});
         }, 1800);
       },
-      // 启动前先把面板方向校正到设置要求的那个。
-      // 横屏只能靠物理面板（hw.lcd.width/height 互换）+ 重启实现，而这一项是在
-      // 开机时写进 config.ini 的。如果用户改了「横屏」设置、但虚拟机还以竖屏面板
-      // 跑着（预热的场景很常见），光靠 wm size / wm user-rotation 只会让画面躺倒。
-      // 所以这里发现不一致就先重启一次，reloadApp=false 让下面照常启动应用。
+      // Before launch, first correct the panel direction to the one settings requires.
+      // Landscape can only be achieved via the physical panel (swapping hw.lcd.width/height) + a restart, and this item is written
+      // into config.ini at boot time. If the user changed the "landscape" setting, but the VM is still running with a portrait panel
+      // (the preheat scenario is very common), wm size / wm user-rotation alone will only make the picture lie down.
+      // So when a mismatch is found here, restart once first, and reloadApp=false lets the application start normally below.
       beforeStart: async (rt) => {
         mark('engine ready');
-        // 面板方向必须和应用自己的声明方向一致，否则 Android 只会给一个信箱式
-        // 窄条（两侧全黑）。wantLandscapeFor 会把「设置里的强制模式 / 单应用覆盖 /
-        // APK 清单解析出的方向」合起来算，见函数注释。
+        // The panel direction must match the app's own declared direction, otherwise Android only gives a mailbox-shaped
+        // narrow strip (full black on both sides). wantLandscapeFor combines "the forced mode in settings / single-app override /
+        // the direction parsed from the APK manifest" and computes it; see the function comment.
         const wantLand = wantLandscapeFor(pkg);
         const cur = runtime.emulator && typeof runtime.emulator.panelLandscape === 'function'
           ? runtime.emulator.panelLandscape()
           : null;
         if (cur !== null && cur !== wantLand) {
-          mark(`orientation mismatch (panel=${cur ? 'landscape' : 'portrait'}, want=${wantLand}) 重启校正`);
-          appWin.setState({ tip: wantLand ? '正在切换到横屏…' : '正在切换到竖屏…' });
-          // restartForOrientation 重启运行时后返回新的 rt（旧 client 已失效）。
-          // 把它返回给 installer.launch，后续的 resetDisplayOverrides / startApp
-          // 都用新 client，否则全部静默失败（catch 吞掉，应用起不来画面）。
+          mark(`orientation mismatch (panel=${cur ? 'landscape' : 'portrait'}, want=${wantLand}) restarting to correct`);
+          appWin.setState({ tip: wantLand ? 'Switching to landscape…' : 'Switching to portrait…' });
+          // restartForOrientation returns a new rt after restarting the runtime (the old client is already invalid).
+          // Return it to installer.launch, so that the subsequent resetDisplayOverrides / startApp
+          // all use the new client; otherwise they all silently fail (swallowed by catch, the app cannot bring up a picture).
           const newRt = await restartForOrientation(wantLand, { reloadApp: false }).catch(() => null);
           mark('orientation fixed');
           if (newRt && newRt.ok) return newRt;
         }
-        appWin.setState({ tip: '正在打开应用…' });
+        appWin.setState({ tip: 'Opening the app…' });
         // 沉浸式 + 关动画 + 收起锁屏：只做一次，之后每次启动都秒进
         await rt.client.prepareForeground().catch(() => {});
         mark('foreground ready');
@@ -1319,9 +1319,9 @@ async function launchOne(pkg) {
     });
     mark('app started');
 
-    // 2) 应用真的活下来了，才把画面接到用户眼前（否则用户会看到闪一下的桌面/崩溃页）
-    // 但如果 onAppUp 已经把画面接上了（提前接管），这里只做一次「确认」，不重复接 ——
-    // 重复接在独立窗口模式下会把刚摆好的窗口再隐藏/显示一遍，画面会闪。
+    // 2) Only when the app has truly survived do we attach the picture to the user's eyes (otherwise the user will see a flashing Desktop / crash page)
+    // But if onAppUp has already attached the picture (early takeover), here only do one "confirmation" and do not attach again —
+    // attaching again in standalone-window mode would hide/show the just-set window once more, and the picture will flash.
     let embedded;
     if (attachDoneEarly) {
       embedded = !!earlyAttachOk;
@@ -1329,16 +1329,16 @@ async function launchOne(pkg) {
     } else {
       embedded = await attachAppWindow();
     }
-    // 日志措辞要分清两种模式：独立窗口模式下 embedded=true 的意思是
-    // 「画面已经接到用户眼前（在模拟器原生窗口里）」，而不是「嵌进我们的窗口」。
-    // 否则看日志的人会以为设置没生效。
+    // The log wording must distinguish the two modes: in standalone-window mode embedded=true means
+    // "the picture has been brought to the user's eyes (inside the emulator native window)", not "embedded into our window".
+    // Otherwise the person reading the logs will think the setting did not take effect.
     const attachMode = displaySettings().windowEmbed === false ? 'detached' : 'embed';
     if (!embedded) appLog(`attach failed (${attachMode}): ${appWin.lastEmbedError || 'unknown'}`);
     mark(`${attachMode}=${embedded}`);
-    // 嵌入完成后把窗口从别的窗口底下抬出来。否则上层窗口（浏览器等）会盖住安卓画面，
-    // 用户看到的是「黑屏 / 画面没填满」，鼠标也点不到应用（全被上层窗口吃掉）。
-    // 短暂 topmost 再立刻撤销，只借用一次置顶把 Z 序抬到最前，不会长期霸占顶层。
-    // 独立窗口模式跳过：那时画面在模拟器自己的窗口里，把空壳窗口显示出来只会挡住它。
+    // After embed completes, lift the window out from under other windows. Otherwise upper windows (browsers, etc.) will cover the Android picture,
+    // and what the user sees is "black screen / picture not filled", and the mouse cannot click the app either (all eaten by upper windows).
+    // A brief topmost and then immediately revoked, only borrowing one top placement to raise the Z order to the front, without long-term monopolizing the top layer.
+    // Skipped in standalone-window mode: at that time the picture is inside the emulator's own window, and showing the empty shell window would only block it.
     const detachedMode = displaySettings().windowEmbed === false;
     if (appWin.isOpen && !detachedMode) {
       try {
@@ -1348,19 +1348,19 @@ async function launchOne(pkg) {
         appWin.win.focus();
         setTimeout(() => {
           if (appWin.isOpen) {
-            try { appWin.win.setAlwaysOnTop(false); } catch (_) { /* 窗口已关 */ }
+            try { appWin.win.setAlwaysOnTop(false); } catch (_) { /* window already closed */ }
           }
         }, 700);
-      } catch (_) { /* 窗口可能刚关闭 */ }
+      } catch (_) { /* window may have just closed */ }
     }
     appWin.setState({ ready: true, tip: '' });
-    // 容器会话：环境已经就绪，这里只做「按应用裁剪 + 打开后台轮询」，
-    // 不再为这个 App 重新引导一遍 Android。鼠标键位钩子由窗口 focus 事件
-    // 按设置决定，失焦即卸载。
+    // Container session: the environment is already ready, here only do "crop by app + open background polling",
+    // and do not re-guide Android for this App once more. The mouse key mapping hook is decided by the window focus event
+    // according to the settings, and is uninstalled on blur.
     deviceSize.value = null;
     appWin.refreshPointer();
     await runtime.beginApp(pkg, { onActive: onContainerActive }).catch(() => {});
-    // 游戏/低延迟模式：让窗口代理降频扫描，减少全桌面 EnumWindows 造成的整机卡顿
+    // Game / low-latency mode: let the window agent reduce its scan frequency, reducing whole-machine lag caused by full-desktop EnumWindows
     if (winAgent) {
       const game = store.getSettings().engine?.priorityMode === 'game';
       winAgent.setPerformanceMode(game).catch(() => {});
@@ -1373,32 +1373,32 @@ async function launchOne(pkg) {
       runtime.provisioner.emulatorAccel().then((a) => {
         if (!a || a.ok) return;
         accelWarned = true;
-        notify('正在以软件模拟运行（很慢）', store.STORE_BUILD
-          ? '开启「Windows 虚拟机监控程序平台」后重启一次，速度可提升 5~10 倍。'
-            + '设置 → 环境自检 → 修复 会直接打开该窗口。'
-          : '设置 → 环境自检 → 修复 可一键开启（需管理员授权），之后重启一次。');
+        notify('Running in software emulation (very slow)', store.STORE_BUILD
+          ? 'After enabling "Windows Virtual Machine Platform" and restarting once, speed can improve 5~10x. '
+            + 'Settings → Environment self-check → Fix will directly open this window.'
+          : 'Settings → Environment self-check → Fix can enable it with one click (admin authorization required), then restart once.');
       }).catch(() => {});
     }
-    // 兜底：如果 early attach 没触发 splashDone（比如嵌入模式），这里补一次
+    // Fallback: if early attach did not trigger splashDone (e.g. embed mode), supplement one here
     if (typeof splashDone === 'function') splashDone();
     return { ok: true, embedded };
   } catch (e) {
     appLog(`launch failed ${pkg}: ${e && (e.stack || e.message)}`);
     try { appWin.close({ keepApp: true }); } catch (_) { /* ignore */ }
-    // 启动失败也把模拟器窗口继续压住（不要让它以「独立的模拟器窗口」形式露出来），
-    // 下次点应用还是走同一条隐藏 → embed 的路径。
+    // On launch failure also keep suppressing the emulator window (do not let it show up as a "standalone emulator window"),
+    // so the next app click still takes the same hide → embed path.
     if (winAgent) armAgent(winAgent).catch(() => {});
     showWindow();
-    send('toast', { type: 'error', message: `启动失败：${e.message}` });
+    send('toast', { type: 'error', message: `Launch failed: ${e.message}` });
     return { ok: false, error: e.message };
   }
 }
 
 /**
- * 容器有/无应用窗口时的后台任务开关。
- * 文件同步每 8 秒要遍历共享目录并走一次 adb find/stat，通知桥也在轮询；
- * 以前从 ApkStart 一启动就无条件开跑，哪怕一个 Android 应用都没打开。
- * 现在只在容器里真的有应用时才开，关掉最后一个窗口立刻停。
+ * Background task switch when the container has / does not have an app window.
+ * File sync traverses the shared directory every 8 seconds and goes through adb find/stat once, and the notification bridge also polls;
+ * previously it ran unconditionally as soon as ApkStart started, even when no Android app had been opened.
+ * Now it only starts when there really is an app inside the container, and stops immediately when the last window is closed.
  */
 function onContainerActive(on) {
   if (on) {
@@ -1425,15 +1425,15 @@ function onContainerActive(on) {
  */
 async function stopApp(pkg, opts = {}) {
   const target = pkg || currentAppPkg;
-  if (!target) return { ok: false, error: '没有正在运行的应用' };
+  if (!target) return { ok: false, error: 'No app is running' };
   const detached = displaySettings().windowEmbed === false;
   try {
     await runtime.endApp(target, { onIdle: (idle) => onContainerActive(idle) }).catch(() => {});
     appLog(`stop ${target}`);
 
     if (!opts.keepWindow) {
-      // 独立窗口模式：先把模拟器窗口藏掉，再关壳窗口。
-      // 反过来会在桌面留下一个闪了闪又消失的模拟器窗口。
+      // Standalone-window mode: hide the emulator window first, then close the shell window.
+      // Doing it the other way leaves a flashing then disappearing emulator window on the desktop.
       if (detached && appWin && appWin.isOpen) {
         try { await appWin.agent.hide(); } catch (_) { /* ignore */ }
       }
@@ -1442,7 +1442,7 @@ async function stopApp(pkg, opts = {}) {
       }
     }
 
-    // 清掉当前应用标记：托盘菜单、右键菜单的「关闭应用」都据此变灰
+    // Clear the current app marker: the tray menu and right-click menu "Close app" both turn gray based on this
     if (currentAppPkg === target) currentAppPkg = null;
 
     try { send('apps:changed'); } catch (_) { /* ignore */ }
@@ -1453,7 +1453,7 @@ async function stopApp(pkg, opts = {}) {
   }
 }
 
-/** 通知桥：只在有应用窗口时轮询，关掉窗口就停，避免空转 */
+/** Notification bridge: only polls when there is an app window, stops when the window is closed, to avoid spinning empty */
 function startNotifier() {
   if (!notifier) {
     notifier = new NotifyBridge({
