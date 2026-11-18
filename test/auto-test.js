@@ -1118,8 +1118,8 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 右键菜单要有这一项
     assert(/key:\s*'stop'/.test(uiJs), '右键菜单缺少「关闭应用」');
     assert(/case 'stop':/.test(uiJs), '右键菜单没有处理 stop');
-    // 独立窗口模式主界面是隐藏的，托盘是唯一随时可达的入口
-    assert(/关闭当前应用/.test(mainJs), '托盘菜单缺少「关闭当前应用」');
+    // In standalone-window mode the main UI is hidden, so the tray is the only always-reachable entry point
+    assert(/Close current app/.test(mainJs), 'tray menu is missing "Close current app"');
     // 关掉后要刷新「运行中」标记
     assert(/apps:changed/.test(mainJs) && /apps:changed/.test(uiJs),
       '关闭后要发 apps:changed 并让界面刷新');
@@ -1136,9 +1136,9 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 独立窗口模式必须先藏模拟器窗口再关壳窗口（反了会在桌面闪一下）
     assert(/detached[\s\S]{0,200}agent\.hide/.test(mainJs),
       '独立窗口模式先 hide 再 close');
-    // 外部关闭（Alt+F4）也要清 currentAppPkg
-    assert(/onCloseApp[\s\S]{0,300}currentAppPkg = null/.test(mainJs) || /onCloseApp[\s\S]{0,300}currentAppPkg === pkg/.test(mainJs),
-      'onCloseApp 也要清 currentAppPkg');
+    // External close (Alt+F4) also needs to clear currentAppPkg
+    assert(/onCloseApp[\s\S]{0,2000}currentAppPkg = null/.test(mainJs) || /onCloseApp[\s\S]{0,2000}currentAppPkg === pkg/.test(mainJs),
+      'onCloseApp also needs to clear currentAppPkg');
   });
 
   await test('旧版本清理：能发现任意位置的 ApkStart 目录，且绝不碰当前运行版本', () => {
@@ -1978,8 +1978,8 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const reason = s.blockedReason('gitee');
     assert(!!reason, '403 必须触发熔断');
     assert(s.blockedReason('github') === null, '没出错的源不应被熔断');
-    // 熔断期内的请求应被直接跳过（不再打网络）
-    assert(/暂时跳过/.test(reason), `跳过原因要能看懂，实际：${reason}`);
+    // During the circuit break, requests should be skipped directly (no more hitting the network)
+    assert(/Temporarily skipped/.test(reason), `skip reason should be understandable, actual: ${reason}`);
     s.reset();
     assert(s.blockedReason('gitee') === null, 'reset 后熔断应解除');
   });
@@ -2197,7 +2197,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     fs.writeFileSync(badPath, buildStoredZip([{ name: 'readme.txt', data: Buffer.from('nope') }]));
     let err = null;
     try { await parseBundle(badPath); } catch (e) { err = e; }
-    assert(err && /没有找到 APK 分片/.test(err.message), `应报没有分片，实际 ${err && err.message}`);
+    assert(err && /No APK split found/.test(err.message), `should report no splits, actual ${err && err.message}`);
     const dir = path.join(os.tmpdir(), 'apkstart-bundle',
       crypto.createHash('sha1').update(badPath).digest('hex').slice(0, 12));
     assert(!fs.existsSync(dir), '失败时应清理临时目录');
@@ -2320,10 +2320,10 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const mainJs = fs.readFileSync(path.join(root, 'src', 'main.js'), 'utf8');
     const launchIdx = mainJs.indexOf('async function runLaunch(');
     const body = mainJs.slice(launchIdx, launchIdx + 1600);
-    const hideIdx = body.indexOf('mainWindow.hide()');
-    const openIdx = body.indexOf('openAppWindow(pkg');
-    assert(hideIdx > 0 && openIdx > 0, '两个调用都要在 runLaunch 里');
-    assert(hideIdx < openIdx, 'mainWindow.hide() 必须在 openAppWindow 之前（否则会同时看到两个窗口）');
+    const hideIdx = body.indexOf("mainWindow.hide()");
+    const openIdx = body.indexOf("openAppWindow(pkg");
+    assert(hideIdx > 0 && openIdx > 0, 'Both calls must be inside runLaunch');
+    assert(hideIdx < openIdx, 'mainWindow.hide() must come before openAppWindow (otherwise two windows will be seen at the same time)');
   });
 
   await test('横竖屏：面板方向必须跟应用声明一致，否则只会信箱化', () => {
@@ -2372,7 +2372,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
       '要能预判「这次会重启」');
     assert(/if \(this\.detachedMode && !this\._showWhileWaiting\) return;/.test(appwin),
       'ready-to-show 只在 showWhileWaiting 时才显示壳窗口');
-    assert(/正在为《[\s\S]{0,40}切换到/.test(mainJs), '提示文案要说清为什么慢');
+    assert(/Switching .{0,40}to (landscape|portrait)/.test(mainJs), 'prompt copy should make clear why it is slow');
     // 真正开始换向重启时，pre-attach 可能已经把壳窗口收起来了 —— 必须再亮一次，
     // 否则重启那 40 秒桌面全空（用户以为程序退出了）。
     assert(/appWin\.showWaiting\(/.test(mainJs), '重启换向前要重新亮出等待窗口');
@@ -2491,22 +2491,22 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 3) 商店（MSIX）版：拿不到提权就退回「手动引导」，而不是弹一个注定失败的 UAC
     assert(/if \(store\.STORE_BUILD\) \{[\s\S]{0,900}manual: true/.test(handlerBody),
       '商店版失败时要返回 manual 交给 UI 引导');
-    assert(/商店版无法自行提权/.test(mainJs), '商店版文案要说明为什么不能自动开');
-    assert(/虚拟机监控程序平台/.test(mainJs), '要明确写出「Windows 虚拟机监控程序平台」');
-    // 4) 开启成功后必须清掉加速缓存，否则界面还显示旧结论
+    assert(/Store edition cannot elevate on its own/.test(mainJs), 'Store edition copy should explain why it cannot enable automatically');
+    assert(/Windows Virtual Machine Platform/.test(mainJs), 'must explicitly write out "Windows Virtual Machine Platform"');
+    // 4) After enabling successfully, the acceleration cache must be cleared, otherwise the UI still shows the old conclusion
     assert(/const whpx = await enableWhpxFeatures\(\);\s*\n\s*runtime\.provisioner\.invalidateEnvCache/.test(mainJs),
-      '开启后要 invalidateEnvCache');
-    // 5) 用户点了「否」要能和真失败区分开（1223 = ERROR_CANCELLED）
-    assert(/1223/.test(mainJs) && /cancelled/.test(mainJs), '要区分 UAC 取消');
-    // 6) 有「Windows 虚拟机监控程序平台」那一项的是经典对话框，不是 ms-settings 页面
-    assert(/optionalfeatures\.exe/.test(mainJs), '要打开 classic optionalfeatures.exe');
-    // 7) UI 要处理 manual / cancelled，并真的去打开那个对话框
-    assert(/r\.manual/.test(appJs) && /api\.openWindowsFeatures/.test(appJs), 'UI 要处理 manual 分支');
+      'after enabling, must invalidateEnvCache');
+    // 5) When the user clicks "No", it must be distinguishable from a real failure (1223 = ERROR_CANCELLED)
+    assert(/1223/.test(mainJs) && /cancelled/.test(mainJs), 'must distinguish UAC cancel');
+    // 6) The one with the "Windows Virtual Machine Platform" item is the classic dialog, not the ms-settings page
+    assert(/optionalfeatures\.exe/.test(mainJs), 'must open classic optionalfeatures.exe');
+    // 7) The UI must handle the manual / cancelled branches and really go open that dialog
+    assert(/r\.manual/.test(appJs) && /api\.openWindowsFeatures/.test(appJs), 'UI must handle the manual branch');
     assert(/openWindowsFeatures: \(\) => invoke\('provision:openWindowsFeatures'\)/.test(preloadJs),
-      'preload 要暴露 openWindowsFeatures');
-    // 8) 软件模拟下第一次启动要弹一次系统通知（设置里的自检项用户很可能没看到）
-    assert(/let accelWarned = false;/.test(mainJs) && /正在以软件模拟运行/.test(mainJs),
-      '软件模拟要提醒一次');
+      'preload must expose openWindowsFeatures');
+    // 8) Under software emulation, the first launch must pop a system notification once (the self-check items in settings are very likely not seen by the user)
+    assert(/let accelWarned = false;/.test(mainJs) && /Running in software emulation/.test(mainJs),
+      'software emulation must remind once');
   });
 
   await test('打包必须写入 exe 图标/版本，否则资源管理器显示 Electron 默认图标', () => {
@@ -2636,11 +2636,11 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 一次性迁移：只迁「没主动选过」的配置，用户自己选的不能被反复扳回来
     assert(/windowEmbedMigrated2/.test(storeJs), '要有一次性迁移标记');
     assert(/windowEmbedChosen !== true/.test(storeJs), '主动选过的配置不迁移');
-    // 只看标记不够：老配置可能是「migrated2=true 但值仍是 true」（迁移没落盘 / 手改过），
-    // 那种情况以前会被原样放过 → 启动又是美化壳窗口。判定基准必须是「有没有主动选过」。
+    // Looking only at the mark is not enough: the old configuration may be "migrated2=true but the value is still true" (migration not written to disk / hand-edited),
+    // and in that case it was previously passed through as-is → startup would again be the beautified shell window. The judgment baseline must be "whether it was ever actively chosen".
     const migBody = storeJs.slice(storeJs.indexOf('窗口承载方式的最终裁决'), storeJs.indexOf('窗口承载方式的最终裁决') + 1200);
     assert(/d\.windowEmbedChosen !== true && d\.windowEmbed !== false/.test(migBody),
-      '迁移条件不能依赖 windowEmbedMigrated2，否则旧标记会漏迁');
+      'migration condition must not depend on windowEmbedMigrated2, otherwise old marks will be missed');
     // 原生窗口要尽早接出来，别让用户对着美化等待页干等
     const mainJs = fs.readFileSync(path.join(root, 'src', 'main.js'), 'utf8');
     assert(/pre-attach detached ok/.test(mainJs), '启动时要先尝试把模拟器原生窗口接出来');
