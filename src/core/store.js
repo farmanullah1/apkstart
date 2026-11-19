@@ -263,7 +263,7 @@ const store = {
     s.freeform = false;
 
     /**
-     * 窗口承载方式的最终裁决 (Final verdict on window hosting): **default must be emulator native window**.
+     * Final verdict on window hosting: **default must be emulator native window**.
      * Corrects legacy windowEmbed to false unless user explicitly selected it in settings page.
      */
     try {

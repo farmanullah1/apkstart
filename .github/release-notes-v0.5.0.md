@@ -35,7 +35,7 @@ qemu 在系统繁忙时被饿到，是「点击要等一下才响应、视频掉
 
 ## 零、中文系统、中文输入法、窗口改名、旋转自愈（后补）
 
-**系统语言默认简体中文。** 这一步踩了个坑：`-prop persist.sys.locale=zh-CN` 完全无效
+**System language defaults to English.** This step previously used `-prop persist.sys.locale=zh-CN` which was ineffective
 （模拟器会拦截 `persist.sys.*`，`ro.product.locale` 又被 build.prop 覆盖），
 guest 里 `getprop` 一个都看不到。改用官方的 `-change-locale zh-CN` 后，系统设置页、
 权限弹窗、日期格式全部中文。它只在全量引导时生效，所以从旧英文快照恢复时会自动

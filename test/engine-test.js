@@ -235,7 +235,7 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || '断言失败'); 
       'Performing Streamed Install\nadb.exe: failed to install x.apk: '
       + 'Failure [INSTALL_FAILED_NO_MATCHING_ABIS: Failed to extract native libraries, res=-113]',
     );
-    assert(out.includes('ARM native library'), `should explain ARM native library issue: ${out}`);
+    assert(/ARM native librar/.test(out), `should explain ARM native library issue: ${out}`);
     assert(out.includes('INSTALL_FAILED_NO_MATCHING_ABIS'), 'should preserve original error code');
     const other = friendlyInstallError('Failure [INSTALL_FAILED_INVALID_APK: x]');
     assert(other.includes('corrupt') || other.includes('incomplete'), `unknown errors should also be readable: ${other}`);

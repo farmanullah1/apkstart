@@ -53,7 +53,7 @@ const FLAG_ONLY = new Set([
  * Explicitly listed to explain why they are forbidden rather than just "not in whitelist".
  */
 const FORBIDDEN_ARGS = {
-  '-wipe-data': 'Will clear user apps and saves (会清空用户已装应用与存档)',
+  '-wipe-data': 'Will clear user apps and saves',
   '-datadir': 'Will change AVD directory, breaking multi-instance isolation',
   '-sysdir': 'Will change system image source',
   '-partition-size': 'Will change data partition size; use settings page',
@@ -206,7 +206,7 @@ function validateArgs(args, errors) {
     const flag = eq > 0 ? s.slice(0, eq) : s;
     const value = eq > 0 ? s.slice(eq + 1) : '';
     if (FORBIDDEN_ARGS[flag]) {
-      errors.push(`emulatorArgs does not allow ${flag} (不允许 ${flag}): ${FORBIDDEN_ARGS[flag]}`);
+      errors.push(`emulatorArgs does not allow ${flag} (forbidden argument ${flag}): ${FORBIDDEN_ARGS[flag]}`);
       continue;
     }
     if (eq < 0) {
@@ -522,7 +522,7 @@ function loadDir(dir) {
     try {
       const st = fs.statSync(file);
       if (st.size > MAX_DRIVER_BYTES) {
-        out.errors.push({ file, errors: [`File is too large (文件过大: ${st.size} bytes, limit ${MAX_DRIVER_BYTES})`] });
+        out.errors.push({ file, errors: [`File is too large (${st.size} bytes, limit ${MAX_DRIVER_BYTES})`] });
         continue;
       }
       raw = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -561,7 +561,7 @@ function importDriver(srcFile, destDir) {
   let raw;
   try {
     const st = fs.statSync(srcFile);
-    if (st.size > MAX_DRIVER_BYTES) return { ok: false, errors: ['File is too large (文件过大: max 256 KB)'] };
+    if (st.size > MAX_DRIVER_BYTES) return { ok: false, errors: ['File is too large (max 256 KB)'] };
     raw = JSON.parse(fs.readFileSync(srcFile, 'utf8'));
   } catch (e) {
     return { ok: false, errors: [`Unable to read: ${e.message}`] };

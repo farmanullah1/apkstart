@@ -1,0 +1,7 @@
+{
+  "80": "      reason: `Host RAM ${Math.round(lim.totalMB / 1024)} GB, can allocate at most ${Math.round(lim.maxMB / 1024)} GB (leaving 25% for Windows)`,",
+  "118": "      note: `Uses ${Math.round(ratio * 100)}% host memory; Windows will start paging and the emulator will feel sluggish`,",
+  "158": "      reason: `Disk only has ${(lim.freeMB / 1024).toFixed(1)} GB remaining, can allocate at most ${lim.maxGB} GB`,",
+  "179": "    note: `Needs ~${(need / 1024).toFixed(1)} GB, currently ${(free / 1024).toFixed(1)} GB free, deficit ${(short / 1024).toFixed(1)} GB`,",
+  "196": "    message: `Insufficient disk space: need ~${Math.ceil(need / 1024)} GB, but the disk holding the ApkStart runtime only has ${(free / 1024).toFixed(1)} GB free. `"
+}

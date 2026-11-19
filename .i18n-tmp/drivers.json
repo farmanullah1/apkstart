@@ -1,0 +1,6 @@
+{
+  "56": "  '-wipe-data': 'Will clear user apps and saves',",
+  "209": "      errors.push(`emulatorArgs does not allow ${flag} (forbidden argument ${flag}): ${FORBIDDEN_ARGS[flag]}`);",
+  "525": "        out.errors.push({ file, errors: [`File is too large (${st.size} bytes, limit ${MAX_DRIVER_BYTES})`] });",
+  "564": "    if (st.size > MAX_DRIVER_BYTES) return { ok: false, errors: ['File is too large (max 256 KB)'] };"
+}

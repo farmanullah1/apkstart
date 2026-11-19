@@ -77,7 +77,7 @@ function friendlyInstallError(raw) {
     INSTALL_FAILED_UPDATE_INCOMPATIBLE: 'Installation failed: signature mismatch with the installed version — please uninstall the old version first.',
     INSTALL_FAILED_DEPRECATED_SDK_VERSION:
       'Installation failed: this app targets a very old Android API level (targetSdk too low); Android 14 blocks it by default. '
-      + 'ApkStart will automatically (自动) retry with the official bypass flag.',
+      + 'ApkStart will automatically retry with the official bypass flag.',
     INSTALL_FAILED_TEST_ONLY: 'Installation failed: this is a test-only package — ApkStart will retry with the test-package flag automatically.',
     INSTALL_FAILED_MISSING_SHARED_LIBRARY: 'Installation failed: the app depends on device-specific features (e.g. a vendor library) that are not present in this runtime.',
     INSTALL_FAILED_USER_RESTRICTION: 'Installation failed: the system is blocking installation — please restart the runtime and try again.',

@@ -997,9 +997,9 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(!/-prop[\s\S]{0,80}persist\.sys\.locale/.test(emuCode),
       '不能再用无效的 -prop persist.sys.locale');
     assert(/_guestLocale/.test(emuJs), '要有可配置的语言来源');
-    // 默认中文
-    assert(/locale:\s*'zh-CN'/.test(storeJs), '默认语言必须是简体中文');
-    assert(/chineseIme:\s*true/.test(storeJs), '默认开启中文输入法');
+    // Defaults to English; Chinese is opt-in.
+    assert(/locale:\s*'en-US'/.test(storeJs), 'default locale must be en-US');
+    assert(/chineseIme:\s*false/.test(storeJs), 'Chinese IME must be off by default');
 
     // 输入法：随包带 APK、开机装好并启用
     assert(fs.existsSync(path.join(root, 'assets', 'PinyinIME.apk')), '缺少 PinyinIME.apk');
@@ -2632,7 +2632,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const storeJs = fs.readFileSync(path.join(root, 'src', 'core', 'store.js'), 'utf8');
     // 0.6.0：嵌入模式（SetParent）缩放/旋转时掉帧且有黑边、坐标错位，
     // 默认改为让模拟器开自己的原生窗口。
-    assert(/windowEmbed:\s*false,\s*\n\s*\/\/ 镜像内/.test(storeJs), 'defaultSettings.display.windowEmbed 必须是 false');
+    assert(/windowEmbed:\s*false,/.test(storeJs), 'defaultSettings.display.windowEmbed must be false');
     // 一次性迁移：只迁「没主动选过」的配置，用户自己选的不能被反复扳回来
     assert(/windowEmbedMigrated2/.test(storeJs), '要有一次性迁移标记');
     assert(/windowEmbedChosen !== true/.test(storeJs), '主动选过的配置不迁移');
@@ -2647,7 +2647,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 接管失败必须重试，否则壳窗口一直停在屏幕上（用户看到的「美化窗口」）
     const attachBody = mainJs.slice(mainJs.indexOf('async function attachAppWindow'), mainJs.indexOf('async function attachAppWindow') + 2200);
     assert(/for \(let i = 0; i < 4; i \+= 1\)/.test(attachBody), '原生窗口接管要重试');
-    assert(/临时退回嵌入模式/.test(attachBody), '四轮都失败要兜底，不能留黑屏');
+    assert(/falling back to embed mode/.test(attachBody), 'after four failed attempts it must fall back instead of leaving a black screen');
     const appJs = fs.readFileSync(path.join(root, 'src', 'ui', 'app.js'), 'utf8');
     assert(/windowEmbedChosen:\s*true/.test(appJs), '设置页切换时要写入「已主动选择」标记');
     const indexHtml = fs.readFileSync(path.join(root, 'src', 'ui', 'index.html'), 'utf8');

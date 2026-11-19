@@ -77,7 +77,7 @@ function clampMemoryMB(mb, totalMB) {
     return {
       mb: lim.maxMB,
       capped: true,
-      reason: `Host RAM ${Math.round(lim.totalMB / 1024)} GB, can allocate at most ${Math.round(lim.maxMB / 1024)} GB (最多只能分 ${Math.round(lim.maxMB / 1024)} GB, leaving 25% for Windows)`,
+      reason: `Host RAM ${Math.round(lim.totalMB / 1024)} GB, can allocate at most ${Math.round(lim.maxMB / 1024)} GB (leaving 25% for Windows)`,
     };
   }
   if (rounded < lim.minMB) return { mb: lim.minMB, capped: true, reason: `Android requires at least ${lim.minMB} MB to boot` };
@@ -115,7 +115,7 @@ function memVerdict(allocMB, hostMB) {
     return {
       level: 'insufficient',
       ratio,
-      note: `Uses ${Math.round(ratio * 100)}% host memory; Windows will start paging (换页), making emulator sluggish`,
+      note: `Uses ${Math.round(ratio * 100)}% host memory; Windows will start paging and the emulator will feel sluggish`,
     };
   }
   if (ratio > TIGHT_RATIO * (1 - HOST_RESERVE_RATIO)) {
@@ -155,7 +155,7 @@ function clampDataGB(gb, freeMB) {
     return {
       gb: Math.max(0, lim.maxGB),
       capped: true,
-      reason: `Disk only has ${(lim.freeMB / 1024).toFixed(1)} GB remaining (只剩 ${(lim.freeMB / 1024).toFixed(1)} GB), can allocate at most ${lim.maxGB} GB`,
+      reason: `Disk only has ${(lim.freeMB / 1024).toFixed(1)} GB remaining, can allocate at most ${lim.maxGB} GB`,
     };
   }
   return { gb: want, capped: false, reason: '' };
@@ -176,7 +176,7 @@ function storageVerdict(freeMB, packageBytes) {
     needMB: need,
     freeMB: free,
     shortMB: short,
-    note: `Needs ~${(need / 1024).toFixed(1)} GB, currently ${(free / 1024).toFixed(1)} GB free, deficit ${(short / 1024).toFixed(1)} GB (还差 ${(short / 1024).toFixed(1)} GB)`,
+    note: `Needs ~${(need / 1024).toFixed(1)} GB, currently ${(free / 1024).toFixed(1)} GB free, deficit ${(short / 1024).toFixed(1)} GB`,
   };
 }
 
@@ -193,7 +193,7 @@ function diskVerdict(freeMB, requiredMB) {
     ok: false,
     freeMB: free,
     requiredMB: need,
-    message: `Insufficient disk space (磁盘空间不足): need ~${Math.ceil(need / 1024)} GB, but disk where ApkStart runtime is located only has ${(free / 1024).toFixed(1)} GB free (ApkStart 运行时所在磁盘只剩 ${(free / 1024).toFixed(1)} GB). `
+    message: `Insufficient disk space: need ~${Math.ceil(need / 1024)} GB, but the disk holding the ApkStart runtime only has ${(free / 1024).toFixed(1)} GB free. `
       + 'Please move runtime directory to a partition with more space in settings, or clean up disk and try again.',
   };
 }

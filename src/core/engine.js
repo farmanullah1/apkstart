@@ -667,8 +667,8 @@ class Runtime {
         const r = await client.ensureChineseIme(apk, {
           setDefault: this.settings.engine.chineseImeDefault !== false,
         });
-        // 只有真的成功了才置位。失败时允许下一次 prepare() 重试 ——
-        // 否则一次偶发的 adb 抖动就会让这台机器永远没有中文输入法。
+        // Only mark it ready on real success; a failure lets the next prepare() retry,
+        // otherwise a single flaky adb call would leave this machine without Chinese input forever.
         if (r && r.ok) this._chineseReady = true;
         this.log(`Chinese IME: ${r.ok ? (r.installed ? 'installed and enabled' : 'ready') : (r.reason || 'not ready')}`);
         // -change-locale is only executed and framework restarted during a 'full boot'; it is skipped when restoring from a quickboot snapshot.
@@ -684,23 +684,24 @@ class Runtime {
   }
 
   /**
-   * 系统 UI 语言校正（一次性）。
+   * One-time system UI language correction.
    *
-   * 实测结论（很容易踩错）：-change-locale 生效后**不会**写 persist.sys.locale，
-   * ro.product.locale 也仍是镜像的 en-US；它真正改的是
-   * `settings system system_locales`（语言设置页显示「中文（中国）」，系统 UI 全中文）。
-   * 所以判断「中文是否已经生效」要看 system_locales，不是 getprop。
+   * Measured behaviour (easy to get wrong): after `-change-locale` takes effect it does **not** write
+   * persist.sys.locale, and ro.product.locale still shows the image's en-US. What it actually changes is
+   * `settings system system_locales` (the language picker shows the new language, the system UI follows).
+   * So check system_locales, not getprop.
    *
-   * -change-locale 只在「全量引导」时执行并重启 framework；从 quickboot 快照恢复时
-   * 会被跳过。旧快照是英文的，所以检测到不对就作废快照、让下次开机冷启动一次。
-   * 之后存的新快照就是中文的，不用再重启。marker 保证一生只纠正一次。
+   * `-change-locale` only runs on a full boot and restarts the framework; it is skipped when restoring
+   * from a quickboot snapshot. An old snapshot still has the previous language, so when a mismatch is
+   * detected the snapshot is invalidated and the next start cold-boots once. Snapshots saved afterwards
+   * already carry the new language. The marker guarantees this is corrected only once.
    */
   async _ensureSystemLocale(client, locale) {
     const fs = require('fs');
     const path = require('path');
-    const want = String(locale || 'zh-CN');
+    const want = String(locale || 'en-US');
     if (want === 'off' || want === 'en-US') return;
-    // 已经生效（system_locales 是目标语言，或语言列表里第一项是它）
+    // Already applied (system_locales is the target locale, or its first entry is)
     const cur = await client.shell('settings get system system_locales', { timeout: 8000 }).catch(() => '');
     const s = String(cur).trim();
     if (s === want || s.indexOf(want) === 0 || /^zh[-_]/.test(s)) return;
@@ -708,11 +709,11 @@ class Runtime {
     if (fs.existsSync(marker)) return;
     try {
       fs.writeFileSync(marker, String(Date.now()));
-      this.log(`系统语言仍为 ${s || '(空)'}，作废旧快照，下次开机冷启动切到 ${want}`);
+      this.log(`System locale is still ${s || '(empty)'}; dropping the snapshot so the next boot cold-starts into ${want}`);
       this.emulator.invalidateSnapshot();
       this.emulator.forceColdBootOnNextStart();
     } catch (e) {
-      this.log(`系统语言校正跳过：${e.message}`);
+      this.log(`System locale correction skipped: ${e.message}`);
     }
   }
 
