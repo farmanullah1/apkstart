@@ -89,7 +89,7 @@ LOGO = Image.open(os.path.join(IMG, 'logo.png')).convert('RGB')
 APP = Image.open(os.path.join(IMG, 'app.png')).convert('RGB')
 HONGGUO = Image.open(os.path.join(IMG, 'compat-hongguo-playing.png')).convert('RGB')
 BRAND = Image.open(os.path.join(IMG, 'brand.png')).convert('RGB')
-RELEASE = 'https://github.com/farmanullah1/APK-START-English/releases/tag/v0.2.2'
+RELEASE = 'https://github.com/farmanullah1/apkstart/releases/tag/v0.2.2'
 
 
 # ---------- 微信公众号封面 900x383 ----------
@@ -128,7 +128,7 @@ def download_qr():
     for x, name, asset, tip in cards:
         rounded(im, (x, 170, x + 460, 636), 24, fill=(246, 250, 247), outline=(222, 232, 226), width=2)
         d.text((x + 26, 192), name, font=font(30, True), fill=(13, 17, 23))
-        url = f'https://github.com/farmanullah1/APK-START-English/releases/download/v0.2.2/{asset}'
+        url = f'https://github.com/farmanullah1/apkstart/releases/download/v0.2.2/{asset}'
         paste_fit(im, qr_png(url, 360), (x + 50, 240, 360, 360))
         d.text((x + 26, 608), tip, font=font(22), fill=(80, 100, 90))
     im.save(os.path.join(OUT, 'download-qr.png'))

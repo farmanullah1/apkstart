@@ -51,5 +51,5 @@ if (Test-Path $listing) {
 
 Write-Host ''
 Write-Host '  Order: create product -> upload package -> paste listing -> submit' -ForegroundColor Yellow
-Write-Host '  隐私政策：https://github.com/farmanullah1/APK-START-English/blob/main/docs/privacy.md' -ForegroundColor DarkGray
+Write-Host '  隐私政策：https://github.com/farmanullah1/apkstart/blob/main/docs/privacy.md' -ForegroundColor DarkGray
 Write-Host ''

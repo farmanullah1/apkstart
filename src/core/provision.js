@@ -52,7 +52,7 @@ const SOURCES = {
   // stuck at tens of KB/s or returned 404 directly; after switching to a full package + this project's GitHub, the download source and the update source
   // are the same place, and when something goes wrong it only needs to be fixed in one place.
   ghReleaseApi: 'https://api.github.com/repos/farmanullah1/APK-START-English/releases',
-  ghReleasePage: 'https://github.com/farmanullah1/APK-START-English/releases',
+  ghReleasePage: 'https://github.com/farmanullah1/apkstart/releases',
   // Same-content Gitee mirror: domestic direct connections to api.github.com often take tens of seconds to respond, Gitee is usually a few hundred milliseconds.
   // Ask both sides once; whichever gives back the "highest version with runtime full package" first is used.
   giteeReleaseApi: 'https://gitee.com/api/v5/repos/daily-miku/apkstart/releases',

@@ -1,67 +1,67 @@
-# 架构
+# Architecture
 
-## 分层
+## Layers
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ 表现层  src/ui (HTML/CSS/JS)  ←→  preload (contextBridge)   │
+│ Presentation  src/ui (HTML/CSS/JS)  ←→  preload (contextBridge)   │
 ├─────────────────────────────────────────────────────────────┤
-│ 编排层  src/main.js（窗口/托盘/CLI 分发）                     │
-│         installer.js（安装流水线）                            │
+│ Orchestration  src/main.js（window / tray / CLI dispatch）        │
+│         installer.js（install pipeline）                          │
 ├─────────────────────────────────────────────────────────────┤
-│ 域层    engine.js（运行时生命周期/探测/空闲回收）             │
-│         adb.js（设备操作）  sharer.js（文件互通）            │
+│ Domain  engine.js（runtime lifecycle / probe / idle reclaim）   │
+│         adb.js（device operations）  sharer.js（file sharing）   │
 ├─────────────────────────────────────────────────────────────┤
-│ 离线解析  zip.js → axml.js / arsc.js → apk.js                │
-│           png.js / shortcut.js（图标与快捷方式）             │
+│ Offline parsing  zip.js → axml.js / arsc.js → apk.js             │
+│           png.js / shortcut.js（icons and shortcuts）            │
 ├─────────────────────────────────────────────────────────────┤
-│ 引擎适配  自带 QEMU(WHPX/TCG) │ 系统镜像导入 │ 已有运行时(可选) │
+│ Engine adaptation  bundled QEMU(WHPX/TCG) │ system image import │ existing runtime (optional) │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 关键流程
+## Key flows
 
-### 1. 双击 APK 安装
+### 1. Double-click APK install
 
 ```
-Explorer 双击 .apk
+Explorer double-clicks .apk
   → HKCU\Software\Classes\ApkStart.apk\shell\open\command
   → ApkStart.exe "C:\...\xxx.apk"
   → main.js parseArgs → runInstall
-      1. apk.js：离线解析（zip → manifest AXML → arsc 还原 label/icon）
-      2. engine.ensure()：运行时未就绪则自动拉起/探测
+      1. apk.js：offline parsing（zip → manifest AXML → arsc restores label/icon）
+      2. engine.ensure()：auto-start / probe if the runtime is not ready
       3. adb install -r -g -t
-      4. 图标 → PNG（icons/）+ 多尺寸 ICO（icons/*.ico）
-      5. shell.writeShortcutLink 生成桌面 .lnk（--launch <pkg>）
-      6. store.upsertApp 记录元数据
+      4. icon → PNG（icons/）+ multi-size ICO（icons/*.ico）
+      5. shell.writeShortcutLink creates desktop .lnk（--launch <pkg>）
+      6. store.upsertApp records metadata
 ```
 
-### 2. 桌面图标启动（原生体验）
+### 2. Desktop icon launch（native experience）
 
 ```
-双击 <应用名>.lnk
+Double-click <app name>.lnk
   → ApkStart.exe --launch <pkg>
-  → 单实例锁合并到已运行实例（或静默拉起新实例）
+  → single-instance lock merges into the already-running instance（or silently starts a new one）
   → adb am start --windowingMode 5 -n <pkg>/<activity>
-  → 独立 freeform 窗口
-  → 壳层窗口自动隐藏/退出，不留多余界面
+  → independent freeform window
+  → shell window auto-hides/exits, leaving no extra UI
 ```
 
-### 3. 数据互通
+### 3. Data sharing
 
 ```
-本机 %USERPROFILE%\ApkStartShared  ⇄  安卓 /sdcard/ApkStartShared
-  增量双向同步（mtime+size 判定），8s 轮询 + 关键动作触发
+Host %USERPROFILE%\ApkStartShared  ⇄  Android /sdcard/ApkStartShared
+  incremental two-way sync（mtime+size check），8s polling + key-action triggers
 ```
 
-## 为什么不用现成库
+## Why no off-the-shelf library
 
-| 需求 | 常规做法 | ApkStart 的做法 | 理由 |
+| Need | Typical approach | ApkStart's approach | Reason |
 |---|---|---|---|
-| 读 APK 元数据 | aapt2 / apk-parser | 手写 zip+AXML+ARSC | 体积零依赖、免安装 SDK、启动无外部进程 |
-| 图标转 ICO | ImageMagick/sharp | nativeImage 缩放 + 手写 ICO 容器 | 避免 80MB 原生依赖 |
-| 文件关联 | 安装器写 HKLM | HKCU + SHChangeNotify | 免管理员、可随时在设置里开关 |
-| 模拟器 | 打包整套 VirtualBox | 引擎适配层 | 复用已有运行时零成本；QEMU 路线保留可控的系统镜像方案 |
+| Read APK metadata | aapt2 / apk-parser | Hand-written zip+AXML+ARSC | Zero dependency footprint, no SDK install, no external process at startup |
+| Icon to ICO | ImageMagick/sharp | nativeImage scaling + hand-written ICO container | Avoid an 80MB native dependency |
+| File association | Installer writes HKLM | HKCU + SHChangeNotify | No admin rights, toggleable anytime in Settings |
+| Emulator | Bundle a full VirtualBox | Engine adaptation layer | Zero-cost reuse of an existing runtime; QEMU route keeps a controllable system-image scheme |
 
 ## 稳定性设计
 

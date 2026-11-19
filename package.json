@@ -1,19 +1,19 @@
 {
   "name": "apkstart",
   "productName": "ApkStart",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "An ultra-light Android app runner for Windows: double-click an APK to install it, and apps run in their own windows with their own desktop icons",
   "main": "src/main.js",
   "author": "farmanullah1",
   "license": "MIT",
   "private": true,
-      "homepage": "https://github.com/farmanullah1/APK-START-English#readme",
+      "homepage": "https://github.com/farmanullah1/apkstart#readme",
   "repository": {
     "type": "git",
-          "url": "git+https://github.com/farmanullah1/APK-START-English.git"
+          "url": "git+https://github.com/farmanullah1/apkstart.git"
   },
   "bugs": {
-          "url": "https://github.com/farmanullah1/APK-START-English/issues"
+          "url": "https://github.com/farmanullah1/apkstart/issues"
   },
   "keywords": [
     "android",

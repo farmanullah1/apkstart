@@ -1,4 +1,4 @@
-# Microsoft Store 提交材料（ApkStart 0.6.1）
+# Microsoft Store 提交材料（ApkStart 0.6.2）
 
 > 这份文件是给 Partner Center 表单直接复制用的。包体、图标、清单由脚本产出，
 > 只有「注册账号 → 预留名称 → 上传 → 送审」必须在网页上人工完成。
@@ -12,17 +12,17 @@
 | Product name | `ApkStart` |
 | Category | Developer tools → Utilities & tools（备选：Productivity） |
 | Price | Free |
-| Package | `dist/store/ApkStart_0.6.1.0_x64.msix`（x64，约 1.5 GB） |
+| Package | `dist/store/ApkStart_0.6.2.0_x64.msix`（x64，约 1.5 GB） |
 | 支持语言 | 简体中文 / English (United States) |
-| 官网 | https://github.com/farmanullah1/APK-START-English |
+| 官网 | https://github.com/farmanullah1/apkstart |
 | 支持邮箱 | <!-- 填你的邮箱 --> |
-| 隐私政策 | https://github.com/farmanullah1/APK-START-English/blob/main/docs/privacy.md（或自建页面） |
+| 隐私政策 | https://github.com/farmanullah1/apkstart/blob/main/docs/privacy.md（或自建页面） |
 
 ### 本版新增（Partner Center → **What's new in this version**，直接粘贴）
 
 **中文**
 ```
-0.6.1：
+0.6.2：
 · 修复「启动后看到的还是 ApkStart 的美化等待窗口」：现在一点开应用就让模拟器原生窗口接管画面，你能立刻看到安卓自己的开机画面，而不是我们的转圈页。
 · 原生窗口接管失败会自动重试 4 次（冷启动、换横竖屏之后 Qt 窗口会晚一点才出现），四次都不成功才临时退回内置窗口，不会再留下一屏黑或一张永远转圈的等待页。
 · 默认窗口设置加固：只要没在设置里主动切换过窗口承载方式，一律按模拟器原生窗口启动；老配置里残留的嵌入开关也会被自动纠正。
@@ -95,7 +95,7 @@
 
 **English**
 ```
-0.6.1:
+0.6.2:
 · Fixed "launching an app still shows ApkStart's own styled waiting window": the emulator's native window now takes over the moment you open an app, so you see Android's own boot screen instead of our spinner page.
 · Native window hand-over now retries four times (Qt's window can appear a little late on cold starts and after an orientation change); only if all four fail does it temporarily fall back to the built-in window — no more black screen and no endless spinner.
 · Hardened the default window setting: unless you explicitly switched the window host in Settings, ApkStart always launches with the emulator's native window, and a leftover "embedded" flag from older configs is corrected automatically.
@@ -371,7 +371,7 @@ Notes:
    ```powershell
    node build/msix.js --identity "<Identity/Name>" --publisher "<Identity/Publisher>"
    ```
-4. **Packages** → 上传 `dist/store/ApkStart_0.6.1.0_x64.msix`，等待校验通过。
+4. **Packages** → 上传 `dist/store/ApkStart_0.6.2.0_x64.msix`，等待校验通过。
 5. **Store listing** → 填第 2–5 节的内容、上传截图、选分类。
 6. **Pricing and availability** → Free，市场选中国 + 全球。
 7. **Submission options** → 粘贴第 6 节的 certification notes。

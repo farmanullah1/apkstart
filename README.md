@@ -2,8 +2,8 @@
 
 
 
-[![CI](https://github.com/farmanullah1/APK-START-English/actions/workflows/ci.yml/badge.svg)](https://github.com/farmanullah1/APK-START-English/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/farmanullah1/APK-START-English?include_prereleases&sort=semver)](https://github.com/farmanullah1/APK-START-English/releases)
+[![CI](https://github.com/farmanullah1/apkstart/actions/workflows/ci.yml/badge.svg)](https://github.com/farmanullah1/apkstart/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/farmanullah1/APK-START-English?include_prereleases&sort=semver)](https://github.com/farmanullah1/apkstart/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6.svg)](#)
 
@@ -39,7 +39,7 @@
 
 Both download mirrors offer identical releases:
 
-- GitHub: [github.com/farmanullah1/APK-START-English/releases](https://github.com/farmanullah1/APK-START-English/releases)
+- GitHub: [github.com/farmanullah1/APK-START-English/releases](https://github.com/farmanullah1/apkstart/releases)
 - Gitee: [gitee.com/daily-miku/apkstart/releases](https://gitee.com/daily-miku/apkstart/releases) (faster direct connection in China)
 
 Release packages (four formats, identical core functionality and version):
@@ -300,7 +300,7 @@ adb devices              # Displays emulator-5554
 
 ApkStart is maintained by **farmanullah1**.
 
-- GitHub: <https://github.com/farmanullah1/APK-START-English>
+- GitHub: <https://github.com/farmanullah1/apkstart>
 
 
 
