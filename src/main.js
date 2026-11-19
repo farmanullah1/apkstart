@@ -554,7 +554,7 @@ async function attachAppWindow() {
     // All four rounds failed to show up (remote desktop / GPU driver anomaly / emulator started with --no-window):
     // rather than leaving a black screen or a perpetually spinning wait page, use embed to attach the picture first,
     // and clearly tell the user this is a fallback — the next launch still prefers the native window.
-    appLog('attach detached: all retries failed, temporarily falling back to embed mode (临时退回嵌入模式)');
+    appLog('attach detached: all retries failed, temporarily falling back to embed mode (fell back to embedded mode)');
     const fallback = await appWin.embed().catch(() => false);
     if (fallback) {
       try {
@@ -1962,14 +1962,14 @@ function registerIpc() {
       free = doctor.freeDiskMB(runtime.provisioner.paths().root);
       if (free && free < 8192) {
         issues.push({
-          code: 'disk', severity: free < 2048 ? 'error' : 'warn', title: '运行时磁盘空间紧张',
+          code: 'disk', severity: free < 2048 ? 'error' : 'warn', title: 'Runtime disk space is low',
           hint: `The drive holding "${runtime.provisioner.paths().root}" only has ${free} MB left; the runtime and images may fill the hard disk.`, fix: 'disk',
         });
       }
       const rtDir = runtime.provisioner.paths().root;
       if (!doctor.isAsciiPath(rtDir)) {
         issues.push({
-          code: 'pathRuntime', severity: 'warn', title: '运行时目录含中文/特殊字符',
+          code: 'pathRuntime', severity: 'warn', title: 'Runtime path contains Chinese/special characters',
           hint: 'Some runtime components are sensitive to Chinese paths, which may cause startup failures. Suggested to change to a pure-English directory.', fix: 'path',
         });
       }
@@ -2752,7 +2752,7 @@ function registerIpc() {
   });
 }
 
-// ---------------- 生命周期 ----------------
+// ---------------- Process lifecycle ----------------
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -2782,16 +2782,16 @@ if (!gotLock) {
     // all fall on "Electron" — what the user sees is "the icon/name is the default one".
     // Note that this is the identity of the "current process"; when switching to a certain Android app it will be changed to that app's own
     // AUMID (see openAppWindow), otherwise the taskbar pinned item and the running window will not match,
-    // 固定项显示的还是 ApkStart 的图标。
+    // and the pinned item still shows ApkStart's icon.
     setAumid(APP_AUMID);
     runtime = new Runtime(APP_ROOT);
     // Leave one line of trace on startup: when something goes wrong, the user can send app.log over and see the version and data directory
     appLog(`start v${app.getVersion()} data=${store.DATA_DIR} pid=${process.pid}`);
 
-    // ---- 开机动画窗口 ----
-    // 仿抖音 DSH 风格：Logo 渐显 + 进度条 + 状态文字。
-    // 首次安装时额外显示配置步骤介绍；非首次只显示精简动画。
-    // 安卓环境就绪后淡出关闭，应用秒进。
+    // ---- Boot animation window ----
+    // Douyin DSH style: Logo fade-in + progress bar + status text.
+    // On first install, additionally show a configuration-step intro; on subsequent runs, show only a slimmed-down animation.
+    // After the Android environment is ready, fade out and close so the app launches instantly.
     const isFirstRun = !store.getSettings().runtime.installed;
     try {
      // Center on screen
@@ -2875,7 +2875,7 @@ if (!gotLock) {
     const keymapEngine = new KeymapEngine({
       execInput: (cmd) => runtime.client().shell(cmd, { timeout: 4000 }),
       getSize: () => {
-        // 用当前面板尺寸（横屏 1280x720 / 竖屏 720x1280）
+        // Use the current panel dimensions (landscape 1280x720 / portrait 720x1280)
         const land = !!(store.getSettings().display || {}).landscape;
         return land ? { width: 1280, height: 720 } : { width: 720, height: 1280 };
       },
@@ -2898,7 +2898,7 @@ if (!gotLock) {
       onProgress: (p) => send('update:progress', p),
     });
 
-    // 滚轮合并器：一个时间窗内的滚动只注入一条 input swipe，走常驻 adb shell。
+    // Wheel merger: within one time window, only one input swipe is injected, using a resident adb shell.
     wheelRouter = new pointer.WheelRouter({
       getSize: getDeviceSize,
       inject: (cmd) => runtime.client().input(cmd),
@@ -2906,16 +2906,16 @@ if (!gotLock) {
 
     // Window agent: only responsible for embedding the emulator window. The global mouse hook is only installed according to the configuration when the app window is in the foreground.
     winAgent = new WinAgent();
-    appWin = new AppWindow({
+        appWin = new AppWindow({
       agent: winAgent,
-            // Rotation must change Android's logical resolution, handed to the adb client to do
+      // Rotation must change Android's logical resolution, handed to the adb client to do
       setOrientation: async (landscape) => {
         deviceSize.value = null;
         return runtime.client().setOrientation(landscape);
       },
-            // Pass getter: after the settings page changes the key mapping, the next window focus / refresh takes effect, no restart needed
+      // Pass getter: after the settings page changes the key mapping, the next window focus / refresh takes effect, no restart needed
       pointerConfig: () => pointer.pointerOptions(store.getSettings()),
-            // The picture window is found by the window agent itself according to the process scope (the window of the shipped emulator is the one we lift up)
+      // The picture window is found by the window agent itself according to the process scope (the window of the shipped emulator is the one we lift up)
       windowTargets: () => null,
     });
     appWin.onCloseApp((pkg) => {
@@ -2948,8 +2948,8 @@ if (!gotLock) {
       return agent.bootHide().catch(() => ({ ok: false }));
     };
 
-    // 代理进程意外退出后会重建，事件监听必须一起重新挂上（旧版会在这里丢掉
-    // 右键返回与滚轮，表现是「用一会儿就没反应了」）。
+    // The agent process is rebuilt after an unexpected exit; event listeners must be re-attached together (old versions dropped them
+    // here, with the symptom being "right-click back and wheel stop responding after a while").
     const attachAgentEvents = (agent) => {
       agent.on('back', () => { runtime.client().keyBack().catch(() => {}); });
       agent.on('forward', () => { runtime.client().keyForward().catch(() => {}); });
@@ -2961,21 +2961,21 @@ if (!gotLock) {
         winAgent = next;
         appWin.agent = next;
         attachAgentEvents(next);
-        // 新代理没有范围信息，不补这一下它就什么窗口都不敢碰
+        // The new agent has no scope info; without re-stating it, it won't touch any windows
         armAgent(next).catch(() => {});
       });
     };
     attachAgentEvents(winAgent);
 
-    // 命令窗压制的「闸门」必须在模拟器进程创建之前打开。
-    // 旧实现是「等 ApkStart 起来 4 秒后再藏」，而模拟器在这之前就已经把
-    // qemu 控制台窗口创建出来了 —— 用户看到的就是一次一闪而过的黑框。
+    // The console-window suppression 'gate' must be opened before the emulator process is created.
+    // The old implementation was 'wait until ApkStart is up for 4 seconds, then hide', but the emulator had already
+    // created the qemu console window before that — what the user saw was a single flashing black frame.
     runtime.emulator.onBeforeSpawn = async () => {
       if (!winAgent) return;
       await armAgent(winAgent);
     };
-    // 窗口代理是个 PowerShell 常驻进程，冷启动约 300~600ms。
-    // 提前拉起，别等到真正要藏窗口的那一刻才开始等。
+    // The window agent is a PowerShell resident process, cold-start of about 300~600ms.
+    // Start it early, don't wait until the moment you actually need to hide the window.
     winAgent.ensure().then(() => armAgent(winAgent)).catch(() => {});
 
     registerIpc();
@@ -2983,16 +2983,16 @@ if (!gotLock) {
     buildTray();
     applyAutoStart();
 
-    // 自动检测：先排上定时任务，启动 25 秒后再跑第一轮。
-    // 延后是因为刚开机时 adb / 磁盘 / 快照都还在就位过程中，
-    // 这时候采到的状态最容易误判（例如「没看到设备」其实只是还没引导完）。
+    // Auto-diagnostics: schedule the timer first, and run the first round 25 seconds after startup.
+    // The delay is because just after boot, adb / disk / snapshot are all still in the process of settling,
+    // and the state sampled at that time is most likely to be misjudged (for example, 'no device seen' is just that boot has not finished yet).
     scheduleAutodebug();
     setTimeout(() => { runAutodebug().catch(() => {}); }, 25000).unref?.();
 
-    // 老版本安装的应用没有 orientation 字段（那时还没这个功能）。
-    // 不补的话「跟随应用」对它们只能退回「当前面板方向」，红果这类竖屏应用
-    // 在横屏面板下依旧是两侧黑边。这里用随包的离线 APK 清单解析补一次，
-    // 只读中央目录 + AndroidManifest，几百毫秒且只跑一次。
+    // Apps installed by older versions do not have an orientation field (the feature did not exist then).
+    // Without backfilling, 'follow app' can only fall back to 'current panel direction' for them, and portrait apps like Hongguo
+    // will still have black borders on both sides under a landscape panel. Here backfill once using the bundled APK manifest parsing,
+    // reading only the central directory + AndroidManifest, in a few hundred milliseconds and only once.
     try {
       const { parseApk } = require('./core/apk');
       const filled = [];
@@ -3005,40 +3005,40 @@ if (!gotLock) {
             store.upsertApp({ package: app.package, orientation: meta.orientation });
             filled.push(`${app.label}=${meta.orientation}`);
           }
-        } catch (_) { /* 解析失败的应用跳过，不影响启动 */ }
+        } catch (_) { /* skip apps whose parsing failed; does not affect startup */ }
       }
       if (filled.length) appLog(`orientation backfill: ${filled.join(', ')}`);
     } catch (_) { /* ignore */ }
 
-    // 磁盘余量：小于 3GB 时安卓根本起不来（写镜像/快照都会失败）。
-    // 与其让用户看着「打不开」不明所以，不如开门见山告诉他往哪儿改。
+    // Disk headroom: when less than 3GB, Android cannot start at all (writing images/snapshots both fail).
+    // Rather than letting the user stare at 'cannot open' with no idea why, tell them plainly where to change it.
     {
       const doctor = require('./core/doctor');
       const freeMB = doctor.freeDiskMB(store.DATA_DIR);
       if (freeMB && freeMB < 3072) {
         appLog(`LOW_DISK free=${freeMB}MB dir=${store.DATA_DIR}`);
         setTimeout(() => {
-          notify('磁盘空间不足', `只剩 ${(freeMB / 1024).toFixed(1)} GB。请到「设置 → 系统集成」把安卓数据目录/运行时目录改到其他盘，或先清理磁盘。`);
-          send('toast', { type: 'error', message: `磁盘只剩 ${(freeMB / 1024).toFixed(1)} GB，安卓可能无法启动（设置 → 系统集成 可换盘）` });
+          notify('Disk space insufficient', `Only ${(freeMB / 1024).toFixed(1)} GB left. Please go to 'Settings → System Integration' and change the Android data directory/runtime directory to another drive, or clean up disk space first.`);
+          send('toast', { type: 'error', message: `Disk only has ${(freeMB / 1024).toFixed(1)} GB left; Android may fail to start (Settings → System Integration can switch drives)` });
         }, 3000).unref?.();
       }
     }
 
-    // 老版本只建过桌面快捷方式 / 图标是 null：启动即自动补齐，不用用户操作
+    // Older versions only created Desktop shortcuts / icon is null: auto-complete on startup, no user action needed
     installer.ensureShortcuts().then((fixed) => {
       if (fixed && fixed.length) {
         windowctl.refreshShell().catch(() => {});
-        notify('快捷方式已补齐', fixed.join('、'));
+        notify('Shortcuts completed', fixed.join('; '));
       }
     }).catch(() => {});
 
-    // F11 全屏 / 窗口切换；全局快捷键只在 ApkStart 活着时有效
+    // F11 fullscreen / window toggle; global shortcuts are only effective while ApkStart is alive
     try {
       globalShortcut.register('F11', () => { toggleDisplayMode(); });
     } catch (_) { /* ignore */ }
-    // 旋转快捷键：原生窗口模式下壳窗口是隐藏的，标题栏里的 Ctrl+R 收不到焦点，
-    // 所以再注册一个全局组合键。用 Ctrl+Alt+R 而不是 Ctrl+R —— 后者会和
-    // 浏览器/编辑器的「刷新」抢键，全局注册会直接废掉用户其它程序的刷新。
+    // Rotation shortcut: in native-window mode the shell window is hidden, and the Ctrl+R in the title bar cannot receive focus,
+    // so register one more global combination key. Use Ctrl+Alt+R instead of Ctrl+R — the latter would compete with
+    // the browser/editor 'refresh' key, and a global registration would directly break refresh in other programs of the user.
     try {
       globalShortcut.register('CommandOrControl+Alt+R', () => {
         if (currentAppPkg) rotateCurrentApp().catch(() => {});
@@ -3049,19 +3049,19 @@ if (!gotLock) {
     if (args.apk) runInstall(args.apk).catch(() => {});
     else if (args.launch) await runLaunch(args.launch);
     else {
-      // 没有直接启动应用：splash 在主窗口 ready 后淡出
+      // No app was launched directly: the splash fades out after the main window is ready
       if (typeof splashDone === 'function') {
         setTimeout(() => splashDone(), 800);
       }
     }
 
-    // 预热：像 WSA / 应用宝电脑版那样把安卓环境常驻。
-    // 打开 ApkStart 时就在后台把它引导好（窗口全程隐藏），之后点应用只剩一次 am start。
-    // 只有「已经装过应用 + 有可用运行时」才预热，避免第一次使用/纯管理场景白占内存。
+    // Preheat: keep the Android environment resident like WSA / AppBao desktop edition.
+    // When ApkStart opens, guide it in the background (the window stays hidden the whole time), then later clicking an app only leaves one am start.
+    // Only 'already installed apps + available runtime' preheats, to avoid wasting memory on first use / pure management scenarios.
     const prewarmEnabled = store.getSettings().engine.prewarm !== false;
     if (prewarmEnabled && !args.launch && store.getApps().length > 0) {
-      // 1.2 秒就够窗口画完第一帧了。以前等 4 秒，用户这时已经点了应用，
-      // 结果「点开」和「预热」抢同一个 AVD 锁，反而更慢。
+      // 1.2 seconds is enough for the window to finish drawing the first frame. Previously it waited 4 seconds, at which point the user had already clicked the app,
+      // and the result was that 'open' and 'preheat' competed for the same AVD lock, making it even slower.
       setTimeout(async () => {
         try {
           const env = await runtime.provisioner.checkEnv();
@@ -3069,8 +3069,8 @@ if (!gotLock) {
             appLog(`prewarm skipped: not ready (adb=${env.adb.ok} emu=${env.emulator.ok} img=${env.sysimg.ok})`);
             return;
           }
-          // 开机阶段把模拟器窗口与 qemu 控制台藏起来，用户不该看到任何窗
-          // 注意要 await：不等它生效就去 spawn，黑窗一定会露出来。
+          // During the boot stage, hide the emulator window and the qemu console black window; the user should not see any window.
+          // Must await: if you go to spawn without waiting for it to take effect, the black window will definitely show up.
           if (winAgent) { try { await armAgent(winAgent); } catch (_) { /* ignore */ } }
           const t0 = Date.now();
           appLog('prewarm start');
@@ -3078,8 +3078,8 @@ if (!gotLock) {
           if (r && r.ok) appLog(`prewarm ready in ${Date.now() - t0}ms`);
           else {
             appLog(`prewarm failed: ${r && (r.error || r.skipped)}`);
-            // 预热失败也继续压住模拟器窗口：它可能只是慢，过一会儿就起来了，
-            // 用户不该因为「预热失败」在桌面上看到一台模拟器。
+            // Continue suppressing the emulator window even if preheat failed: it may just be slow and come up after a while;
+            // the user should not see an emulator on the desktop because of 'preheat failure'.
             if (winAgent) armAgent(winAgent).catch(() => {});
           }
         } catch (e) { appLog(`prewarm error: ${e && e.message}`); /* 预热失败不影响后续正常打开 */ }
@@ -3088,58 +3088,58 @@ if (!gotLock) {
       appLog(`prewarm off (enabled=${prewarmEnabled} launch=${!!args.launch} apps=${store.getApps().length})`);
     }
 
-    // 首次运行的组件部署延后 20 秒：冷启动那段时间磁盘/CPU 已经打满，
-    // 再并发下载解压只会让桌面更卡。真有应用要打开时 ensure() 自会准备。
+    // Delay first-run component deployment by 20 seconds: during cold-start that period disk/CPU is already saturated,
+    // and concurrent download + decompression would only make the desktop more laggy. When an app really needs to open, ensure() will prepare it itself.
     setTimeout(() => {
       autoDeploy().then((r) => {
-        if (r && r.ok) send('toast', { type: 'ok', message: '运行时已自动准备完成' });
+        if (r && r.ok) send('toast', { type: 'ok', message: 'Runtime has been automatically prepared' });
       }).catch(() => {});
     }, 20000).unref?.();
 
-    // 启动 8 秒后静默查一次新版本（打包后才有意义）。发现新版本只提示，
-    // 绝不自动下载 —— 更新是用户点「立即更新」才做的事。
-    // 商店（MSIX）版跳过：安装目录是只读的 WindowsApps，自更新既写不进去也不
-    // 合规，更新统一由 Microsoft Store 负责。
+    // 8 seconds after startup, silently check once for a new version (only meaningful after packaging). Only prompt on finding a new version,
+    // and never auto-download — updating is something the user does by clicking 'Update now'.
+    // The Store (MSIX) edition skips: its install directory is the read-only WindowsApps, so self-update cannot write in,
+    // and is not compliant either; updates are uniformly handled by the Microsoft Store.
     if (app.isPackaged && !store.STORE_BUILD) {
-      // issue #98：先检查「上次已下载解压、但替换/重启没落地的更新」。
-      // 命中就直接用本地载荷重放替换+重启，绝不再下一遍包——这是更新死循环的根治。
-      // 放在查新版本之前，避免 resumable 与新一轮 check 抢进度条。
+      // issue #98: first check 'the update that was downloaded and extracted last time, but whose replace/restart never landed'.
+      // On a hit, replay-replace + restart with the local payload directly, and never download the package again — this is the root cure for the update death loop.
+      // Place it before the new-version check to avoid the resumable and the new round of check competing for the progress bar.
       let resuming = false;
       try {
         const job = updater.findResumableJob();
         if (job) {
           resuming = true;
           appLog(`resuming pending update ${job.version} from cached payload`);
-          send('update:progress', { stage: 'apply', percent: 100, message: '正在完成上次未完成的更新…' });
+          send('update:progress', { stage: 'apply', percent: 100, message: 'Completing the previous unfinished update…' });
           updater.apply(job);
           setTimeout(() => { quitting = true; app.quit(); }, 900);
         }
       } catch (e) { appLog(`resume check failed: ${e.message}`); }
-      // 命中续做就不再并行发起新一轮查新版本；但不能用 return 跳出整个启动回调。
-      if (!resuming) setTimeout(() => {
+      // On a hit, do not launch a new parallel new-version check; but cannot use return to jump out of the entire startup callback.
+                if (!resuming) setTimeout(() => {
         updater.check().then((info) => {
           updateInfo = info;
           send('update:state', info);
           if (info.hasUpdate) {
             appLog(`update available ${info.tag} (current v${app.getVersion()}, asset=${info.asset ? info.asset.name : 'none'})`);
-            // 不再单独弹系统通知：启动时的提醒统一收到应用内的「欢迎卡」里，
-            // 避免开机自启时又冒一个右下角气泡（用户反馈的「小弹窗」之一）。
+            // No longer pop a separate system notification: startup reminders are all gathered into the in-app 'welcome card',
+            // to avoid one more lower-right bubble when starting on boot (one of the 'small popups' the user reported).
           }
         }).catch((e) => appLog(`update check failed: ${e.message}`));
       }, 8000).unref?.();
     }
 
-    // 文件同步 / 通知轮询不再无条件常驻：只在容器里真的有应用窗口时才跑
-    // （见 onContainerActive）。
+    // File sync / notification polling no longer runs unconditionally resident: only runs when there really is an app window in the container
+    // (see onContainerActive).
 
-    // 冒烟测试：截图后退出，用于自动化验证界面是否正常渲染
+    // Smoke test: screenshot then exit, used to automatically verify that the UI renders normally
     if (process.argv.includes('--smoke') && mainWindow) {
       const out = process.argv[process.argv.indexOf('--smoke') + 1] || 'smoke.png';
       mainWindow.webContents.once('did-finish-load', () => {
         setTimeout(async () => {
           try {
             if (process.argv.includes('--setup')) {
-              // 运行时面板已并入设置：--setup 与 --settings 等价，直接打开设置截图
+              // The runtime panel has been folded into settings: --setup is equivalent to --settings, open the settings screenshot directly
               await mainWindow.webContents.executeJavaScript(
                 "document.getElementById('btnSettings').click(); true;",
               );
@@ -3163,7 +3163,7 @@ if (!gotLock) {
               );
               console.log('[smoke] dom =', dbg);
             }
-            // 窗口可能被遮挡导致拿到旧帧：强制重绘 + 连拍两帧取后一帧
+            // The window may be occluded, causing an old frame to be captured: force redraw + shoot two frames and take the latter
             const snap = async (file) => {
               mainWindow.webContents.invalidate();
               await mainWindow.webContents.capturePage().catch(() => null);
@@ -3174,28 +3174,28 @@ if (!gotLock) {
             };
             await snap(out);
             if (process.argv.includes('--perf')) {
-              // 拍一张「性能与资源占用」区（设置页里控件最多的一块）
+              // Shoot one 'Performance & resource usage' section (the part with the most controls on the settings page)
               await mainWindow.webContents.executeJavaScript(
                 "document.getElementById('perfGroup').scrollIntoView({ block: 'start' }); true;",
               );
               await snap(out.replace(/\.png$/i, '-perf.png'));
             }
             if (process.argv.includes('--download')) {
-              // 拍一张「下载与更新源」区
+              // Shoot one 'Download & update source' section
               await mainWindow.webContents.executeJavaScript(
                 "document.getElementById('downloadGroup').scrollIntoView({ block: 'start' }); true;",
               );
               await snap(out.replace(/\.png$/i, '-download.png'));
             }
             if (process.argv.includes('--settings')) {
-              // 再拍一张「关于」区（二维码 / GitHub / Powered by）
+              // Shoot one more 'About' section (QR code / GitHub / Powered by)
               await mainWindow.webContents.executeJavaScript(
                 "document.getElementById('aboutGroup').scrollIntoView({ block: 'center' }); true;",
               );
               await snap(out.replace(/\.png$/i, '-about.png'));
             }
           } catch (e) {
-            console.error('[smoke] 截图失败', e);
+            console.error('[smoke] screenshot failed', e);
           }
           quitting = true;
           app.quit();
@@ -3207,31 +3207,30 @@ if (!gotLock) {
   });
 
   app.on('window-all-closed', () => {
-    // 正常关闭窗口时只隐藏到托盘（close 事件已拦截），
-    // 走到这里说明是真正要退出，必须放行，否则进程会残留并占住单实例锁。
-    // 记一行：排查「应用窗口明明开着，ApkStart 却自己没了」时，这行能直接
-    // 区分「所有窗口被收干净」和「进程被外部杀掉」。
+    // When closing windows normally, only hide to the tray (the close event has already intercepted it),
+    // and reaching here means truly exiting, so it must be allowed through, otherwise the process will linger and hold the single-instance lock.
+    // Keep one line: when troubleshooting 'the app window is clearly open but ApkStart disappeared on its own', this line can directly
+    // distinguish 'all windows cleaned up' from 'the process was killed externally'.
     appLog(`window-all-closed quitting=${quitting}`);
     if (quitting) app.exit(0);
   });
 
-  // 渲染进程 / GPU 进程崩溃时，Electron 默认只是让窗口变白，不一定会退出主进程；
-  // 但它是「画面突然没了」最常见的原因，一定要在日志里留痕。
+  // When the renderer / GPU process crashes, Electron by default only turns the window white, and does not necessarily exit the main process;
+  // but it is the most common cause of 'the picture suddenly disappeared', so a trace must be left in the log.
   app.on('child-process-gone', (_e, d) => {
     try {
       appLog(`child-process-gone type=${d && d.type} reason=${d && d.reason} exit=${d && d.exitCode}`);
-    } catch (_) { /* 日志写不进去不影响 */ }
+    } catch (_) { /* log write failure does not affect it */ }
   });
 
   let quitReady = false;
   /**
-   * 只在「运行时还归我管」时才停掉它。
+   * Only stop it while 'the runtime is still under my management'.
    *
-   * 双实例交替是真实场景：用户点应用没反应 → 再点一次。第二次启动时第一次
-   * 已经释放了单实例锁但还没退干净，新实例接管了模拟器并开始 am start；
-   * 旧实例随后执行 dispose()，把新实例正在用的模拟器一起杀掉 ——
-   * 日志里就是「运行时已退出（code=0）」紧跟「device 'emulator-5554' not found」。
-   * owner.pid 由每次启动覆盖，所以谁最后启动谁才是主人。
+   * Dual-instance alternation is a real scenario: the user clicks the app and it does not respond → clicks once more. When the second instance starts,
+   * the first has already released the single-instance lock but has not finished exiting, and the new instance takes over the emulator and begins am start;
+   * the old instance then performs dispose(), killing the emulator the new instance is using — in the log it is 'runtime exited (code=0)' followed by
+   * 'device 'emulator-5554' not found'. owner.pid is overwritten on each startup, so whoever starts last is the owner.
    */
   const releaseRuntime = () => {
     let mine = true;
@@ -3262,7 +3261,7 @@ if (!gotLock) {
         try { winAgent?.dispose(); } catch (_) { /* ignore */ }
         try { wheelRouter?.dispose(); } catch (_) { /* ignore */ }
         releaseRuntime();
-        // 隐藏的图标解码窗口也算一个窗口，不关掉会让 window-all-closed 永远不触发
+        // A hidden icon decode window also counts as a window; if not closed, window-all-closed will never be triggered
         try { if (decodeWindow && !decodeWindow.isDestroyed()) decodeWindow.destroy(); } catch (_) { /* ignore */ }
         app.quit();
       };
