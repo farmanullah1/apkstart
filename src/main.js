@@ -3082,7 +3082,7 @@ if (!gotLock) {
             // the user should not see an emulator on the desktop because of 'preheat failure'.
             if (winAgent) armAgent(winAgent).catch(() => {});
           }
-        } catch (e) { appLog(`prewarm error: ${e && e.message}`); /* 预热失败不影响后续正常打开 */ }
+        } catch (e) { appLog(`prewarm error: ${e && e.message}`); /* Preheat failure does not affect subsequent normal opening */ }
       }, 1200).unref?.();
     } else {
       appLog(`prewarm off (enabled=${prewarmEnabled} launch=${!!args.launch} apps=${store.getApps().length})`);

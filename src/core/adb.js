@@ -58,7 +58,7 @@ function friendlyInstallError(raw) {
   const tag = code ? code[0] : '';
   const table = {
     INSTALL_FAILED_NO_MATCHING_ABIS:
-      'Installation failed: this app only provides ARM native libraries (ARM 原生库), '
+      'Installation failed: this app only provides ARM native libraries (ARM translation layer needed), '
       + 'and current image lacks translation layer. ApkStart will switch to compatible image and retry.',
     INSTALL_FAILED_OLDER_SDK:
       'Installation failed: the app requires a higher Android version than the current runtime (a newer system image is needed).',
@@ -71,7 +71,7 @@ function friendlyInstallError(raw) {
     INSTALL_FAILED_INSUFFICIENT_STORAGE:
       'Installation failed: not enough disk space in the runtime — please free up space and retry.',
     INSTALL_FAILED_INVALID_APK:
-      'Installation failed: APK file is corrupted or incomplete (损坏/不完整) — please re-download.',
+      'Installation failed: APK file is corrupted or incomplete (corrupt/incomplete) — please re-download.',
     INSTALL_FAILED_INVALID_URI: 'Installation failed: the APK path contains special characters — move the file to a path with only ASCII characters and retry.',
     INSTALL_FAILED_ALREADY_EXISTS: 'Installation failed: an app with the same name but a different signature already exists — please uninstall it first.',
     INSTALL_FAILED_UPDATE_INCOMPATIBLE: 'Installation failed: signature mismatch with the installed version — please uninstall the old version first.',

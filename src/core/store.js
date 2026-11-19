@@ -78,12 +78,12 @@ const DEFAULT_SETTINGS = {
     // which can add hundreds of ms latency on VPN / corporate networks / certain ISPs.
     fastDns: true,
     // System locale: injected via emulator -prop at startup (guest setprop is blocked by SELinux).
-    // Defaults to zh-CN; set to en-US or off to return to stock image English.
-    locale: 'zh-CN',
-    // Chinese IME: bundled AOSP Google Pinyin IME, silently installed and enabled at startup.
+    // Defaults to en-US; set to zh-CN or off to return to stock image Chinese.
+    locale: 'en-US',
+    // Chinese IME: bundled AOSP Google Pinyin IME, silently installed and enabled at startup when needed.
     // System image only includes LatinIME (English keyboard); without this Chinese input is unavailable.
-    chineseIme: true,
-    chineseImeDefault: true,
+    chineseIme: false,
+    chineseImeDefault: false,
     // Snapshot: quickboot RAM snapshot enables secondary boots in seconds at the cost of ~2-3GB ram.bin.
     // Can be disabled under disk pressure (only affects boot speed, not app data).
     keepSnapshot: true,
@@ -180,7 +180,7 @@ const DEFAULT_SETTINGS = {
     // true = embed Android surface into ApkStart shell window via SetParent.
     // Default native window since 0.6.0.
     windowEmbed: false,
-    // 镜像内 (In-image) auto-rotate toggle: enabled by default (writes guest accelerometer_rotation=1).
+    // In-image auto-rotate toggle: enabled by default (writes guest accelerometer_rotation=1).
     // Panel orientation is still locked by wm user-rotation lock + set-ignore-orientation-request,
     // so it will not be skewed by sensors. Disabling it restores legacy strict lock behavior.
     autoRotate: true,

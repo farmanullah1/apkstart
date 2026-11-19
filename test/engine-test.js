@@ -229,16 +229,16 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || '断言失败'); 
     assert(/^image\.sysdir\.1=\S*system-images\//m.test(cfg), 'image.sysdir.1 缺失');
   });
 
-  await test('安装失败原因翻译：NO_MATCHING_ABIS 给出中文指引', async () => {
+  await test('Install-failure wording: NO_MATCHING_ABIS points to the ARM native library issue', async () => {
     const { friendlyInstallError } = require('../src/core/adb');
     const out = friendlyInstallError(
       'Performing Streamed Install\nadb.exe: failed to install x.apk: '
       + 'Failure [INSTALL_FAILED_NO_MATCHING_ABIS: Failed to extract native libraries, res=-113]',
     );
-    assert(out.includes('ARM 原生库'), `应解释 ARM 原生库问题：${out}`);
-    assert(out.includes('INSTALL_FAILED_NO_MATCHING_ABIS'), '应保留原始错误码');
+    assert(out.includes('ARM native library'), `should explain ARM native library issue: ${out}`);
+    assert(out.includes('INSTALL_FAILED_NO_MATCHING_ABIS'), 'should preserve original error code');
     const other = friendlyInstallError('Failure [INSTALL_FAILED_INVALID_APK: x]');
-    assert(other.includes('损坏') || other.includes('不完整'), `未知错误也应可读：${other}`);
+    assert(other.includes('corrupt') || other.includes('incomplete'), `unknown errors should also be readable: ${other}`);
   });
 
   await test('镜像校验：区分有效 ISO9660 / 损坏 / 未下完', async () => {
@@ -335,12 +335,12 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || '断言失败'); 
     await new Promise((r) => srv.close(r));
   });
 
-  await test('未安装系统时 ensure 返回 needsSetup', async () => {
+  await test('When no system is installed, ensure returns needsSetup', async () => {
     store.saveSettings({ runtime: { installed: false }, engine: { mode: 'builtin' } });
     const rt = new Runtime(TMP);
     // 用假 adb 保证 isOnline 快速失败
     const r = await rt.ensure({ onLog: () => {} });
-    assert(r.ok === false, '不应就绪');
+    assert(r.ok === false, 'should not be ready');
     assert(['provision', 'install'].includes(r.needsSetup), `needsSetup=${r.needsSetup}`);
   });
 
