@@ -1,10 +1,10 @@
 'use strict';
 /**
- * 组装「完整版」内置运行时：
- *   node build/fetch-runtime.js <输出目录>
- * 产出 <输出目录>/runtime/：
+ * Assemble the "full build" bundled runtime:
+ *   node build/fetch-runtime.js <output dir>
+ * Produces <output dir>/runtime/:
  *   emulator/ + platform-tools/ + aehd/ + system-images/android-34/google_apis_playstore/x86_64/
- * 全部通过 Provisioner 的官方通道下载与校验，与在线版完全同源。
+ * Everything is downloaded and verified through the Provisioner's official channels, identical to the online build.
  */
 const path = require('path');
 const fs = require('fs');
@@ -16,8 +16,8 @@ if (!outRoot) {
 }
 fs.mkdirSync(outRoot, { recursive: true });
 
-// Provisioner 从 settings.runtime.dir 取根目录：
-// 把 APPDATA 指到独立目录，避免污染真实用户配置
+// The Provisioner takes its root from settings.runtime.dir:
+// point APPDATA at a separate directory so the real user profile is left untouched
 process.env.APPDATA = path.join(outRoot, '_appdata');
 const store = require('../src/core/store');
 store.saveSettings({ runtime: { dir: outRoot } });
@@ -37,10 +37,10 @@ const log = (p) => console.log(`[${p.stage}] ${p.message} ${p.percent != null ? 
     fs.existsSync(path.join(outRoot, 'emulator', 'emulator.exe')) &&
     fs.existsSync(path.join(outRoot, 'platform-tools', 'adb.exe')) &&
     fs.existsSync(path.join(outRoot, 'system-images', 'android-34', 'google_apis_playstore', 'x86_64', 'system.img'));
-  if (!ok) throw new Error('运行时组装后校验失败');
+  if (!ok) throw new Error('runtime verification failed after assembly');
 
-  // 容器式精简：只保留 x86_64 的 QEMU 与无头运行必需的组件。
-  // 非 x86_64 的 qemu-system-*.exe（约 400MB）、QtWebEngine、netsim 等对 -no-window 无用。
+  // Container-style slimming: keep only x86_64 QEMU and what headless running needs.
+  // Non-x86_64 qemu-system-*.exe (~400MB), QtWebEngine, netsim and friends are useless with -no-window.
   const layers = require('../src/core/layers');
   const pruned = layers.prune(outRoot, { apply: true, aggressive: true });
   const before = layers.analyze(outRoot).total + pruned.saved;

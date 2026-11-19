@@ -1,10 +1,10 @@
 'use strict';
 /**
- * 生成 Microsoft Store 截图（1920×1080，满足 1366×768 下限）
+ * Generate Microsoft Store screenshots (1920x1080, above the 1366x768 minimum)
  *   node_modules/electron/dist/electron.exe build/store-shots.js
  *
- * 素材用仓库里已有的真实界面截图（docs/images），只加背景与说明文字，
- * 不修改界面本身 —— Store 要求截图反映真实 UI。
+ * Uses the real UI screenshots already in the repo (docs/images), adding only a background and captions;
+ * the UI itself is never edited -- the Store requires screenshots to reflect the real thing.
  */
 const { app, BrowserWindow, nativeImage } = require('electron');
 const fs = require('fs');
@@ -47,8 +47,8 @@ app.whenReady().then(async () => {
     fs.writeFileSync(file, buf);
     const s = nativeImage.createFromBuffer(buf).getSize();
     console.log(`  ${path.relative(ROOT, file).replace(/\\/g, '/')}  ${s.width}x${s.height}  ${(buf.length / 1024).toFixed(0)}KB`);
-    if (s.width !== W || s.height !== H) console.log(`  [警告] 期望 ${W}x${H}`);
+    if (s.width !== W || s.height !== H) console.log(`  [warn] expected ${W}x${H}`);
   }
-  console.log('完成。');
+  console.log('Done.');
   app.exit(0);
-}).catch((e) => { console.error('失败：', e); app.exit(1); });
+}).catch((e) => { console.error('failed:', e); app.exit(1); });

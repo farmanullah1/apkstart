@@ -1,5 +1,5 @@
 'use strict';
-/* 兼容模式端到端验证：走产品代码路径 boot（API 34 Play 镜像）→ abilist → 装 ARM APK → 启动 */
+/* Compatibility-mode end-to-end check: boot through the product code path (API 34 Play image) -> abilist -> install an ARM APK -> launch */
 process.env.ANDROID_ADB_SERVER_PORT = process.env.ANDROID_ADB_SERVER_PORT || '5038';
 const fs = require('fs');
 const path = require('path');
@@ -13,12 +13,12 @@ const APK = process.argv[2] || 'D:\\红果免费短剧.apk';
   store.saveSettings({ runtime: { compatImage: true } });
   const rt = new Runtime(ROOT);
 
-  console.log('[1] ensure()（兼容模式 → 应启动 Google Play / API 34 镜像）');
+  console.log('[1] ensure() (compatibility mode -> should boot the Google Play / API 34 image)');
   const r = await rt.ensure({
     onLog: (m) => console.log('    [boot]', m),
   });
-  if (!r.ok) { console.error('    ensure 失败:', r.error || JSON.stringify(r).slice(0, 300)); process.exit(1); }
-  console.log('    engine =', r.engine, r.reused ? '(复用已有实例)' : '');
+  if (!r.ok) { console.error('    ensure failed:', r.error || JSON.stringify(r).slice(0, 300)); process.exit(1); }
+  console.log('    engine =', r.engine, r.reused ? '(reusing an existing instance)' : '');
 
   const c = rt.client();
   console.log('[2] release =', await c.shell('getprop ro.build.version.release'));
@@ -27,18 +27,18 @@ const APK = process.argv[2] || 'D:\\红果免费短剧.apk';
   console.log('    tag     =', await c.shell('getprop ro.build.tags'));
 
   if (APK && fs.existsSync(APK)) {
-    console.log('[3] 安装 ARM APK（红果短剧）…');
+    console.log('[3] Installing the ARM APK (Hongguo Drama)...');
     const ins = await c.install(APK);
     console.log('    install =', JSON.stringify(ins).slice(0, 160));
     await c.shell('am start -n com.phoenix.read/com.dragon.read.pages.splash.SplashActivity');
     await new Promise((res) => setTimeout(res, 20000));
     const ps = await c.shell('ps -A | grep phoenix');
-    console.log('[4] 启动 20s 后进程:', ps ? '存活 ✓' : '已消失 ✗');
+    console.log('[4] Process 20s after launch:', ps ? 'alive ✓' : 'gone ✗');
   } else {
-    console.log('[3] 跳过 APK 安装（未找到', APK, '）');
+    console.log('[3] Skipping the APK install (not found', APK, ')');
   }
 
-  console.log('[5] 恢复普通模式设置');
+  console.log('[5] Restoring normal-mode settings');
   store.saveSettings({ runtime: { compatImage: false } });
   process.exit(0);
 })().catch((e) => { console.error('FATAL', e); process.exit(1); });

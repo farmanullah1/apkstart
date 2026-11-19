@@ -280,15 +280,15 @@ public class ApkAgent
     // "Android Emulator - <avd>:<port>"; the volume/rotate rail lives in a separate
     // small "QWindowTool*" window we hide.
     //
-    // 注意：模拟器开机阶段（以及被常驻压制藏起来之后）这个窗口是**不可见**的，
-    // 所以这里不能再按 IsWindowVisible 过滤 —— 否则永远找不到可嵌入的窗口，
-    // 用户看到的是一个全黑的应用窗口。改为「标题是 Android Emulator 就认，
-    // 可见的大窗口优先」。工具栏 / 提示窗（QWindowTool）尺寸太小，被面积阈值挡掉。
+    // Note: during emulator boot (and once the resident suppressor has hidden it) this window is **invisible**,
+    // so do not filter on IsWindowVisible here -- otherwise we never find a window to embed,
+    // and the user just sees an all-black app window. Instead: accept any window titled
+    // Android Emulator, and prefer large visible ones. Toolbar / tooltip windows (QWindowTool) are too small and get filtered out by the area threshold.
     //
-    // ApkStart 会把这个窗口的标题改成应用名（见 "title" 命令），所以识别时
-    // 必须同时认「改名后的标题」。用一个 volatile 字段记住我们设过的标题。
+    // ApkStart renames this window to the app name (see the "title" command), so detection
+    // must also accept the renamed title. A volatile field remembers the title we set.
     public static string _ourTitle = "";
-    // 应用图标文件路径：Qt 会在窗口重建时把图标改回默认绿机器人，巡检里持续补设。
+    // App icon file path: Qt reverts the icon to the default green robot whenever it rebuilds the window, so the sweep keeps re-applying it.
     public static string _ourIconFile = "";
     public static IntPtr _ourIconSmall = IntPtr.Zero;
     public static IntPtr _ourIconBig = IntPtr.Zero;
@@ -318,8 +318,8 @@ public class ApkAgent
             RECT r;
             if (!GetWindowRect(h, out r)) return true;
             long area = (long)(r.R - r.L) * (r.B - r.T);
-            if (area < 200 * 200) return true;   // 工具栏 / 提示窗不是画面窗口
-            // 可见的大窗口优先，其次才是隐藏的
+            if (area < 200 * 200) return true;   // toolbar / tooltip, not the picture window
+            // prefer large visible windows, hidden ones come second
             long score = area + (IsWindowVisible(h) ? 1000000000L : 0);
             if (score > bestScore) { bestScore = score; best = h; }
             return true;
@@ -327,8 +327,8 @@ public class ApkAgent
         return best;
     }
 
-    // 诊断用：列出顶层窗口（类别 / 标题 / pid / 尺寸 / 是否可见）。
-    // 用于验证「打开软件只看到软件界面」——模拟器主窗、netsim 控制台都必须不在其中。
+    // Diagnostics: list top-level windows (class / title / pid / size / visibility).
+    // Used to verify that launching the app only shows the app UI -- neither the emulator main window nor the netsim console may be among them.
     static string ListWindows(bool includeHidden)
     {
         var sb = new StringBuilder();
@@ -338,7 +338,7 @@ public class ApkAgent
             if (!vis && !includeHidden) return true;
             string cls = ClassOf(h);
             string title = TitleOf(h);
-            // 隐藏窗口太多（系统里有成百上千个），只看跟模拟器/Qt 有关的
+            // There are hundreds of hidden windows on a real system; only look at ones related to emulator / Qt
             if (!vis && cls.IndexOf("QWindow", StringComparison.Ordinal) < 0
                 && title.IndexOf("Android Emulator", StringComparison.OrdinalIgnoreCase) < 0) return true;
             RECT r;
@@ -380,18 +380,18 @@ public class ApkAgent
         }, IntPtr.Zero);
     }
 
-    // 开机阶段：把 qemu / emulator 的黑色控制台窗口藏起来，避免「命令窗口」闪现。
-    // 它们是 console 子系统进程，Node 的 windowsHide 覆盖不到子进程，只能靠 Win32 周期压住。
+    // Boot phase: hide the black qemu / emulator console windows so no "command prompt" flashes up.
+    // They are console-subsystem processes, and Node's windowsHide cannot reach grandchildren, so Win32 has to keep suppressing them.
     //
-    // 关键坑：Windows 10 以后控制台窗口真正属于 conhost.exe，GetWindowThreadProcessId
-    // 拿到的是 conhost 的 pid，不是 emulator 的 pid —— 老实现按 pid 白名单匹配，
-    // 于是这些黑窗一个都藏不住（"点了没反应，先弹个 cmd 黑框"就是这么来的）。
-    // 现在改成「pid 命中 或 窗口标题命中（标题就是被启动的 exe 路径）」，两条路任一生效即隐藏。
+    // Key trap: since Windows 10 the console window really belongs to conhost.exe, so GetWindowThreadProcessId
+    // returns conhost's pid, not the emulator's -- the old implementation matched a pid allowlist,
+    // so not one of these black windows could be hidden (that is where "clicked and nothing happened, a cmd box flashed first" came from).
+    // Now: hide when the pid matches OR the window title matches (the title is the path of the launched exe); either hit is enough.
     static void HideConsoleWindows()
     {
         if (_scopeDirs.Count == 0) return;   // no scope: never touch anybody's terminal
 
-        // 先扫一遍有哪些控制台窗口；一个都没有就别去枚举进程（GetProcessesByName 不便宜）
+        // Scan for console windows first; if there are none, skip process enumeration (GetProcessesByName is not cheap)
         var consoles = new System.Collections.Generic.List<IntPtr>();
         EnumWindows(delegate(IntPtr h, IntPtr p)
         {
@@ -404,31 +404,31 @@ public class ApkAgent
         }, IntPtr.Zero);
         if (consoles.Count == 0) return;
 
-        // 老实现还有一条「标题里含 emulator / qemu / netsim 就算我们的」，
-        // 那会把用户自己开的终端（标题是某个路径，比如 D://Android//emulator）也一起藏掉。
-        // 现在只认两种证据：conhost 的父进程链能走到我们运行时目录里，
-        // 或者标题里出现我们运行时目录的绝对路径（Windows 会把镜像路径当控制台标题）。
+        // The old implementation also treated any title containing emulator / qemu / netsim as ours,
+        // which would also hide the user's own terminal (titled with a path such as D://Android//emulator).
+        // Only two kinds of evidence count now: conhost's parent chain reaches our runtime directory,
+        // or the title contains the absolute path of our runtime directory (Windows uses the image path as the console title).
         long now = Environment.TickCount;
         foreach (IntPtr h in consoles)
         {
             if (IsOurConsole(h)) { ShowWindow(h, 0); continue; }
-            // 第三条证据（Windows 11 才有）：默认控制台宿主换成 Windows Terminal 之后，
-            // 模拟器给 qemu 新开的那个控制台窗口属于 WindowsTerminal.exe ——
-            // pid 不是我们的、父进程链走不到我们、标题还经常只是个 "Terminal"，
-            // 上面两条证据全都命中不了，于是每次开机都在屏幕上闪 200~300ms 的黑框。
-            // 这里用「开机前不存在 + 开机后 20 秒内出现 + 标题是空的/就是 Terminal」
-            // 三个条件一起认。用户自己新开的终端一般已经有标题（PowerShell、某个路径），
-            // 不会被误伤；退一步说，真误伤了也只是藏起来，不会关掉他的进程。
+            // Third piece of evidence (Windows 11 only): once Windows Terminal became the default console host,
+            // the console window the emulator opens for qemu belongs to WindowsTerminal.exe --
+            // the pid is not ours, the parent chain does not reach us, and the title is often just "Terminal",
+            // so neither earlier rule matches and a black box flashes for 200-300ms on every boot.
+            // Here all three conditions must hold: absent before boot + appeared within 20s of boot + empty or Terminal title.
+            // Terminals the user opened themselves usually have a title already (PowerShell, some path) and are left alone;
+            // and even if one were caught, it is only hidden, never killed.
             if (_bootHideStart != 0 && now - _bootHideStart < 20000
                 && !_consolesBeforeBoot.Contains(h.ToInt64()))
             {
                 string t = TitleOf(h);
                 string tl = t.ToLowerInvariant();
-                // 标题实测会变：可能是空、可能是 "Terminal"、也可能是 "Windows Terminal"
-                // （取决于 WT 版本和它当时有没有拿到 shell 标题）。这里只要求「像个控制台
-                // 宿主」——空标题，或者标题里带 terminal。
-                // 用户自己已经开着的终端都在 _consolesBeforeBoot 里，不会被误伤；
-                // 真误伤了也只是藏起来，不会关掉他的进程。
+                // The title changes in practice: empty, "Terminal", or "Windows Terminal"
+                // (it depends on the Windows Terminal version and whether it picked up a shell title). Only require that
+                // it looks like a console host -- an empty title, or one containing terminal.
+                // Terminals the user already had are recorded in _consolesBeforeBoot and are safe;
+                // and even if one were caught, it is only hidden, never killed.
                 bool plain = t.Length == 0 || tl.IndexOf("terminal", StringComparison.Ordinal) >= 0;
                 if (plain)
                 {
@@ -438,9 +438,9 @@ public class ApkAgent
         }
     }
 
-    // 记录「开机（boothide）那一刻已经存在的控制台窗口」。
-    // Windows Terminal 会把我们的 qemu 控制台塞进一个新窗口，而这个窗口从 pid /
-    // 父进程 / 标题都认不出归属；用「开机前没有、开机后冒出来」来认最可靠。
+    // Record the console windows that existed at the moment boot hiding starts (boothide).
+    // Windows Terminal puts our qemu console into a brand new window that cannot be attributed by pid /
+    // parent / title; "did not exist before boot, appeared after" is the most reliable rule we have.
     static System.Collections.Generic.HashSet<long> _consolesBeforeBoot =
         new System.Collections.Generic.HashSet<long>();
 
@@ -458,8 +458,8 @@ public class ApkAgent
         }, IntPtr.Zero);
     }
 
-    // 诊断用：列出当前「可见」的控制台窗口（黑窗）及其归属，供 tools 里的验证脚本使用。
-    // ours=true 表示这就是 emulator/qemu 的控制台窗口。
+    // Diagnostics: list the currently visible console (black) windows and their ownership, for the verification scripts in tools/.
+    // ours=true means this is the emulator/qemu console window.
     static string ListConsoles()
     {
         var sb = new StringBuilder();
@@ -497,11 +497,11 @@ public class ApkAgent
         return b.ToString();
     }
 
-    // 兜底：把「我们的运行时进程」创建的任何**多余的顶层可见窗口**都藏起来。
-    // 除了模拟器主窗口（要嵌进宿主）之外，emulator / qemu / netsimd / adb 都可能
-    // 弹出一些一闪而过的东西（Qt 提示框、崩溃对话框、音量条、日志窗…）。
-    // 以前只按类名逐个点名，漏一个就闪一次；这里改成按「进程属于我们的运行时目录」
-    // 判断，覆盖面更全。宿主窗口和模拟器窗口本身不在这个范围，绝不会误伤。
+    // Safety net: hide any *extra* top-level visible window created by one of our runtime processes.
+    // Besides the emulator main window (which gets embedded into the host), emulator / qemu / netsimd / adb can
+    // pop up transient things (Qt tooltips, crash dialogs, volume bars, log windows...).
+    // Previously each class name was listed by hand and a single miss caused a flash; now windows are judged by
+    // "the owning process lives in our runtime directory", which covers more. The host window and the emulator window itself are out of scope and never touched.
     static void HideStrayWindows()
     {
         if (_scopeDirs.Count == 0) return;
@@ -514,8 +514,8 @@ public class ApkAgent
             GetWindowThreadProcessId(h, out pid);
             if (!IsOurs(pid)) return true;
             string cls = ClassOf(h);
-            // 只藏明确的弹窗类：Qt 提示窗 / 对话框 / 控制台。
-            // 绝不碰 QWindowIcon / subWin —— 那是正在嵌入的 LCD，藏掉就全黑且点击失效。
+            // Only hide clear popup classes: Qt tooltips / dialogs / consoles.
+            // Never touch QWindowIcon / subWin -- that is the LCD being embedded, hiding it gives a black screen with dead clicks.
             bool safe = cls.IndexOf("QWindowTool", StringComparison.Ordinal) >= 0
                      || cls.IndexOf("ConsoleWindowClass", StringComparison.Ordinal) >= 0
                      || cls.IndexOf("CASCADIA_HOSTING_WINDOW_CLASS", StringComparison.Ordinal) >= 0
@@ -529,14 +529,14 @@ public class ApkAgent
         }, IntPtr.Zero);
     }
 
-    // 常驻压制扫描：只要模拟器窗口还不是「我们某个窗口的子窗口」，就把它藏起来。
-    // 这样无论模拟器是在开机、预热，还是 ApkStart 已经退出（窗口被系统重新挂到桌面，
-    // 恢复成顶层窗口），用户都不会看到那个叫 "Android Emulator - apkstart5554" 的黑窗。
-    // 同时把工具栏（QWindowTool）与所有控制台窗口（qemu / netsimd / emulator）压住。
+    // Resident suppression sweep: hide the emulator window whenever it is not a child of one of our windows.
+    // That way, whether the emulator is booting, prewarming, or ApkStart has already exited (the window was re-parented
+    // to the desktop and is a top-level window again), the user never sees the black "Android Emulator - apkstart5554" window.
+    // The toolbar (QWindowTool) and all console windows (qemu / netsimd / emulator) are suppressed as well.
 
-    // embed 那一刻 Electron 的网页渲染子窗口可能还没建好，FindChromeRender 会返回 0，
-    // 于是 simulator 被挂成了宿主的直接子窗口（和网页层是兄弟）—— 网页层会持续
-    // 盖住画面并吃掉鼠标。这里在常驻扫描里补挂：一旦发现网页层出现了，就重挂一次。
+    // At embed time Electron's web render child may not exist yet and FindChromeRender returns 0,
+    // so the simulator is attached as a direct child of the host (a sibling of the web layer) -- the web layer then
+    // keeps covering the picture and eating the mouse. The resident sweep re-parents it as soon as the web layer appears.
     static void EnsureReparent()
     {
         if (_emu == IntPtr.Zero || _host == IntPtr.Zero) return;
@@ -545,30 +545,30 @@ public class ApkAgent
         if (_chromeRender == IntPtr.Zero) return;
         IntPtr ep = GetParent(_emu);
         if (ep == _chromeRender) return;
-        if (ep != _host && ep != IntPtr.Zero) return;   // 别的宿主，别乱动
+        if (ep != _host && ep != IntPtr.Zero) return;   // another host, leave it alone
         RECT r;
         if (!GetWindowRect(_emu, out r)) return;
         RECT hr;
         if (!GetWindowRect(_host, out hr)) return;
         SetParent(_emu, _chromeRender);
-        // 坐标相对网页层客户区（与宿主客户区一致），保持原屏幕位置
+        // Coordinates are relative to the web layer client area (identical to the host's); keep the original screen position
         SetWindowPos(_emu, IntPtr.Zero, r.L - hr.L, r.T - hr.T,
                      r.R - r.L, r.B - r.T, 0x0004 | 0x0010 | 0x0040);
     }
 
     static void QuietSweep()
     {
-        // 独立窗口模式：模拟器窗口是「用户真正在看的那一扇」，绝不能压制它，
-        // 也不该按宿主客户区去 Fit。这里直接跳过所有压制逻辑。
+        // Detached-window mode: the emulator window is the one the user is actually looking at, so it must never be suppressed
+        // nor Fit to the host client area. Skip every suppression step here.
         if (_detachedMode)
         {
-            // Qt 在分辨率变化/窗口重建时会把标题改回 "Android Emulator - ..."。
-            // 每轮巡检补设一次，保证任务栏里始终是 ApkStart（或应用名）。
+            // Qt resets the title to "Android Emulator - ..." on resolution change / window rebuild.
+            // Re-apply once per sweep so the taskbar always shows ApkStart (or the app name).
             if (_ourTitle.Length > 0 && _emu != IntPtr.Zero
                 && !String.Equals(TitleOf(_emu), _ourTitle, StringComparison.Ordinal))
                 SetWindowTextW(_emu, _ourTitle);
-            // Qt 换分辨率/重建窗口后图标会回到默认绿机器人，每轮补设一次。
-            // WM_GETICON 非零说明当前窗口已有我们设的图标，跳过；否则重发缓存句柄。
+            // Qt reverts to the default green robot icon after a resolution change / rebuild; re-apply once per sweep.
+            // A non-zero WM_GETICON means our icon is already set, so skip; otherwise resend the cached handle.
             if (_emu != IntPtr.Zero && (_ourIconSmall != IntPtr.Zero || _ourIconBig != IntPtr.Zero)
                 && SendMessageW(_emu, 0x007F, new IntPtr(1), IntPtr.Zero) == IntPtr.Zero)
             {
@@ -580,9 +580,9 @@ public class ApkAgent
             return;
         }
         EnsureReparent();
-        // 尺寸自愈：宿主被最大化/缩放后，Electron 的 chrome 层常常没跟着变大，
-        // 画面就只剩左上角一条。这里每轮重贴一次（Fit 内部按宿主客户区重算，
-        // 尺寸没变时 SetWindowPos 基本无开销）。
+        // Size self-healing: after the host is maximized/resized Electron's chrome layer often fails to grow with it,
+        // leaving only a strip in the top-left corner. Re-fit every sweep (Fit recomputes from the host client area;
+        // while the size is unchanged SetWindowPos costs essentially nothing).
         if (_emu != IntPtr.Zero && _host != IntPtr.Zero) Fit(-8, 30, 640, 480, false, 0);
         IntPtr ep = _emu != IntPtr.Zero ? GetParent(_emu) : IntPtr.Zero;
         bool embedded = _emu != IntPtr.Zero && ep != IntPtr.Zero
@@ -616,12 +616,12 @@ public class ApkAgent
 
     // ------------------------------------------------------------------ embed / detach
 
-    // 找宿主窗口里的 Chromium 渲染子窗口。
-    // Electron 的网页层（Chrome_RenderWidgetHostHWND）和模拟器窗口如果都是宿主的
-    // 直接子窗口，它们就是「兄弟」，而 Electron 会持续把网页层抬到最前 ——
-    // 于是网页层那块黑底盖住安卓画面、鼠标也全被它吃掉（用户看到的「黑边 /
-    // 未填满 / 点击失效 / 点不动同意」全是这个）。
-    // 把模拟器挂成网页层的**子窗口**后，Z 序与鼠标命中天然优先给模拟器。
+    // Find the Chromium render child window inside the host window.
+    // If Electron's web layer (Chrome_RenderWidgetHostHWND) and the emulator window are both direct
+    // children of the host they are siblings, and Electron keeps raising the web layer to the front --
+    // so the web layer's black background covers the Android picture and eats all mouse input ("black bars /
+    // not filling / clicks dead / cannot press Allow" are all this one cause).
+    // Attaching the emulator as a **child of the web layer** gives it Z-order and hit-testing priority for free.
     static IntPtr FindChromeRender(IntPtr host)
     {
         IntPtr found = IntPtr.Zero;
@@ -641,9 +641,9 @@ public class ApkAgent
     {
         if (host == IntPtr.Zero || emu == IntPtr.Zero) return false;
         HideToolWindows();
-        // 网页层子窗口铺满宿主客户区，坐标系与宿主一致，所以后面 Fit 传的矩形不用改。
+        // The web layer child fills the host client area and shares its coordinate system, so the rect passed to Fit needs no adjustment.
         IntPtr parent = FindChromeRender(host);
-        if (parent == IntPtr.Zero) parent = host;   // 找不到就退回老行为，别让应用开不起来
+        if (parent == IntPtr.Zero) parent = host;   // fall back to the old behaviour rather than failing to start
         SetParent(emu, parent);
         uint style = (uint)GetWindowLong(emu, GWL_STYLE);
         style &= ~WS_POPUP;
@@ -653,19 +653,19 @@ public class ApkAgent
         int ex = GetWindowLong(emu, GWL_EXSTYLE);
         ex &= ~(WS_EX_APPWINDOW | WS_EX_TOOLWINDOW | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE);
         SetWindowLong(emu, GWL_EXSTYLE, ex);
-        // 旧版本给这个窗口设过 window region；复用时先清掉，否则命中测试继续错位
+        // Older versions set a window region on this window; clear it on reuse or hit-testing stays offset
         SetWindowRgn(emu, IntPtr.Zero, false);
         return true;
     }
 
-    // HWND_TOP: Chromium 的渲染子窗口和模拟器是同级的子窗口，
-    // 不主动抬到最前就会被 Chromium 那块黑底盖住（用户看到的就是黑屏）。
+    // HWND_TOP: Chromium's render child and the emulator are sibling child windows,
+    // so without raising it Chromium's black layer covers it (the user sees a black screen).
     static readonly IntPtr HWND_TOP = new IntPtr(1);
     static void Fit(int x, int y, int w, int h, bool frame, int clipTop)
     {
         if (_emu == IntPtr.Zero) return;
-        // Fit 是 JS 侧每次 resize 都会调的，此时网页层一定已经建好了。
-        // 确保模拟器挂在网页层之下（兄弟关系会被网页层盖住并吃掉鼠标）。
+        // Fit is called by JS on every resize, so the web layer is guaranteed to exist by now.
+        // Make sure the emulator is attached beneath the web layer (as a sibling it would be covered and lose the mouse).
         if (_host != IntPtr.Zero)
         {
             IntPtr cr = FindChromeRender(_host);
@@ -676,18 +676,18 @@ public class ApkAgent
                 if (cur != cr && (cur == _host || cur == IntPtr.Zero))
                 {
                     SetParent(_emu, cr);
-                    // 坐标相对网页层客户区，与宿主一致，沿用传入的 x/y 即可
+                    // Coordinates are relative to the web layer client area, same as the host, so keep the incoming x/y
                 }
             }
         }
-        // 以 **宿主窗口客户区** 为准自校正尺寸，而不是信 JS 传来的 w/h、
-        // 也不是信 Chrome 渲染层自己的尺寸。
+        // Self-correct the size from the **host window client area** instead of trusting the w/h from JS
+        // or the Chrome render layer's own size.
         //
-        // 为什么：Electron 最大化后宿主窗口变成 1936x1048，但内部的
-        // Chrome_RenderWidgetHostHWND 仍停在旧尺寸（实测 532x984）—— 而模拟器
-        // 窗口挂在 chrome 层之下，会被父窗口裁剪，于是画面只占左上角一条、
-        // 右边一大片空白（用户截图里「最大化/全屏后没填满」）。
-        // 所以这里先把 chrome 层拉满宿主客户区，再把 emu 设为该客户区大小。
+        // Why: after Electron maximizes, the host window becomes 1936x1048 while the inner
+        // Chrome_RenderWidgetHostHWND stays at its old size (measured 532x984) -- and the emulator
+        // window, being a child of the chrome layer, is clipped by its parent, so the picture takes only a strip
+        // in the top-left with empty space on the right (the "not filling after maximize/fullscreen" in user screenshots).
+        // So stretch the chrome layer to the host client area first, then size the emu to that client area.
         if (_host != IntPtr.Zero)
         {
             RECT hc;
@@ -709,8 +709,8 @@ public class ApkAgent
                             }
                         }
                     }
-                    // x/y 保持 -8 的溢出（把 Qt 的 8px 灰边推出可视区），
-                    // 宽高按客户区 + 2*8；标题栏 38px 由宿主自绘盖住。
+                    // Keep the -8 overflow on x/y (pushes Qt's 8px grey border out of view),
+                    // width/height = client area + 2*8; the 38px title bar is covered by the host-drawn bar.
                     x = -8;
                     y = 38 - 8;
                     w = cw + 16;
@@ -720,9 +720,9 @@ public class ApkAgent
         }
         if (w < 16) w = 16;
         if (h < 16) h = 16;
-        // 只有「确实已经嵌进我们窗口」的才允许显示。
-        // 万一 embed 失败（模拟器窗口还没建好 / 句柄换了），Fit 绝不能把它当独立窗口
-        // 顶到桌面上 —— 那正是用户看到的那个 "Android Emulator - apkstart5554" 黑窗。
+        // Only allow showing a window that is genuinely embedded in one of ours.
+        // If embed failed (window not ready / handle changed), Fit must never treat it as a detached window
+        // and push it onto the desktop -- that is exactly the black "Android Emulator - apkstart5554" window users saw.
         IntPtr ep = GetParent(_emu);
         bool embedded = ep != IntPtr.Zero
                      && (ep == _host || ep == _chromeRender);
@@ -736,9 +736,9 @@ public class ApkAgent
         // on every periodic sweep caused visible stutter and wasted GPU/CPU.
         uint flags = SWP_NOACTIVATE | SWP_SHOWWINDOW | (frame ? SWP_FRAMECHANGED : 0u);
         SetWindowPos(_emu, HWND_TOP, x, y, w, h, flags);
-        // 绝不给嵌入窗口设 window region：Qt/GL 子窗口一旦带 region，命中测试和
-        // 输入坐标映射会错位（点击失效 / 点不到按钮），旋转改尺寸后 region 还是旧
-        // 矩形又会在四周露黑边。标题栏那条 8px 溢出改由宿主自绘标题栏盖住。
+        // Never set a window region on the embedded window: once a Qt/GL child window has a region, hit-testing and
+        // input coordinate mapping go wrong (dead clicks / buttons that cannot be pressed), and after a rotate or resize
+        // the stale region leaves black edges on all four sides. The 8px overflow is covered by the host-drawn title bar instead.
     }
 
     static void Raise()
@@ -759,14 +759,14 @@ public class ApkAgent
         ex |= WS_EX_APPWINDOW;
         SetWindowLong(_emu, GWL_EXSTYLE, ex);
         SetWindowPos(_emu, IntPtr.Zero, 60, 40, 480, 853, SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
-        // 独立窗口模式下要保留句柄：show / layout 都靠它定位真实窗口。
-        // 嵌入模式（默认）仍然清空，保持原有语义。
+        // Detached-window mode keeps the handle: show / layout use it to locate the real window.
+        // Embedded mode (the default) still clears it, preserving the original semantics.
         if (!_detachedMode) _emu = IntPtr.Zero;
     }
 
-    // 与 Detach 相同，但**不显示**窗口：宿主窗口即将销毁时调用。
-    // 不先摘下来，Windows 会在宿主销毁时把子窗口重新挂到桌面并设成可见，
-    // 于是就凭空多出一个 "Android Emulator - apkstart5554" 的黑窗。
+    // Same as Detach, but **without showing** the window: called just before the host window is destroyed.
+    // Without detaching first, Windows re-parents the child to the desktop and makes it visible when the host dies,
+    // conjuring an extra black "Android Emulator - apkstart5554" window out of nowhere.
     static void ParkEmulator()
     {
         if (_emu == IntPtr.Zero) _emu = FindEmulator();
@@ -776,8 +776,8 @@ public class ApkAgent
         SetParent(e, IntPtr.Zero);
         uint style = (uint)GetWindowLong(e, GWL_STYLE);
         style &= ~WS_CHILD;
-        // 把 WS_VISIBLE(0x10000000) 一起补回来：它可能被「SetParent 到隐藏宿主」那次操作隐式清掉，
-        // 第三方底座（MuMu）自己不会重新显示，用户关掉应用窗口后就再也看不到模拟器。
+        // Add WS_VISIBLE (0x10000000) back as well: it may have been cleared implicitly by the "SetParent to a hidden host" call, and
+        // third-party backends (MuMu) never show the window again themselves, so the emulator would be gone once the app window closes.
         style |= (uint)(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | 0x10000000);
         SetWindowLong(e, GWL_STYLE, (int)style);
         int ex = GetWindowLong(e, GWL_EXSTYLE);
@@ -789,11 +789,11 @@ public class ApkAgent
     }
 
     // ------------------------------------------------------------------ rotation
-    // 模拟器的转屏是「改面板方向」，只有它自己的 Qt 快捷键 Ctrl+←/→ 会触发；
-    // 控制台命令 adb emu rotate 只是把画面转 90°，系统里仍然是竖屏（画面横躺）。
-    // 难点是快捷键必须由模拟器窗口收到键盘消息，而它已经是我们窗口的子窗口、
-    // 焦点在网页层。所以先把两个线程的输入队列接起来，把焦点临时给模拟器，
-    // 按完键再还回去。
+    // The emulator rotates by changing the **panel orientation**, which only its own Qt shortcut Ctrl+Left/Right triggers;
+    // the console command adb emu rotate merely turns the picture 90 degrees while the system stays portrait (a sideways image).
+    // The catch is that the shortcut must arrive at the emulator window as a keystroke, but that window is now our child and
+    // focus sits in the web layer. So attach both threads' input queues, give the emulator focus temporarily,
+    // press the key and hand focus back.
     static void Rotate(string dir)
     {
         if (_emu == IntPtr.Zero) _emu = FindEmulator();
@@ -1000,8 +1000,8 @@ public class ApkAgent
         if (_hook != IntPtr.Zero) { UnhookWindowsHookEx(_hook); _hook = IntPtr.Zero; }
         if (_hookTid != 0) PostThreadMessage(_hookTid, 0x0012, IntPtr.Zero, IntPtr.Zero); // WM_QUIT
         _hookThread = null;
-        // _hookProc 故意保留引用：钩子线程可能正在执行回调，提前置 null
-        // 会让委托被 GC 回收。线程退出时会自然释放。
+        // _hookProc is deliberately kept referenced: the hook thread may still be running the callback, and nulling it
+        // early would let the delegate be collected. It is released naturally when the thread exits.
     }
 
     // ------------------------------------------------------------------ plumbing
@@ -1040,8 +1040,8 @@ public class ApkAgent
         return j < 0 ? "" : line.Substring(i, j - i);
     }
 
-    // 把 "0x1A2B3C" / "17158972" 解析成 HWND。第三方底座（MuMu）报的是十六进制字符串，
-    // 我们自己的调用方也可能直接给十进制，两种都要认。
+    // Parse "0x1A2B3C" / "17158972" into an HWND. Third-party backends (MuMu) report hex strings,
+    // and our own callers may pass decimal; both must be accepted.
     static IntPtr ParseHwnd(string raw)
     {
         if (string.IsNullOrEmpty(raw)) return IntPtr.Zero;
@@ -1055,7 +1055,7 @@ public class ApkAgent
             }
             else if (long.TryParse(s, out v))
             {
-                // 十进制就是十进制
+                // decimal means decimal
             }
             else
             {
@@ -1079,7 +1079,7 @@ public class ApkAgent
 
     public static void Serve(int port)
     {
-        // per-monitor v2（Win10 1703+），失败退回 system-aware
+            // per-monitor v2 (Win10 1703+), fall back to system-aware on failure
         try { if (!SetProcessDpiAwarenessContext(new IntPtr(-4))) SetProcessDPIAware(); } catch { try { SetProcessDPIAware(); } catch { } }
         TcpListener l = new TcpListener(IPAddress.Loopback, port);
         l.Start();
@@ -1115,11 +1115,11 @@ public class ApkAgent
             }
             if (_embedAt != 0 && now - _embedAt >= 8000) _embedAt = 0;
 
-            // 常驻压制：模拟器主窗 / 工具栏 / qemu·netsimd 控制台黑窗。
-            // 每轮要枚举全桌面窗口若干次，开销不小 —— 之前 120ms 一轮持续 90 秒，
-            // 会明显拖慢整机（用户反馈「整个系统卡顿」）。实际上窗口已经嵌入后
-            // 根本不需要这么频繁：开机前 10 秒 250ms 抓闪窗，之后 1500ms 兜底即可。
-            // game 模式（_perfMode）下进一步降到 3000ms，把 CPU 全留给安卓渲染。
+            // Resident suppression: emulator main window / toolbar / qemu-netsimd console black windows.
+            // Every round enumerates all desktop windows several times, which is expensive -- 120ms rounds for 90 seconds
+            // visibly bogged whole machines down (users reported "the entire system stutters"). Once the window is embedded
+            // that frequency is pointless: 250ms for the first 10 seconds to catch flashing windows, then 1500ms is plenty.
+            // In game mode (_perfMode) drop further to 3000ms and leave the CPU to Android rendering.
             long sweepGap;
             if (_perfMode) sweepGap = (now - _bootHideStart < 10000) ? 300 : 3000;
             else sweepGap = (now - _bootHideStart < 10000) ? 250 : 1500;
@@ -1129,11 +1129,11 @@ public class ApkAgent
                 QuietSweep();
             }
 
-            // 控制台黑窗专用高频通道（只在前 15 秒、只枚举控制台类窗口）。
-            // 为什么需要：emulator 启动 qemu 时 Windows 会新建一个控制台窗口，
-            // 它的归属进程是 conhost / WindowsTerminal，IsOurs 为 false，只能靠
-            // IsOurConsole 的「标题 = 我们的运行时路径」来认。这类窗口只可见
-            // 200~300ms，250ms 一轮的主巡检有几率漏掉 —— 用户看到的就是开机时
+            // Dedicated high-frequency channel for console black windows (first 15 seconds only, console-class windows only).
+            // Why it is needed: when the emulator starts qemu, Windows creates a console window owned by
+            // conhost / WindowsTerminal, so IsOurs is false and only IsOurConsole's "title = our runtime path" rule
+            // can recognise it. Such windows stay visible for only 200-300ms, so the 250ms main sweep can miss them --
+            // all the user sees is a black box flashing at boot. A 100ms round always catches it before it vanishes.
             // 闪一下黑框。这里 100ms 一轮，必然能在它消失前抓到。
             if (_quiet && now - _bootHideStart < 15000
                 && now - _consoleSweep > (_perfMode ? 200 : 100))
@@ -1144,14 +1144,14 @@ public class ApkAgent
 
             try
             {
-                // 连接已经断了（ApkStart 退出 / 异常崩溃）：不立刻收工。
-                // 模拟器可能还在开机，几十秒后 Qt 才把窗口显示出来 —— 那时如果
-                // 已经没有代理在盯着，桌面上就会留一个 Android Emulator 黑窗。
-                // 所以断线后继续「守」一会儿，直到最后一段时间没有模拟器进程。
+                // The connection is already gone (ApkStart exited / crashed): do not stop immediately.
+                // The emulator may still be booting and Qt may show the window tens of seconds later -- if nothing
+                // is watching by then, an Android Emulator black window is left sitting on the desktop.
+                // So keep watching for a while after the disconnect, until no emulator process remains for a stretch.
                 if (sock == null)
                 {
                     if (Environment.TickCount > _lingerUntil) break;
-                    // 模拟器都退干净了就不用再守
+                    // Every emulator process is gone, nothing left to watch
                     if (!AnyEmulatorProcess() && FindEmulator() == IntPtr.Zero) break;
                     Thread.Sleep(120);
                     continue;
@@ -1190,12 +1190,12 @@ public class ApkAgent
                     }
                     else if (cmd == "embed")
                     {
-                        // 从独立窗口切回嵌入：先清掉独立模式标志，恢复常驻压制，
-                        // 否则模拟器窗口会一直被当成「用户在看的那一扇」而不参与 Fit。
+                        // Switching from detached back to embedded: clear the detached flag first and restore resident suppression,
+                        // otherwise the emulator window keeps being treated as "the one the user is watching" and never joins Fit.
                         _detachedMode = false;
-                        // 嵌入即代表「用户要看画面了」。压制不关（它只藏非嵌入窗口
-                        // 与控制台黑窗），但要先把窗口从隐藏状态正确地交给 SetParent，
-                        // 再由 Fit 的 SWP_SHOWWINDOW 显示出来。
+                        // Embedding means "the user wants to see the picture". Suppression stays on (it only hides non-embedded
+                        // windows and console black boxes), but the window must be handed to SetParent out of its hidden state
+                        // first and then shown by Fit's SWP_SHOWWINDOW.
                         IntPtr want = new IntPtr(L(line, "host"));
                         uint wantPid = 0;
                         if (want != IntPtr.Zero) GetWindowThreadProcessId(want, out wantPid);
@@ -1212,12 +1212,12 @@ public class ApkAgent
                             _host = want;
                             _hostPid = wantPid;
                             _chromeRender = FindChromeRender(want);
-                            // 第三方底座（MuMu 等）会把画面窗口句柄直接报给我们；
-                            // "target" 是逗号分隔的候选列表，逐个 SetParent，
+                            // Third-party backends (MuMu etc.) report the picture window handle directly;
+                            // "target" is a comma-separated candidate list -- SetParent each until one really becomes our child.
                             // 第一个真的成为宿主子窗口的就是它。
                             string targets = S(line, "target");
                             _emu = IntPtr.Zero;
-                            if (_quiet) { _quiet = false; _bootHideUntil = 0; }   // 别再把要嵌的窗口藏掉
+                            if (_quiet) { _quiet = false; _bootHideUntil = 0; }   // stop hiding the window we are about to embed
                             if (!string.IsNullOrEmpty(targets))
                             {
                                 string[] pieces = targets.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1225,7 +1225,7 @@ public class ApkAgent
                                 {
                                     IntPtr cand = ParseHwnd(pieces[i]);
                                     if (cand == IntPtr.Zero || !IsWindow(cand)) continue;
-                                    // 已经嵌进我们宿主的窗口（重复 embed / 换尺寸）：直接用
+                                    // Already attached to our host (repeat embed / size change): use it directly
                                     if (GetParent(cand) == want || GetParent(cand) == _chromeRender)
                                     {
                                         _emu = cand;
@@ -1250,8 +1250,8 @@ public class ApkAgent
                             _lastToolSweep = 0;
                             Fit((int)L(line, "x"), (int)L(line, "y"), (int)L(line, "w"), (int)L(line, "h"), true, (int)L(line, "clipTop"));
                             Reply(sock, "{\"ok\":" + (ok ? "true" : "false") + ",\"emu\":" + _emu.ToInt64() + "}");
-                            // 第三方底座的窗口不是我们创建、也不会自己恢复显示：
-                            // 每个候选都要挂上 WS_VISIBLE，否则 SetParent 之后它永远是隐藏的。
+                            // Third-party backend windows are not created by us and never restore themselves:
+                            // add WS_VISIBLE to every candidate, otherwise it stays hidden after SetParent.
                             if (ok && !string.IsNullOrEmpty(targets)) ShowWindow(_emu, 5);
                         }
                     }
@@ -1274,36 +1274,36 @@ public class ApkAgent
                     }
                     else if (cmd == "perf")
                     {
-                        // JS 侧根据 priorityMode 通知：game 模式下降频窗口扫描
+                        // JS notifies through priorityMode: game mode slows the window scan down
                         _perfMode = L(line, "on") != 0;
                         Reply(sock, "{\"ok\":true}");
                     }
                     else if (cmd == "show")
                     {
-                        // 独立窗口模式下 Detach() 会把 _emu 清空（它按「嵌入结束」处理），
-                        // 所以这里要重新找一次，否则 show/layout 全部作用在空句柄上，
-                        // 表现就是「切独立窗口后模拟器窗口不见了」。
+                        // In detached-window mode Detach() clears _emu (it treats this as "embedding ended"),
+                        // so look it up again here, otherwise show/layout act on a null handle and it looks like
+                        // "the emulator window disappeared after switching to a detached window".
                         if (_emu == IntPtr.Zero) _emu = FindEmulator();
                         if (_emu != IntPtr.Zero) ShowWindow(_emu, 5);
                         Reply(sock, "{\"ok\":" + (_emu != IntPtr.Zero ? "true" : "false") + "}");
                     }
                     else if (cmd == "detach")
                     {
-                        // keep=1 表示「切到独立窗口模式」：不要把它当成
-                        // 「嵌入结束、该把模拟器藏起来」，否则 QuietSweep 会在
-                        // 下一轮把用户正在看的窗口藏掉。
+                        // keep=1 means "switch to detached-window mode": do not treat this as
+                        // "embedding ended, hide the emulator", or QuietSweep will hide the window
+                        // the user is looking at on the next round.
                         _detachedMode = L(line, "keep") == 1;
-                        // 独立模式可能从没 embed 过（_emu 还是 0），先找一次，
-                        // 否则 Detach 会直接 return，后续 show/layout 全部作用在空句柄上。
+                        // Detached mode may never have embedded (_emu is still 0), so look once first,
+                        // otherwise Detach returns immediately and every later show/layout hits a null handle.
                         if (_emu == IntPtr.Zero) _emu = FindEmulator();
                         Detach();
                         Reply(sock, "{\"ok\":true,\"emu\":" + _emu.ToInt64() + "}");
                     }
                     else if (cmd == "title")
                     {
-                        // 把模拟器原生窗口的标题从 "Android Emulator - apkstart:5554"
-                        // 换成用户看得懂的名字（默认 "ApkStart"）。Qt 会在窗口重建时
-                        // 把标题改回去，所以 QuietSweep 每轮巡检都会补设一次（见下）。
+                        // Rename the emulator's native window from "Android Emulator - apkstart:5554"
+                        // to a name the user understands (default "ApkStart"). Qt resets the title when it
+                        // rebuilds the window, so QuietSweep re-applies it every round (see below).
                         string t = S(line, "text");
                         if (t.Length == 0) t = "ApkStart";
                         _ourTitle = t;
@@ -1313,15 +1313,15 @@ public class ApkAgent
                     }
                     else if (cmd == "icon")
                     {
-                        // 给模拟器原生窗口设图标（独立窗口模式下任务栏/Alt+Tab 显示当前应用图标，
-                        // 而不是 Google 模拟器的默认绿机器人）。传 ICO/PNG 绝对路径。
+                        // Set the emulator's native window icon (detached-window mode then shows the current app's icon
+                        // in the taskbar/Alt+Tab instead of the Google emulator's default green robot). Pass an absolute ICO/PNG path.
                         string f = S(line, "file");
                         if (_emu == IntPtr.Zero) _emu = FindEmulator();
                         bool ok = false;
                         if (f.Length > 0 && System.IO.File.Exists(f))
                         {
-                            // 缓存图标句柄：换应用时释放旧的、加载新的；巡检补设直接用缓存，
-                            // 不再每轮 LoadImage（那是磁盘 IO + GDI 对象泄漏）。
+                            // Cache the icon handle: free the old one and load the new one on app switch; the sweep
+                            // reuses the cache instead of calling LoadImage every round (that is disk IO plus GDI object leaks).
                             if (!String.Equals(f, _ourIconFile, StringComparison.OrdinalIgnoreCase))
                             {
                                 if (_ourIconSmall != IntPtr.Zero) DestroyIcon(_ourIconSmall);
@@ -1343,9 +1343,9 @@ public class ApkAgent
                     }
                     else if (cmd == "layout")
                     {
-                        // 独立窗口模式：模拟器窗口是系统原生窗口，这里只把它摆到
-                        // 指定屏幕矩形（不 SetParent）。方向/缩放/输入都交给它自己，
-                        // 因此不会出现嵌入模式那套黑边、坐标错位、铺不满的问题。
+                        // Detached-window mode: the emulator window is a native window, so just place it at
+                        // the given screen rect (no SetParent). Orientation, scaling and input are its own business,
+                        // so none of the embedding black bars, coordinate offsets or fill problems apply.
                         if (_emu == IntPtr.Zero) _emu = FindEmulator();
                         if (_emu == IntPtr.Zero)
                         {
@@ -1353,7 +1353,7 @@ public class ApkAgent
                         }
                         else
                         {
-                            // 先确保它是可见的顶层窗口（WS_CHILD 已被 Detach 摘掉）
+                            // Make sure it is a visible top-level window first (WS_CHILD was removed by Detach)
                             ShowWindow(_emu, 5);
                             SetWindowPos(_emu, HWND_TOP,
                                 (int)L(line, "x"), (int)L(line, "y"),
@@ -1383,8 +1383,8 @@ public class ApkAgent
                     }
                     else if (cmd == "winready")
                     {
-                        // 第三方底座就绪门禁：候选句柄存在 + 状态为「存在」。
-                        // 隐藏判断在 JS 侧做（见 backends/mumu.js 的 windowReady）。
+                        // Third-party backend readiness gate: a candidate handle exists + state is "present".
+                        // The hidden check happens on the JS side (see backends/mumu.js windowReady).
                         string list = S(line, "target");
                         int alive = 0;
                         string first = "";
@@ -1422,8 +1422,8 @@ public class ApkAgent
                         }
                         else
                         {
-                            // 保留窗口不动，只把控制台黑窗再压一遍（关掉 quiet 一般是因为
-                            // 用户想自己看一眼模拟器窗口，见设置 startVisible）。
+                            // Leave the window alone and just suppress the console black boxes again (quiet is normally
+                            // turned off because the user wants to look at the emulator window themselves; see the startVisible setting).
                             _quiet = false;
                             HideConsoleWindows();
                         }
@@ -1431,9 +1431,9 @@ public class ApkAgent
                     }
                     else if (cmd == "park")
                     {
-                        // 应用窗口要关了：先把模拟器窗口从宿主上摘下来并藏好，
-                        // 避免宿主销毁时 Windows 把它重新挂到桌面、恢复成顶层可见窗口
-                        // （用户看到的「凭空冒出一个 Android Emulator 黑窗」就是这么来的）。
+                        // The app window is closing: detach the emulator window and hide it first, so Windows
+                        // does not re-parent it to the desktop and make it a visible top-level window when the host is destroyed
+                        // (that is where the out-of-nowhere "Android Emulator black window" came from).
                         _quiet = true;
                         _bootHideStart = Environment.TickCount;
                         _bootHideSweep = 0;
