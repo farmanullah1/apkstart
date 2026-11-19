@@ -1,15 +1,26 @@
 'use strict';
 /**
+<<<<<<< HEAD
  * Two-way synchronization between Host ↔ Android shared directory
  *
  * Without root we cannot truly "mount" the folder, so incremental sync is used:
  * Any file added/modified on either side syncs within seconds, semantically equivalent to a shared folder.
+=======
+ * 本机 ↔ 安卓 的共享目录双向同步
+ *
+ * 没有 root 的情况下无法真正「挂载」目录，所以采用增量同步：
+ * 任何一侧新增/修改的文件都会在几秒内同步到另一侧，语义上等价于共享文件夹。
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 const fs = require('fs');
 const path = require('path');
 const store = require('./store');
 
+<<<<<<< HEAD
 const MAX_FILE = 512 * 1024 * 1024; // 512MB per-file upper limit
+=======
+const MAX_FILE = 512 * 1024 * 1024; // 单文件 512MB 上限
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 function walk(dir, base = dir, out = []) {
   let items = [];
@@ -64,6 +75,7 @@ class Sharer {
     const result = { pushed: 0, pulled: 0, errors: [] };
     try {
       const client = this.runtime.client();
+<<<<<<< HEAD
       if (!(await client.isOnline())) throw new Error('Runtime is not connected');
       await this.ensureDirs(onLog);
       const state = this.loadState();
@@ -71,6 +83,17 @@ class Sharer {
       // --- Host → Device ---
       // State tracks both "host mtime" and "device mtime".
       // Previous implementation tracked only one mtime and wrote back host time, causing every sync to re-pull the same file.
+=======
+      if (!(await client.isOnline())) throw new Error('运行时未连接');
+      await this.ensureDirs(onLog);
+      const state = this.loadState();
+
+      // --- 本机 → 设备 ---
+      // 状态里同时记「本机 mtime」和「设备 mtime」两个值。
+      // 老实现只记一个 mtime、拉完写回本机时间，于是下一轮拿本机时间去和设备的
+      // 时间比 —— 永远不相等 → 每 8 秒把同一个文件从设备拉一遍，落盘时间又变，
+      // 再下一轮继续拉……表现就是「硬盘一直转、文件反复重写、空间越用越少」。
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
       const stateOf = (prev) => (prev ? {
         size: prev.size,
         lmtime: prev.lmtime || prev.mtime || 0,
@@ -94,8 +117,13 @@ class Sharer {
         }
       }
 
+<<<<<<< HEAD
       // --- Device → Host ---
       // Prefer toybox stat for real mtime; fall back to ls parsing (only size check)
+=======
+      // --- 设备 → 本机 ---
+      // 优先用 toybox stat 拿真实 mtime；拿不到才退回 ls 解析（此时只能按大小判断）
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
       let remoteList = null;
       try {
         remoteList = await client.listRemoteStat(this.remoteDir);
@@ -107,21 +135,34 @@ class Sharer {
       }
 
       for (const r of remoteList) {
+<<<<<<< HEAD
         // Skip oversized files (videos/game data packages): local folder should not become device cache dump
+=======
+        // 超大文件（视频/游戏数据包）不往回拉：本地目录不该成为设备缓存的下水道
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
         if (r.size > MAX_FILE) continue;
         const prev = stateOf(state[r.rel]);
         const sizeSame = !!prev && prev.size === r.size;
         const rmtimeSame = !!(prev && prev.rmtime && r.mtime)
           && Math.abs(prev.rmtime - r.mtime) <= 1500;
         if (prev && sizeSame && (rmtimeSame || prev.dir === 'up')) {
+<<<<<<< HEAD
           // Same size, and either device time unchanged or file was just pushed by us:
           // Record device time and finish, never re-download
+=======
+          // 大小一致，且要么设备时间没变、要么这个文件就是我们刚推上去的：
+          // 只把设备时间记下来收工，绝不重复下载
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
           if (r.mtime && prev.rmtime !== r.mtime) {
             state[r.rel] = { ...prev, rmtime: r.mtime };
           }
           continue;
         }
+<<<<<<< HEAD
         if (prev && sizeSame && !r.mtime) continue;   // Unable to get device time and same size -> treat as identical
+=======
+        if (prev && sizeSame && !r.mtime) continue;   // 拿不到设备时间且大小相同 → 视为一致
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
         const local = path.join(this.localDir, r.rel);
         try {
           fs.mkdirSync(path.dirname(local), { recursive: true });
@@ -147,7 +188,11 @@ class Sharer {
 
   async listRemoteRecursive(client, base, prefix = '', depth = 0, out = []) {
     if (depth > 6) return out;
+<<<<<<< HEAD
     // Prefer single find + stat for batch retrieval (faster than recursive ls -l, immune to date format variance)
+=======
+    // 优先一次 find + stat 拿全量（比逐目录 ls -l 快，也不受日期格式差异影响）
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     if (depth === 0 && !prefix) {
       try {
         const text = await client.shell(
@@ -158,7 +203,11 @@ class Sharer {
           .filter(Boolean)
           .map((m) => ({ rel: m[3].replace(/^\.\//, ''), size: Number(m[1]), mtime: Number(m[2]) * 1000 }));
         if (rows.length) return rows;
+<<<<<<< HEAD
       } catch (_) { /* Fall back to ls parsing */ }
+=======
+      } catch (_) { /* 落到 ls 解析 */ }
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     }
     const items = await client.listRemote(prefix ? `${base}/${prefix}` : base);
     for (const it of items) {

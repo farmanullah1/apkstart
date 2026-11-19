@@ -1,4 +1,5 @@
 /* ============================================================================
+<<<<<<< HEAD
  * theme.css — Global visual refresh (loaded after style.css, override and enhancement only)
  *
  * Design goal: Android runner feel — forest green brand + clean light panels + rounded cards,
@@ -7,6 +8,16 @@
 
 :root {
   /* Brand: emerald green -> teal gradient */
+=======
+ * theme.css —— 全局视觉刷新（在 style.css 之后加载，只做覆盖与增强）
+ *
+ * 设计目标：更"安卓运行器"的气质 —— 深绿品牌色 + 干净的浅色面板 + 圆润的卡片，
+ * 同时把启动时的欢迎卡做成一整套统一语言。
+ * ========================================================================== */
+
+:root {
+  /* 品牌：翡翠绿 → 青绿渐变 */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   --brand: #0f9d63;
   --brand-dark: #0b7d4f;
   --brand-2: #12b886;
@@ -43,7 +54,11 @@ html, body {
     var(--bg);
 }
 
+<<<<<<< HEAD
 /* ---------------- Titlebar: Glassmorphism ---------------- */
+=======
+/* ---------------- 标题栏：玻璃质感 ---------------- */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .titlebar {
   height: 46px;
@@ -86,7 +101,11 @@ html, body {
 .icon-btn:hover { background: rgba(20, 32, 26, .06); color: var(--text); }
 .icon-btn:active { transform: scale(.95); }
 
+<<<<<<< HEAD
 /* ---------------- Search Box / Primary Button ---------------- */
+=======
+/* ---------------- 搜索框 / 主按钮 ---------------- */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .search {
   border-radius: 12px;
@@ -127,7 +146,11 @@ html, body {
 .btn.ghost { background: rgba(255, 255, 255, .6); }
 .btn.ghost:hover { background: rgba(20, 32, 26, .05); }
 
+<<<<<<< HEAD
 /* ---------------- App Cards ---------------- */
+=======
+/* ---------------- 应用卡片 ---------------- */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .grid { gap: 14px; }
 
@@ -161,10 +184,17 @@ html, body {
   box-shadow: 0 2px 8px rgba(15, 157, 99, .4);
 }
 
+<<<<<<< HEAD
 /* ---------------- "Add App" Dashed Card ----------------
  * When few apps are installed, the grid is mostly empty and users might wonder what to do next.
  * This card brings "drag APK here" front and center while filling the empty space.
  * Dashed border + muted colors indicate an available slot rather than an installed app. */
+=======
+/* ---------------- 「添加应用」虚线卡片 ----------------
+ * 应用少的时候网格下面是一大片空白，用户也不知道还能干什么。
+ * 这块卡片把「拖 APK 进来」摆到眼前，同时把空白填掉。
+ * 用虚线 + 弱化配色，让它看起来是「空位」而不是又一个已经装好的应用。 */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .card-add {
   background: transparent;
@@ -205,7 +235,11 @@ html, body {
 .card-add .name { font-weight: 600; }
 .card-add .meta { color: var(--faint); }
 
+<<<<<<< HEAD
 /* ---------------- Status Bar ---------------- */
+=======
+/* ---------------- 状态栏 ---------------- */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .statusbar {
   border-top: 1px solid rgba(20, 32, 26, .06);
@@ -215,8 +249,13 @@ html, body {
 
 .dot { box-shadow: 0 0 0 3px rgba(18, 184, 134, .14); }
 
+<<<<<<< HEAD
 /* Network status indicator: green = connected, yellow = no internet.
  * Subtly catches VM network issues early instead of ambiguous in-app network errors. */
+=======
+/* 状态栏里的网络指示：绿灯=已联网，黄灯=虚拟机没网。
+ * 这个坑很隐蔽（应用里只显示「网络错误」，看不出是虚拟机的事），所以放在最显眼处。 */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .status-net::before {
   content: '';
   display: inline-block;
@@ -231,7 +270,11 @@ html, body {
 .status-net.warn { color: #9a6b00; }
 .status-net.warn::before { background: #e0a100; box-shadow: 0 0 0 3px rgba(224, 161, 0, .16); }
 
+<<<<<<< HEAD
 /* ---------------- Modal Dialog ---------------- */
+=======
+/* ---------------- 模态框 ---------------- */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .modal-mask { backdrop-filter: blur(6px); background: rgba(12, 24, 19, .34); }
 
@@ -252,7 +295,11 @@ html, body {
   letter-spacing: .3px;
 }
 
+<<<<<<< HEAD
 /* ---------------- Scrollbar ---------------- */
+=======
+/* ---------------- 滚动条 ---------------- */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb {
@@ -265,7 +312,11 @@ html, body {
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* ============================================================================
+<<<<<<< HEAD
  * Welcome Card
+=======
+ * 启动欢迎卡
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  * ========================================================================== */
 
 .welcome-mask[hidden] { display: none; }
@@ -306,7 +357,11 @@ html, body {
   overflow: hidden;
 }
 
+<<<<<<< HEAD
 /* Glow effect */
+=======
+/* 光晕 */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .welcome-halo {
   position: absolute; left: 50%; top: -120px;
   width: 340px; height: 240px; transform: translateX(-50%);

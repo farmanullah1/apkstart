@@ -393,7 +393,11 @@ main.js ──> engine.js ──> provision.js ──> sources.js ──> versio
 | `_downloadParts` | `(asset, target, conns, total)` | 182-227，分片下载 + 顺序拼接 |
 | `_extract` | `(zipPath, dest)` | 229-251，带 zip-slip 防护、逐条流式 |
 | `apply` | `(job, {waitPid?, spawn?}) => true \| script` | 258-325；`spawn:false` 时只返回脚本（测试用） |
+<<<<<<< HEAD
 | `static repoUrl()` | `() => 'https://github.com/farmanullah1/APK-START-English/releases'` | 328-330 |
+=======
+| `static repoUrl()` | `() => 'https://github.com/RoutineMiku/apkstart/releases'` | 328-330 |
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 | `cmpVer` | re-export 自 `version.js` | 333 |
 
 `check()` 返回（82-112）：

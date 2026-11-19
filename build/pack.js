@@ -242,7 +242,11 @@ function embedExeMeta(exe) {
     '--set-product-version', PKG.version,
     '--set-version-string', 'ProductName', 'ApkStart',
     '--set-version-string', 'FileDescription', 'ApkStart 安卓应用运行器',
+<<<<<<< HEAD
     '--set-version-string', 'CompanyName', PKG.author || 'farmanullah1',
+=======
+    '--set-version-string', 'CompanyName', PKG.author || 'RoutineMiku',
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     '--set-version-string', 'LegalCopyright', 'Copyright (c) 2026 ApkStart',
     '--set-version-string', 'OriginalFilename', 'ApkStart.exe',
     '--set-version-string', 'InternalName', 'ApkStart',

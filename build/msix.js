@@ -44,6 +44,7 @@ function msixVersion(v) {
 }
 
 // Partner Center → Product management → Product identity 里确认过的两个值。
+<<<<<<< HEAD
 // 直接写成默认值：以前默认是占位 `CN=farmanullah1`，任何人随手跑一次
 // `node build/msix.js` 就会把已经正确的包覆盖成一个商店必然拒收的包。
 const PLACEHOLDER_PUBLISHER = 'CN=farmanullah1';
@@ -52,6 +53,16 @@ const CONFIRMED_PUBLISHER = 'CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D';
 const IDENTITY = arg('identity') || process.env.APKSTART_MSIX_IDENTITY || CONFIRMED_IDENTITY;
 const PUBLISHER = arg('publisher') || process.env.APKSTART_MSIX_PUBLISHER || CONFIRMED_PUBLISHER;
 const PUBLISHER_DISPLAY = arg('publisherDisplay') || process.env.APKSTART_MSIX_PUBLISHER_DISPLAY || 'farmanullah1';
+=======
+// 直接写成默认值：以前默认是占位 `CN=RoutineMiku`，任何人随手跑一次
+// `node build/msix.js` 就会把已经正确的包覆盖成一个商店必然拒收的包。
+const PLACEHOLDER_PUBLISHER = 'CN=RoutineMiku';
+const CONFIRMED_IDENTITY = 'RoutineMiku.ApkStart';
+const CONFIRMED_PUBLISHER = 'CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D';
+const IDENTITY = arg('identity') || process.env.APKSTART_MSIX_IDENTITY || CONFIRMED_IDENTITY;
+const PUBLISHER = arg('publisher') || process.env.APKSTART_MSIX_PUBLISHER || CONFIRMED_PUBLISHER;
+const PUBLISHER_DISPLAY = arg('publisherDisplay') || process.env.APKSTART_MSIX_PUBLISHER_DISPLAY || 'RoutineMiku';
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 const DISPLAY = arg('display') || process.env.APKSTART_MSIX_DISPLAY || 'ApkStart';
 const APP_ID = arg('appId') || 'ApkStart';
 const DO_SIGN = !!arg('sign', false);
@@ -219,8 +230,13 @@ function manifest() {
   </Dependencies>
 
   <Resources>
+<<<<<<< HEAD
     <Resource Language="en-US" />
     <Resource Language="zh-CN" />
+=======
+    <Resource Language="zh-CN" />
+    <Resource Language="en-US" />
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   </Resources>
 
   <Capabilities>
@@ -405,7 +421,13 @@ function main() {
   }
   const out = path.join(OUT_DIR, artifactName());
   console.log(`\n用 ${makeappx} 打包…`);
+<<<<<<< HEAD
   fs.rmSync(out, { force: true });
+=======
+  // makeappx 的 /o 就是 overwrite；不要再 fs.rmSync 旧包。
+  // 受管环境下 rmSync 会走回收站 shim，1.5GB 的大包很容易 ETIMEDOUT，
+  // 明明产物能覆盖却把整个构建打断（0.6.2 打包时踩过）。
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   run(makeappx, ['pack', '/d', work, '/p', out, '/o', '/v']);
 
   const mb = fs.statSync(out).size / 1048576;

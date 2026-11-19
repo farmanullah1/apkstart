@@ -57,7 +57,11 @@ dism /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
 ## 微软商店
 
 - 包体：`dist/store/ApkStart_0.5.2.0_x64.msix`（x64，约 850 MB，内置完整运行时）
+<<<<<<< HEAD
 - 身份：`farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+=======
+- 身份：`RoutineMiku.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 - 升级：`0.5.2.0 > 0.5.1.0 > 0.5.0.0`，可直接覆盖之前提交的版本
 
 测试：9 + 25 + 118 = 152 通过。

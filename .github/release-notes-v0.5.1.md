@@ -59,7 +59,11 @@ ApkStart 的 adb 服务跑在**专用端口 5044**（你自己的 adb 是 5037�
 ## 微软商店
 
 - 包体：`dist/store/ApkStart_0.5.1.0_x64.msix`（x64，约 850 MB，内置完整运行时）
+<<<<<<< HEAD
 - 身份：`farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+=======
+- 身份：`RoutineMiku.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 - 升级：商店按四段版本号比较，`0.5.1.0 > 0.5.0.0`，可以直接覆盖已提交的 0.5.0
 - 上架材料见 `docs/store-listing.md`，步骤见 `docs/store-upload-walkthrough.md`
 

@@ -100,9 +100,15 @@ Partner Center → **Product management → Product identity** 里给出的
 当前默认值（占位用，真上架要换）：
 
 ```
+<<<<<<< HEAD
 Identity Name      = farmanullah1.ApkStart
 Identity Publisher = CN=farmanullah1
 PublisherDisplayName = farmanullah1
+=======
+Identity Name      = RoutineMiku.ApkStart
+Identity Publisher = CN=RoutineMiku
+PublisherDisplayName = RoutineMiku
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 ```
 
 三种改法，任选：
@@ -111,8 +117,13 @@ PublisherDisplayName = farmanullah1
 # 1) 改 electron-builder.yml 的 appx.identityName / appx.publisher
 # 2) 改 build/msix.js 顶部的 IDENTITY / PUBLISHER 默认值
 # 3) 用环境变量或命令行参数覆盖（推荐，不动源码）
+<<<<<<< HEAD
 node build/msix.js --identity "12345farmanullah1.ApkStart" --publisher "CN=1a2b3c4d-1111-2222-3333-444455556666"
 $env:APKSTART_MSIX_IDENTITY="12345farmanullah1.ApkStart"
+=======
+node build/msix.js --identity "12345RoutineMiku.ApkStart" --publisher "CN=1a2b3c4d-1111-2222-3333-444455556666"
+$env:APKSTART_MSIX_IDENTITY="12345RoutineMiku.ApkStart"
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 $env:APKSTART_MSIX_PUBLISHER="CN=1a2b3c4d-1111-2222-3333-444455556666"
 ```
 
@@ -131,13 +142,21 @@ node build/msix.js --sign          # 生成自签证书 + 尝试签名
 # 如果上一步报 signtool 不可用，用 SDK 里的那一份手工签：
 & "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe" `
   sign /fd SHA256 /a /f dist\store\ApkStart-test.pfx /p 'ApkStart!test' `
+<<<<<<< HEAD
   dist\store\ApkStart_0.6.1.0_x64.msix
+=======
+  dist\store\ApkStart_0.6.2.0_x64.msix
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 # 管理员 PowerShell 里信任证书（一次即可）
 Import-PfxCertificate -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' `
   -FilePath 'dist\store\ApkStart-test.pfx' `
   -Password (ConvertTo-SecureString 'ApkStart!test' -Force -AsPlainText)
+<<<<<<< HEAD
 Add-AppxPackage -Path 'dist\store\ApkStart_0.6.1.0_x64.msix'
+=======
+Add-AppxPackage -Path 'dist\store\ApkStart_0.6.2.0_x64.msix'
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 ```
 
 卸载：`Get-AppxPackage *ApkStart* | Remove-AppxPackage`

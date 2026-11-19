@@ -1,5 +1,6 @@
 'use strict';
 /**
+<<<<<<< HEAD
  * Pure geometry conversions (zero dependencies; directly testable in pure Node/CI environments).
  *
  * Electron screen / BrowserWindow coordinates are always in DIPs (Device Independent Pixels),
@@ -13,6 +14,22 @@
  * @param {{x:number,y:number,w:number,h:number}} rect DIP logical rectangle
  * @param {number} [scaleFactor] Scale factor; returns original object if 1 or unspecified (zero overhead)
  * @returns {{x:number,y:number,w:number,h:number}} Physical pixel rectangle
+=======
+ * 纯几何换算（零依赖，可在无 Electron 的 CI/Node 环境直接 require 测试）。
+ *
+ * Electron 的 screen / BrowserWindow 坐标一律是 DIP（设备无关像素）；而窗口代理
+ * agent.ps1 顶层声明了 per-monitor v2 DPI 感知，它调用的 Win32 SetWindowPos 收到
+ * 的是物理像素。二者混用，在 125% / 150% 缩放下就是「窗口只显示一半 / 偏到角落 /
+ * 点击错位」（issue #99）。嵌入模式的 _rect() 早已乘过 scaleFactor，这里把同一
+ * 个换算抽出来，供独立窗口模式复用并单独测试。
+ */
+
+/**
+ * 把一块 DIP 矩形换算成物理像素。
+ * @param {{x:number,y:number,w:number,h:number}} rect DIP 逻辑像素矩形
+ * @param {number} [scaleFactor] 缩放比；1 / 缺省时原样返回（同一对象，零开销）
+ * @returns {{x:number,y:number,w:number,h:number}} 物理像素矩形
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 function physicalRect(rect, scaleFactor) {
   const k = Number(scaleFactor) || 1;

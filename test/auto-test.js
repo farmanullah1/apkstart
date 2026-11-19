@@ -199,12 +199,20 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
 
   await test('Android 14 老 targetSdk 应用失败有明确指引', () => {
     const s = friendlyInstallError('Failure [INSTALL_FAILED_DEPRECATED_SDK_VERSION: app must target at least 23]');
+<<<<<<< HEAD
     assert(s.includes('Android 14') && s.includes('automatically'), s);
+=======
+    assert(s.includes('Android 14') && s.includes('自动'), s);
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   });
 
   await test('ARM 翻译层崩溃能给出可执行的中文结论', () => {
     const s = friendlyLaunchError('F DEBUG: DoBadTrampoline libndk_translation SIGABRT', 'com.phoenix.read');
+<<<<<<< HEAD
     assert(s.includes('ARM translation layer') && s.includes('compatibility image'), s);
+=======
+    assert(s.includes('ARM 翻译层') && s.includes('兼容镜像'), s);
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   });
 
   console.log('\n[sharer 不再来回搬运（磁盘写满的元凶）]');
@@ -997,9 +1005,15 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(!/-prop[\s\S]{0,80}persist\.sys\.locale/.test(emuCode),
       '不能再用无效的 -prop persist.sys.locale');
     assert(/_guestLocale/.test(emuJs), '要有可配置的语言来源');
+<<<<<<< HEAD
     // Defaults to English; Chinese is opt-in.
     assert(/locale:\s*'en-US'/.test(storeJs), 'default locale must be en-US');
     assert(/chineseIme:\s*false/.test(storeJs), 'Chinese IME must be off by default');
+=======
+    // 默认中文
+    assert(/locale:\s*'zh-CN'/.test(storeJs), '默认语言必须是简体中文');
+    assert(/chineseIme:\s*true/.test(storeJs), '默认开启中文输入法');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
     // 输入法：随包带 APK、开机装好并启用
     assert(fs.existsSync(path.join(root, 'assets', 'PinyinIME.apk')), '缺少 PinyinIME.apk');
@@ -1118,8 +1132,13 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 右键菜单要有这一项
     assert(/key:\s*'stop'/.test(uiJs), '右键菜单缺少「关闭应用」');
     assert(/case 'stop':/.test(uiJs), '右键菜单没有处理 stop');
+<<<<<<< HEAD
     // In standalone-window mode the main UI is hidden, so the tray is the only always-reachable entry point
     assert(/Close current app/.test(mainJs), 'tray menu is missing "Close current app"');
+=======
+    // 独立窗口模式主界面是隐藏的，托盘是唯一随时可达的入口
+    assert(/关闭当前应用/.test(mainJs), '托盘菜单缺少「关闭当前应用」');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     // 关掉后要刷新「运行中」标记
     assert(/apps:changed/.test(mainJs) && /apps:changed/.test(uiJs),
       '关闭后要发 apps:changed 并让界面刷新');
@@ -1136,9 +1155,15 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 独立窗口模式必须先藏模拟器窗口再关壳窗口（反了会在桌面闪一下）
     assert(/detached[\s\S]{0,200}agent\.hide/.test(mainJs),
       '独立窗口模式先 hide 再 close');
+<<<<<<< HEAD
     // External close (Alt+F4) also needs to clear currentAppPkg
     assert(/onCloseApp[\s\S]{0,2000}currentAppPkg = null/.test(mainJs) || /onCloseApp[\s\S]{0,2000}currentAppPkg === pkg/.test(mainJs),
       'onCloseApp also needs to clear currentAppPkg');
+=======
+    // 外部关闭（Alt+F4）也要清 currentAppPkg
+    assert(/onCloseApp[\s\S]{0,300}currentAppPkg = null/.test(mainJs) || /onCloseApp[\s\S]{0,300}currentAppPkg === pkg/.test(mainJs),
+      'onCloseApp 也要清 currentAppPkg');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   });
 
   await test('旧版本清理：能发现任意位置的 ApkStart 目录，且绝不碰当前运行版本', () => {
@@ -1381,7 +1406,11 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(!pointer.isInputCommand('sh -c anything'));
     const c = new AdbClient({ adbPath: 'adb', serial: 'test' });
     let blocked = false;
+<<<<<<< HEAD
     try { await c.input('input keyevent 4; rm -rf /'); } catch (e) { blocked = /Illegal/.test(e.message); }
+=======
+    try { await c.input('input keyevent 4; rm -rf /'); } catch (e) { blocked = /非法/.test(e.message); }
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     assert(blocked, '非法命令必须在拉起 adb 之前被挡下');
     assert(c._input === null, '被挡下的命令不能创建常驻会话');
   });
@@ -1978,8 +2007,13 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const reason = s.blockedReason('gitee');
     assert(!!reason, '403 必须触发熔断');
     assert(s.blockedReason('github') === null, '没出错的源不应被熔断');
+<<<<<<< HEAD
     // During the circuit break, requests should be skipped directly (no more hitting the network)
     assert(/Temporarily skipped/.test(reason), `skip reason should be understandable, actual: ${reason}`);
+=======
+    // 熔断期内的请求应被直接跳过（不再打网络）
+    assert(/暂时跳过/.test(reason), `跳过原因要能看懂，实际：${reason}`);
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     s.reset();
     assert(s.blockedReason('gitee') === null, 'reset 后熔断应解除');
   });
@@ -2197,7 +2231,11 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     fs.writeFileSync(badPath, buildStoredZip([{ name: 'readme.txt', data: Buffer.from('nope') }]));
     let err = null;
     try { await parseBundle(badPath); } catch (e) { err = e; }
+<<<<<<< HEAD
     assert(err && /No APK split found/.test(err.message), `should report no splits, actual ${err && err.message}`);
+=======
+    assert(err && /没有找到 APK 分片/.test(err.message), `应报没有分片，实际 ${err && err.message}`);
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     const dir = path.join(os.tmpdir(), 'apkstart-bundle',
       crypto.createHash('sha1').update(badPath).digest('hex').slice(0, 12));
     assert(!fs.existsSync(dir), '失败时应清理临时目录');
@@ -2320,10 +2358,17 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const mainJs = fs.readFileSync(path.join(root, 'src', 'main.js'), 'utf8');
     const launchIdx = mainJs.indexOf('async function runLaunch(');
     const body = mainJs.slice(launchIdx, launchIdx + 1600);
+<<<<<<< HEAD
     const hideIdx = body.indexOf("mainWindow.hide()");
     const openIdx = body.indexOf("openAppWindow(pkg");
     assert(hideIdx > 0 && openIdx > 0, 'Both calls must be inside runLaunch');
     assert(hideIdx < openIdx, 'mainWindow.hide() must come before openAppWindow (otherwise two windows will be seen at the same time)');
+=======
+    const hideIdx = body.indexOf('mainWindow.hide()');
+    const openIdx = body.indexOf('openAppWindow(pkg');
+    assert(hideIdx > 0 && openIdx > 0, '两个调用都要在 runLaunch 里');
+    assert(hideIdx < openIdx, 'mainWindow.hide() 必须在 openAppWindow 之前（否则会同时看到两个窗口）');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   });
 
   await test('横竖屏：面板方向必须跟应用声明一致，否则只会信箱化', () => {
@@ -2372,7 +2417,11 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
       '要能预判「这次会重启」');
     assert(/if \(this\.detachedMode && !this\._showWhileWaiting\) return;/.test(appwin),
       'ready-to-show 只在 showWhileWaiting 时才显示壳窗口');
+<<<<<<< HEAD
     assert(/Switching .{0,40}to (landscape|portrait)/.test(mainJs), 'prompt copy should make clear why it is slow');
+=======
+    assert(/正在为《[\s\S]{0,40}切换到/.test(mainJs), '提示文案要说清为什么慢');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     // 真正开始换向重启时，pre-attach 可能已经把壳窗口收起来了 —— 必须再亮一次，
     // 否则重启那 40 秒桌面全空（用户以为程序退出了）。
     assert(/appWin\.showWaiting\(/.test(mainJs), '重启换向前要重新亮出等待窗口');
@@ -2491,6 +2540,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 3) 商店（MSIX）版：拿不到提权就退回「手动引导」，而不是弹一个注定失败的 UAC
     assert(/if \(store\.STORE_BUILD\) \{[\s\S]{0,900}manual: true/.test(handlerBody),
       '商店版失败时要返回 manual 交给 UI 引导');
+<<<<<<< HEAD
     assert(/Store edition cannot elevate on its own/.test(mainJs), 'Store edition copy should explain why it cannot enable automatically');
     assert(/Windows Virtual Machine Platform/.test(mainJs), 'must explicitly write out "Windows Virtual Machine Platform"');
     // 4) After enabling successfully, the acceleration cache must be cleared, otherwise the UI still shows the old conclusion
@@ -2507,6 +2557,24 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 8) Under software emulation, the first launch must pop a system notification once (the self-check items in settings are very likely not seen by the user)
     assert(/let accelWarned = false;/.test(mainJs) && /Running in software emulation/.test(mainJs),
       'software emulation must remind once');
+=======
+    assert(/商店版无法自行提权/.test(mainJs), '商店版文案要说明为什么不能自动开');
+    assert(/虚拟机监控程序平台/.test(mainJs), '要明确写出「Windows 虚拟机监控程序平台」');
+    // 4) 开启成功后必须清掉加速缓存，否则界面还显示旧结论
+    assert(/const whpx = await enableWhpxFeatures\(\);\s*\n\s*runtime\.provisioner\.invalidateEnvCache/.test(mainJs),
+      '开启后要 invalidateEnvCache');
+    // 5) 用户点了「否」要能和真失败区分开（1223 = ERROR_CANCELLED）
+    assert(/1223/.test(mainJs) && /cancelled/.test(mainJs), '要区分 UAC 取消');
+    // 6) 有「Windows 虚拟机监控程序平台」那一项的是经典对话框，不是 ms-settings 页面
+    assert(/optionalfeatures\.exe/.test(mainJs), '要打开 classic optionalfeatures.exe');
+    // 7) UI 要处理 manual / cancelled，并真的去打开那个对话框
+    assert(/r\.manual/.test(appJs) && /api\.openWindowsFeatures/.test(appJs), 'UI 要处理 manual 分支');
+    assert(/openWindowsFeatures: \(\) => invoke\('provision:openWindowsFeatures'\)/.test(preloadJs),
+      'preload 要暴露 openWindowsFeatures');
+    // 8) 软件模拟下第一次启动要弹一次系统通知（设置里的自检项用户很可能没看到）
+    assert(/let accelWarned = false;/.test(mainJs) && /正在以软件模拟运行/.test(mainJs),
+      '软件模拟要提醒一次');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   });
 
   await test('打包必须写入 exe 图标/版本，否则资源管理器显示 Electron 默认图标', () => {
@@ -2566,11 +2634,19 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(/iconIcoPath: ico/.test(installerJs), 'writeShortcut 要拿到应用图标');
     assert(!/iconIcoPath:\s*(APPICON|appicon|brandIcon)/.test(installerJs), '不能用 ApkStart 的品牌图标');
     // 每个应用一个 AUMID：任务栏按应用分组，固定项才认得出是哪个应用
+<<<<<<< HEAD
     assert(/appUserModelId: `farmanullah1\.ApkStart\.\$\{app\.package\}`/.test(installerJs),
       '每个应用要有自己的 AUMID');
     // Windows 只在「进程 AUMID == 快捷方式 AUMID」时沿用快捷方式图标，
     // 所以打开某个应用时要把进程身份切过去，回管理窗口再切回 ApkStart。
     assert(/const APP_AUMID = 'farmanullah1\.ApkStart';/.test(mainJs), '要有统一的 AUMID 前缀');
+=======
+    assert(/appUserModelId: `RoutineMiku\.ApkStart\.\$\{app\.package\}`/.test(installerJs),
+      '每个应用要有自己的 AUMID');
+    // Windows 只在「进程 AUMID == 快捷方式 AUMID」时沿用快捷方式图标，
+    // 所以打开某个应用时要把进程身份切过去，回管理窗口再切回 ApkStart。
+    assert(/const APP_AUMID = 'RoutineMiku\.ApkStart';/.test(mainJs), '要有统一的 AUMID 前缀');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     assert(/setAumid\(`\$\{APP_AUMID\}\.\$\{pkg\}`\)/.test(mainJs), '开应用窗口前要切到该应用的 AUMID');
     assert(/function showWindow\(\) \{\s*\n\s*\/\/[^\n]*\n\s*setAumid\(APP_AUMID\);/.test(mainJs),
       '回管理窗口要切回 ApkStart 的 AUMID');
@@ -2632,6 +2708,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const storeJs = fs.readFileSync(path.join(root, 'src', 'core', 'store.js'), 'utf8');
     // 0.6.0：嵌入模式（SetParent）缩放/旋转时掉帧且有黑边、坐标错位，
     // 默认改为让模拟器开自己的原生窗口。
+<<<<<<< HEAD
     assert(/windowEmbed:\s*false,/.test(storeJs), 'defaultSettings.display.windowEmbed must be false');
     // 一次性迁移：只迁「没主动选过」的配置，用户自己选的不能被反复扳回来
     assert(/windowEmbedMigrated2/.test(storeJs), '要有一次性迁移标记');
@@ -2641,13 +2718,28 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const migBody = storeJs.slice(storeJs.indexOf('窗口承载方式的最终裁决'), storeJs.indexOf('窗口承载方式的最终裁决') + 1200);
     assert(/d\.windowEmbedChosen !== true && d\.windowEmbed !== false/.test(migBody),
       'migration condition must not depend on windowEmbedMigrated2, otherwise old marks will be missed');
+=======
+    assert(/windowEmbed:\s*false,\s*\n\s*\/\/ 镜像内/.test(storeJs), 'defaultSettings.display.windowEmbed 必须是 false');
+    // 一次性迁移：只迁「没主动选过」的配置，用户自己选的不能被反复扳回来
+    assert(/windowEmbedMigrated2/.test(storeJs), '要有一次性迁移标记');
+    assert(/windowEmbedChosen !== true/.test(storeJs), '主动选过的配置不迁移');
+    // 只看标记不够：老配置可能是「migrated2=true 但值仍是 true」（迁移没落盘 / 手改过），
+    // 那种情况以前会被原样放过 → 启动又是美化壳窗口。判定基准必须是「有没有主动选过」。
+    const migBody = storeJs.slice(storeJs.indexOf('窗口承载方式的最终裁决'), storeJs.indexOf('窗口承载方式的最终裁决') + 1200);
+    assert(/d\.windowEmbedChosen !== true && d\.windowEmbed !== false/.test(migBody),
+      '迁移条件不能依赖 windowEmbedMigrated2，否则旧标记会漏迁');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     // 原生窗口要尽早接出来，别让用户对着美化等待页干等
     const mainJs = fs.readFileSync(path.join(root, 'src', 'main.js'), 'utf8');
     assert(/pre-attach detached ok/.test(mainJs), '启动时要先尝试把模拟器原生窗口接出来');
     // 接管失败必须重试，否则壳窗口一直停在屏幕上（用户看到的「美化窗口」）
     const attachBody = mainJs.slice(mainJs.indexOf('async function attachAppWindow'), mainJs.indexOf('async function attachAppWindow') + 2200);
     assert(/for \(let i = 0; i < 4; i \+= 1\)/.test(attachBody), '原生窗口接管要重试');
+<<<<<<< HEAD
     assert(/falling back to embed mode/.test(attachBody), 'after four failed attempts it must fall back instead of leaving a black screen');
+=======
+    assert(/临时退回嵌入模式/.test(attachBody), '四轮都失败要兜底，不能留黑屏');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     const appJs = fs.readFileSync(path.join(root, 'src', 'ui', 'app.js'), 'utf8');
     assert(/windowEmbedChosen:\s*true/.test(appJs), '设置页切换时要写入「已主动选择」标记');
     const indexHtml = fs.readFileSync(path.join(root, 'src', 'ui', 'index.html'), 'utf8');
@@ -2791,6 +2883,25 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(/list\.push\(d\)/.test(scope), '原路径也要保留，兼容少数环境');
   });
 
+<<<<<<< HEAD
+=======
+  await test('ARM-only 安装：报错本身就是重试理由，不能只看镜像文件在不在', () => {
+    const root = path.join(__dirname, '..');
+    const inst = fs.readFileSync(path.join(root, 'src', 'core', 'installer.js'), 'utf8');
+    // 曾经用 !playImageInfo().ok 当重试开关：镜像文件在磁盘上、但复用了没开翻译层的
+    // 旧模拟器时，重试被跳过却照样弹「正在重试」，用户看到红色「安装失败 + 正在重试」。
+    const retry = inst.slice(inst.indexOf('if (e.code === \'NO_MATCHING_ABIS\')'), inst.indexOf('if (e.code === \'NO_MATCHING_ABIS\')') + 260);
+    assert(!/NO_MATCHING_ABIS.*playImageInfo/.test(retry), 'ABI 不匹配重试不能再被 playImageInfo 卡住');
+    assert(/abiRetried = true/.test(inst), '二次仍失败要标记，文案才不会谎称正在重试');
+    const sw = inst.slice(inst.indexOf('async switchToCompat'), inst.indexOf('async install('));
+    assert(/invalidateSnapshot\(\)/.test(sw), '切兼容镜像必须作废旧快照，否则翻译层不生效');
+    assert(/runningHasArm/.test(inst) && /ro\.product\.cpu\.abilist/.test(inst), '装 ARM 应用前要看当前运行时的真实翻译能力');
+    const ui = fs.readFileSync(path.join(root, 'src', 'ui', 'app.js'), 'utf8');
+    const f = ui.slice(ui.indexOf('function friendlyInstallErrorText'), ui.indexOf('function friendlyInstallErrorText') + 900);
+    assert(!/NO_MATCHING_ABIS/i.test(f) || /正在|已切换到/.test(f.slice(f.indexOf('NO_MATCHING_ABIS'), f.indexOf('NO_MATCHING_ABIS') + 320)), '失败横幅文案要说清状态，不能只说「正在重试」');
+  });
+
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   console.log(results.join('\n'));
   console.log(`\n结果：${passed} 通过，${failed} 失败\n`);
 

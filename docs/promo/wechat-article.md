@@ -2,9 +2,15 @@
 title: 自己写了个 Windows 安卓启动器：双击 .apk 就能用，还把字节系应用跑通了
 cover: ./assets/wechat-cover.jpg
 description: ApkStart v0.2.2 发布：开源免费的 Windows 安卓应用启动器，全新「完整版」内置引擎与 Android 14 兼容镜像，解压双击即用，零下载零设置。
+<<<<<<< HEAD
 author: farmanullah1
 source_url: https://github.com/farmanullah1/APK-START-English/releases/tag/v0.2.2
 sourceUrl: https://github.com/farmanullah1/APK-START-English/releases/tag/v0.2.2
+=======
+author: RoutineMiku
+source_url: https://github.com/RoutineMiku/apkstart/releases/tag/v0.2.2
+sourceUrl: https://github.com/RoutineMiku/apkstart/releases/tag/v0.2.2
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 digest: 开源免费的 Windows 安卓应用启动器，v0.2.2 完整版内置引擎与 Android 14 兼容镜像，解压双击即用。
 need_open_comment: 1
 only_fans_can_comment: 0
@@ -57,11 +63,19 @@ only_fans_can_comment: 0
 
 完整版是 7z 分卷，用 7-Zip / WinRAR / Bandizip 解压 `.001` 即可；当前版本只有单个分卷。两个版本都是绿色便携，不用管理员安装。
 
+<<<<<<< HEAD
 项目完全开源，地址：<https://github.com/farmanullah1/APK-START-English>。欢迎 Star、Issue 和 PR；之后发新版只需打 tag，GitHub Actions 会自动构建并发布这两个包。
 
 ## 关于作者
 
 **ApkStart 由 farmanullah1 开发维护**，Powered by farmanullah1。
+=======
+项目完全开源，地址：<https://github.com/RoutineMiku/apkstart>。欢迎 Star、Issue 和 PR；之后发新版只需打 tag，GitHub Actions 会自动构建并发布这两个包。
+
+## 关于作者
+
+**ApkStart 由 RoutineMiku 开发维护**，Powered by RoutineMiku。
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 微信公众号与抖音的二维码都放在下面，也放进软件的「设置 → 关于」里了，遇到问题欢迎来找我。
 
@@ -69,7 +83,11 @@ only_fans_can_comment: 0
 
 ![抖音二维码](./assets/douyin-qr.jpg)
 
+<<<<<<< HEAD
 抖音号 **farmanullah1（日常MIKU）**，主页链接：<https://v.douyin.com/9TIIxVCANig/>
+=======
+抖音号 **RoutineMiku（日常MIKU）**，主页链接：<https://v.douyin.com/9TIIxVCANig/>
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 ---
 

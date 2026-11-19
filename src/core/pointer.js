@@ -1,5 +1,6 @@
 'use strict';
 /**
+<<<<<<< HEAD
  * Mouse button mapping (pure computation, no Electron / adb dependencies, unit-testable).
  *
  * App windows embed the Android Emulator Qt subwindow:
@@ -8,6 +9,18 @@
  *   Scroll wheel = coalesced over time into `input swipe` commands to avoid stuttering
  *
  * A low-level hook runs on a dedicated thread only while an app window is focused.
+=======
+ * 鼠标键位映射（纯计算，不依赖 Electron / adb，便于单测）
+ *
+ * 应用窗口里嵌的是 Android Emulator 的 Qt 子窗口，原生行为是：
+ *   左键 = 手指点击（正好就是「确认」，不需要我们介入）
+ *   右键 = 也当成一次手指点击（会误触，必须拦下来改成「返回」）
+ *   滚轮 = 单指滑动，但 Qt 每一格都单独发一次触摸事件，画面会抽搐
+ *
+ * 因此 ApkStart 只在「应用窗口处于前台」时装一个专用线程上的低级钩子，
+ * 拦下右键与滚轮；滚轮按时间窗合并后翻译成一条 `input swipe`，
+ * 既平滑又不会每次滚动都拉起一个 adb 进程。
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 
 const WHEEL_NOTCH = 120;
@@ -21,8 +34,13 @@ function clamp(v, lo, hi) {
 function clampInt(v, lo, hi) { return Math.round(clamp(v, lo, hi)); }
 
 /**
+<<<<<<< HEAD
  * Reads settings to determine hook options.
  * Legacy configs default to: right click = back, smooth wheel = on, side buttons = off.
+=======
+ * 读取设置，得到钩子需要的开关。
+ * 老配置里没有这些键时，按「右键返回 + 平滑滚轮、侧键关闭」迁移。
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 function pointerOptions(settings = {}) {
   const e = (settings && settings.engine) || {};
@@ -33,10 +51,17 @@ function pointerOptions(settings = {}) {
   return { rightBack, wheel, side, enabled: rightBack || wheel === 'smooth' || side };
 }
 
+<<<<<<< HEAD
 /** Normalizes config from various sources into a 0/1 combination for agent */
 function hookOptions(raw = {}) {
   let v = raw;
   // Compatibility with boolean shorthand: true = enable side button mapping only
+=======
+/** 把任意来源的配置收敛成 agent 能直接消费的 0/1 组合 */
+function hookOptions(raw = {}) {
+  let v = raw;
+  // 兼容旧的布尔写法：true = 只开侧键映射
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   if (typeof v === 'boolean') v = { enabled: v, rightBack: false, wheel: 'off', side: v };
   if (typeof v === 'function') v = v();
   if (!v || typeof v !== 'object') v = {};
@@ -52,13 +77,22 @@ function hookOptions(raw = {}) {
   };
 }
 
+<<<<<<< HEAD
 /** Strict whitelist for input commands dispatched to adb shell to prevent command injection */
+=======
+/** 只允许我们自己在内部拼出来的 input 命令进 adb shell，杜绝命令注入 */
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 const INPUT_RE = /^input (?:keyevent \d{1,3}|swipe -?\d+ -?\d+ -?\d+ -?\d+ \d{1,4}|tap -?\d+ -?\d+)$/;
 function isInputCommand(cmd) { return INPUT_RE.test(String(cmd || '')); }
 
 /**
+<<<<<<< HEAD
  * Translates mouse wheel increments into a touch swipe gesture.
  * @param {object} o { dx, dy, nx, ny, width, height } —— nx/ny are normalized cursor coordinates on LCD
+=======
+ * 把一批滚轮位移翻译成一次滑动手势。
+ * @param {object} o { dx, dy, nx, ny, width, height } —— nx/ny 是光标在 LCD 内的归一化位置
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  * @returns {{x1:number,y1:number,x2:number,y2:number,duration:number}|null}
  */
 function wheelToSwipe({ dx = 0, dy = 0, nx = 0.5, ny = 0.5, width = 900, height = 1600 } = {}) {
@@ -68,7 +102,11 @@ function wheelToSwipe({ dx = 0, dy = 0, nx = 0.5, ny = 0.5, width = 900, height 
   const delta = vertical ? (Number(dy) || 0) : (Number(dx) || 0);
   if (!delta) return null;
 
+<<<<<<< HEAD
   // One notch = ~30% screen dimension; rapid scrolling scales up to ~78% screen dimension
+=======
+  // 一格滚轮 = 约 30% 屏宽的滑动；连续快滚合并成一次更长的滑动（最多 78% 屏宽）
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   const steps = clamp(Math.abs(delta) / WHEEL_NOTCH, 0.6, 6);
   const axis = vertical ? h : w;
   const span = clamp(Math.round(axis * 0.30 * steps), 80, Math.round(axis * 0.78));
@@ -78,12 +116,20 @@ function wheelToSwipe({ dx = 0, dy = 0, nx = 0.5, ny = 0.5, width = 900, height 
 
   let x1 = cx, y1 = cy, x2 = cx, y2 = cy;
   if (vertical) {
+<<<<<<< HEAD
     // dy > 0 (wheel up / away) → swipe finger down, content scrolls to top
+=======
+    // dy > 0（滚轮向上/远离）→ 手指向下滑，内容往顶部滚
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     const dir = delta > 0 ? 1 : -1;
     y1 = clampInt(cy - half * dir, 1, h - 1);
     y2 = clampInt(cy + half * dir, 1, h - 1);
   } else {
+<<<<<<< HEAD
     // dx > 0 (horizontal wheel right) → swipe finger left
+=======
+    // dx > 0（横向滚轮向右）→ 手指向左滑
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     const dir = delta > 0 ? -1 : 1;
     x1 = clampInt(cx - half * dir, 1, w - 1);
     x2 = clampInt(cx + half * dir, 1, w - 1);
@@ -98,8 +144,14 @@ function swipeToCommand(swipe) {
 }
 
 /**
+<<<<<<< HEAD
  * Wheel coalescer: merges all wheel events within a time window into a single swipe gesture.
  * Asynchronous execution prevents command queue build-up in shell.
+=======
+ * 滚轮合并器：一个时间窗内的所有滚动只产生一条滑动命令。
+ * 注入是异步的（adb shell 里 input swipe 要跑完整个手势），期间继续累计，
+ * 完成后再补发一次，避免命令在 shell 里排队造成越滚越卡。
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 class WheelRouter {
   constructor({ inject, getSize, flushMs = 80 } = {}) {
@@ -150,7 +202,11 @@ class WheelRouter {
       const size = await this.getSize();
       const cmd = swipeToCommand(wheelToSwipe({ ...batch, width: size.width, height: size.height }));
       if (cmd && isInputCommand(cmd)) await this.inject(cmd);
+<<<<<<< HEAD
     } catch (_) { /* Input injection errors should not crash mouse hooks */ }
+=======
+    } catch (_) { /* 输入注入失败不能影响鼠标钩子 */ }
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     finally {
       this._busy = false;
       if (!this._closed && (this._acc.dx || this._acc.dy)) this._schedule();

@@ -1,5 +1,6 @@
 'use strict';
 /**
+<<<<<<< HEAD
  * Runtime self-check (no UI needed)
  *
  *   npm run selftest                 # only check the existing runtime
@@ -8,6 +9,15 @@
  * Purpose: after Android is installed, use one command to confirm that the chain
  * "double-click to install an app, standalone window, data sharing" really holds on the current machine,
  * and when something goes wrong, localize it to a specific stage.
+=======
+ * 运行时自检（不需要打开界面）
+ *
+ *   npm run selftest                 # 只体检现有运行时
+ *   npm run selftest -- --apk a.apk  # 额外走一遍 安装 → 启动 → 截图 → 共享目录
+ *
+ * 用途：装好 Android 之后，用一条命令确认「双击装应用、独立窗口、数据互通」这条链路
+ * 在当前机器上真的成立，出问题时也能定位到具体环节。
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 const fs = require('fs');
 const os = require('os');
@@ -24,7 +34,11 @@ const argOf = (name) => {
   return i >= 0 ? argv[i + 1] : '';
 };
 const APK = argOf('--apk');
+<<<<<<< HEAD
 // Empty = take the product path: auto-launch the built-in runtime with a dynamic serial; only when specified connect to an external device
+=======
+// 留空 = 走产品路径自动拉起内置运行时并用动态 serial；指定时才连接外部设备
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 const SERIAL = argOf('--serial') || '';
 
 const results = [];
@@ -48,7 +62,11 @@ async function step(name, fn) {
 }
 
 (async () => {
+<<<<<<< HEAD
   console.log('\nApkStart runtime self-check');
+=======
+  console.log('\nApkStart 运行时自检');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   console.log(`设备：${SERIAL}`);
   console.log('─'.repeat(64));
 
@@ -57,6 +75,7 @@ async function step(name, fn) {
   const prov = runtime.provisioner;
 
   let env = null;
+<<<<<<< HEAD
   await step('adb available', async () => {
     env = await prov.checkEnv();
     if (!env.adb.ok) throw new Error('adb not installed — run "one-click deploy" first');
@@ -72,23 +91,52 @@ async function step(name, fn) {
   });
   record('Hardware acceleration', env.accel.ok ? true : null,
     env.accel.ok ? env.accel.note : 'auto-fallback to software emulation (runs, but noticeably slow)');
+=======
+  await step('adb 可用', async () => {
+    env = await prov.checkEnv();
+    if (!env.adb.ok) throw new Error('未安装 adb，请先运行「一键部署」');
+    return `v${env.adb.version}`;
+  });
+  await step('Android Emulator 就绪', async () => {
+    if (!env.emulator.ok) throw new Error('未安装运行时引擎，请先运行「一键部署」');
+    return `v${env.emulator.version}`;
+  });
+  await step('系统镜像完整', async () => {
+    if (!env.sysimg.ok) throw new Error(env.sysimg.note || '镜像缺失');
+    return `Android ${env.sysimg.api} · ${(env.sysimg.size / 1073741824).toFixed(2)}GB`;
+  });
+  record('硬件加速', env.accel.ok ? true : null,
+    env.accel.ok ? env.accel.note : '自动回退软件模拟（能跑，但明显慢）');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
   console.log('\n[设备]');
   let client = runtime.client(SERIAL || undefined);
   const online = await step('运行时已就绪', async () => {
     if (SERIAL) {
       await client.connect().catch(() => false);
+<<<<<<< HEAD
       if (!await client.isOnline()) throw new Error(`External device not online: ${SERIAL}`);
       return SERIAL;
     }
     const r = await runtime.ensure({ onLog: () => {} });
     if (!r.ok) throw new Error(r.error || 'runtime unavailable');
+=======
+      if (!await client.isOnline()) throw new Error(`外部设备不在线：${SERIAL}`);
+      return SERIAL;
+    }
+    const r = await runtime.ensure({ onLog: () => {} });
+    if (!r.ok) throw new Error(r.error || '运行时不可用');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     client = r.client;
     return client.serial;
   });
 
   if (!online) {
+<<<<<<< HEAD
     console.log('\nDevice not ready, skipping the remaining items.');
+=======
+    console.log('\n设备未就绪，后续项目跳过。');
+>>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   } else {
     await step('Android 版本', async () => {
       const [ver, sdk, abi] = await Promise.all([
