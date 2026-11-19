@@ -1,315 +1,300 @@
 # ApkStart
 
+A Windows app that lets you install and use Android apps just like regular Windows programs. Install an Android app, and it gets its own desktop icon and opens in its own window when you double-click it.
 
+It is a free, open-source hobby project built in spare time, with no ads and no hidden costs.
 
-[![CI](https://github.com/farmanullah1/apkstart/actions/workflows/ci.yml/badge.svg)](https://github.com/farmanullah1/apkstart/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/farmanullah1/APK-START-English?include_prereleases&sort=semver)](https://github.com/farmanullah1/apkstart/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6.svg)](#)
+---
 
-**Windows Android app runner — install and use Android apps like native Windows software.**
+## What it feels like to use
 
-*Note: This is an open-source hobby project developed in spare time. It is completely free, ad-free, and open source.*
+1. If you have an Android app file (`.apk`), you can double-click it in Windows and ApkStart will install it for you.
+2. After installing, you get a normal-looking desktop shortcut with the app's own icon.
+3. Double-click that shortcut and the app opens in its own window, not inside some generic emulator screen.
+4. Files you save or download inside Android apps can appear on your Windows desktop automatically, and files you put on Windows can show up inside the Android apps too.
 
-- 🖱️ **Double-click .apk to install**: After registering the `.apk` file association, double-click an APK file in Windows File Explorer to automatically parse, install, and generate a desktop shortcut, without ever showing an emulator interface.
-- 🧩 **Independent desktop icon per app**: Icons are parsed and extracted offline directly from inside the APK and converted to multi-size `.ico` files. Double-clicking an app shortcut opens that specific app directly, matching the experience of native Windows software.
-- 🪟 **Each app has its own window**: The runtime runs in **windowed mode** (in headless mode Android does not generate VSYNC, so the app process runs but the screen remains blank). ApkStart renames the window, applies the app's real icon, and configures the portrait aspect ratio, delivering an independent app window experience. **Fullscreen mode** fills the vertical screen height centered; **windowed mode** allows free dragging, resizing, and remembers each app's custom dimensions.
-- 🔍 **Searchable via Windows Start menu**: After installation, shortcuts are created on both the Desktop and the Start Menu (`Programs\ApkStart\`). You can search for the app by name in Windows Search to launch it directly, and the taskbar groups instances per application.
-- 📁 **Bi-directional shared folder**: `%USERPROFILE%\ApkStartShared` syncs automatically and bidirectionally with Android's `/sdcard/ApkStartShared`. Files downloaded or saved inside Android apps appear immediately on the host.
-- 🪶 **Ultra-lightweight architecture**: The shell has zero third-party dependencies (even ZIP / PNG / ICO / AXML parsing is written from scratch in pure JavaScript), the runtime boots on demand and shuts down automatically when idle, and it can also reuse an existing Android runtime on the host with zero extra footprint.
+In short: Android apps become things you can start from the desktop, search for in the Start menu, and use like any other Windows program.
 
+---
 
+## What ApkStart is good for
 
-```
-┌────────────────────────────────────────────────────────────┐
-│  Desktop Shortcut (Real app icon .lnk)                     │
-│      │  Double-click                                       │
-│      ▼                                                     │
-│  ApkStart.exe --launch <package-name>                      │
-│      │  Runtime not started? → Auto-launch (Android Emulator + API34) │
-│      ▼                                                     │
-│  Launch via system-resolved LAUNCHER entry (not APK main Activity) │
-│      │  Observe health for 18s; auto-retry / reset data / grant permissions on crash │
-│      ▼                                                     │
-│  Emulator window = App window (title renamed, icon replaced, portrait ratio, centered) │
-└────────────────────────────────────────────────────────────┘
-```
+- Running Android apps on Windows without needing to understand emulators, virtual machines, or dev tools.
+- Making Android apps feel more like normal desktop apps, with their own icons and windows.
+- Sharing files between Android apps and Windows without copying things around by hand.
+- Keeping things simple: ApkStart bundles what it needs and does not depend on other emulator software you may already have on your computer.
 
-## Ready-to-Run Downloads (No Build Needed)
+---
 
-Both download mirrors offer identical releases:
+## What kind of app is this, really?
 
-- GitHub: [github.com/farmanullah1/APK-START-English/releases](https://github.com/farmanullah1/apkstart/releases)
-- Gitee: [gitee.com/daily-miku/apkstart/releases](https://gitee.com/daily-miku/apkstart/releases) (faster direct connection in China)
+ApkStart is a Windows program that can:
 
-Release packages (four formats, identical core functionality and version):
+- read Android app packages,
+- install those apps into an Android runtime,
+- start those apps on demand,
+- show each app in its own window,
+- and create Windows shortcuts for them.
 
-| Format | File Name | When to Choose |
-|---|---|---|
-| Microsoft Store package | `ApkStart_<four-part-version>_x64.msix` | Install via Microsoft Store / MSIX. The complete runtime is pre-bundled with no post-install downloads required; updates are handled via Store. |
-| Full portable package | `ApkStart-v*-win64-full.zip` (~830 MB, ~1.3 GB extracted) | **No installation or download waiting?** Extract and run immediately — the runtime (emulator + system image) is fully included. |
-| Installer package | `ApkStart-v*-Setup.exe` (~1.3 GB) | Recommended when you want standard desktop/Start menu shortcuts and a clean uninstallation entry. |
-| Lightweight portable package | `ApkStart-v*-win64-portable.zip` (~96 MB, ~227 MB extracted) | Ideal for quick trials; downloads and sets up the runtime on first launch. |
+It is not a phone, and it does not replace your phone. It is a way to run selected Android apps on a Windows PC.
 
-> All `ApkStart.exe` executables are compiled with **branded icons and version resources** (FileDescription = `ApkStart Android App Runner`, CompanyName = `farmanullah1`, version synchronized with `package.json`), rather than default Electron metadata.
-> To package from source: `npm run pack` (lightweight) / `npm run pack:full` (complete) / `npm run build:msix` (Store package).
+---
 
-### Screen Aspect Ratio & Automatic Layout Adaptation
+## Before you try it
 
-The emulator's **physical panel orientation** (`hw.lcd.width/height`) determines the actual screen shape. If the panel orientation does not match the app's declared `screenOrientation`, Android places the app into a letterboxed column with black bars on both sides — modifying window size, `wm size`, or letterbox styling cannot eliminate these borders.
+ApkStart works best when your computer is allowed to help run virtual things a little faster. On Windows, that usually means making sure a feature called **Windows Hypervisor Platform** is enabled, or that the Google **AEHD** driver is available.
 
-Therefore, ApkStart **analyzes `AndroidManifest.xml` offline during APK installation** to determine whether the app is naturally portrait or landscape (weighted by the launcher Activity; full `sensor`/`fullSensor` apps query Android for the actual orientation upon first run). This is stored in `apps.json` and used to set the panel orientation at startup:
+If that sounds intimidating, ApkStart can guide you through it inside the app. You only need to deal with it once, and sometimes Windows already has what it needs.
 
-- Portrait apps (e.g., short-drama readers) → Portrait panel 720×1280, upright, filled, density 190 (sw606dp) delivering a tablet layout;
-- Landscape apps (e.g., HD video/games) → Landscape panel 1280×720, upright, filled.
+A few everyday notes:
 
-The runtime only restarts when launching an app with a different orientation from the currently active panel (~40 seconds with progress status on title bar); launching subsequent apps with the same orientation is instant. The title bar rotation toggle **remembers** orientation per app without affecting other apps, and Settings → App Window → Screen Orientation allows forcing landscape or portrait globally.
+- The first time you run ApkStart, it may need to download and set up part of the Android runtime. This can take a while the first time, but it usually happens only once.
+- Some Android apps are built only for ARM processors. ApkStart can still run many of them using a translation layer, but very rarely a particular app may not work in any emulator.
+- ApkStart is intended for Windows 10 or 11 on a 64-bit PC.
 
-Layout is governed by **logical density**: 720 width at 190 dpi equals **606dp**, comfortably crossing Android's 600dp tablet breakpoint. Dual-column list views and split settings panes appear only at this density (the default 320 dpi results in only 360dp, which is phone layout). This can be toggled via "Tablet Layout" in settings (enabled by default).
+---
 
-### Online Updates (Automatic Fastest Mirror Selection)
+## How to get it
 
-Navigate to Settings → **Software Update** → "Check for Updates", or right-click the system tray icon → "Check for Updates". Once a new version is detected, click "Update Now".
+You do not need to build anything to use ApkStart. Ready-made downloads are available from two mirrors with the same content:
 
-- Installer build: downloads `ApkStart-v*-Setup.exe` and installs silently;
-- Portable build: downloads `ApkStart-v*-win64-portable.zip` and extracts over the **application directory** — the runtime directory (`%APPDATA%\apkstart\runtime`), installed apps, and snapshots reside in user data paths, ensuring no data loss during upgrades;
-- In-place file replacement is performed by an isolated PowerShell script (waits for main process exit → overwrites files → relaunches), eliminating "Please close running program" popups and orphaned emulator windows.
+- GitHub releases
+- Gitee releases, which is often faster if you are in China
 
-The update pipeline actively **benchmarks and selects mirrors in real time**:
+The downloads come in a few shapes, so you can pick the one that matches how you want to use it.
 
-1. Queries GitHub and Gitee release APIs simultaneously and adopts the latest version tag (timeouts or rate limits on one source do not block the other);
-2. Compiles candidates across direct source URLs, Gitee mirrors, and acceleration prefixes, testing each with a 256 KB transfer to evaluate post-first-byte throughput;
-3. Sorts candidates by real-world bandwidth and downloads chunks in parallel from the fastest source, falling back automatically if an error occurs.
+### The simple version of the download choices
 
-Under Settings → "Update & Download Sources", you can lock the source to a single provider, disable public acceleration mirrors, or specify custom proxy endpoints.
+- **Microsoft Store package**
+  Install it like any other Store app. It includes everything it needs, and updates can be handled through the Store.
 
-### Default Out-of-the-Box Behaviors
+- **Full portable package**
+  A larger download that already includes the runtime. You can extract it and run it right away without waiting for extra downloads later.
 
-- Auto-starts on Windows boot and resides quietly in the system tray; double-clicking desktop shortcuts opens apps directly.
-- Automatically generates both **Desktop and Start Menu** shortcuts upon APK installation, enabling native Windows Search discovery; legacy installations are backfilled automatically at startup.
-- Native direct rendering (not screen mirroring): **Fullscreen** matches screen height centered with correct aspect ratio; **Windowed mode** retains portrait orientation with resizable borders and per-app remembered dimensions. Toggle anytime via `F11` or system tray context menu.
-- Automatically grants runtime permissions requested by the application, eliminating setup permission prompts; automatically retries launches and clears cached data if an app crashes.
-- **Direct host network sharing**: Android utilizes QEMU user-mode NAT routed through host network adapters, **without creating any virtual network cards or Hyper-V virtual switches** on Windows. No extra drivers, virtual adapters, or manual network modifications required.
+- **Installer package**
+  A normal installer that sets up desktop and Start menu shortcuts and gives you a clean way to uninstall later.
 
-## Categorized & Searchable Settings
+- **Light portable package**
+  A smaller download for a quick try. The first time it runs, it downloads the runtime it needs.
 
-Starting from version 0.6.0, settings are organized into eight functional categories with a left-hand navigation bar:
+If you only want to try it quickly, the light portable package is the easiest starting point. If you want the least fuss every time you open it, the full portable package or the Store package is more convenient.
 
-| Category | Contents |
-|---|---|
-| General & Setup | Runtime environment, one-click setup, auto-start on boot, disk space & cleanup |
-| Display & Windows | Display mode, auto-fullscreen, screen orientation, auto-rotate, tablet layout, window hosting mode, Android settings |
-| Controls & Input | Mouse bindings, key mapping (gamepad / keyboard) |
-| Performance & Resources | Resource strategy, render quality, data partition, system language, Chinese IME, snapshots, prewarm, advanced parameters |
-| Network & Downloads | Update & download sources, public acceleration mirrors, download thread count |
-| Diagnostics & Repair | Host preflight · auto configuration, drivers · compatibility patches, auto-detect · smart diagnostics |
-| Integration & Files | Desktop shortcuts & apps, shared folder, system integration |
-| Updates & About | Software updates, about |
+---
 
-A top search box enables cross-category filtering for keywords like "Landscape", "Memory", "Proxy", ensuring matching items remain visible across all groups. The active tab is remembered between sessions.
+## The first run
 
-## Automatic Diagnostics & Self-Healing
+The very first time you open ApkStart, it may need to prepare the Android runtime. This can include downloading parts of the runtime and unpacking them once.
 
-Navigate to Settings → **Diagnostics & Repair** → "Auto-Detect · Smart Diagnostics". A background service periodically monitors machine health and categorizes issues:
+That first setup is normal. After it is done, opening apps is usually much faster.
 
-- **Runtime**: Cause of previous boot failure, boot hangs, stale lock files, orphaned emulator processes, empty snapshot hulls, missing hardware acceleration;
-- **Device Connection**: ADB unauthorized (pending prompt), offline state, runtime running but undetected by ADB;
-- **Storage**: Free disk space, data partition configuration mismatches (qcow2 overlays blocking resizing), unwriteable shared folders;
-- **Settings**: Orientation conflicts between app policy and physical panel, auto-fullscreen misconfigurations;
-- **Network / Logs**: Android network unavailability, unreachable download endpoints, recent log errors.
+A few things that help set expectations:
 
-Issues feature one-click remediation (restart runtime, clear locks, terminate orphaned processes, discard broken snapshots, clean disk, reset Android network). A verification check runs automatically after repair.
+- The first launch can take longer than later launches.
+- After the runtime is ready, opening an app is mostly a matter of starting it, not rebuilding everything from scratch.
+- If you already have a desktop shortcut from an older version, make sure it points to the new ApkStart folder after you upgrade.
 
-Diagnostics operate under two strict rules: **probe failures are never reported as system defects** (unreadable metrics report "unknown" rather than inventing faults), and **notifications trigger only once when a new issue arises** without recurring popups.
-
-## Building from Source
-
-```powershell
-# 1. Install dependencies (including Electron runtime)
-npm install
+---
 
-# 2. Start development server and complete runtime deployment
-npm start
-
-# 3. (Optional) Register .apk double-click file association
-npm run assoc:on
-
-# 4. Package portable build (standalone, distributable)
-npm run pack
-# Output: dist/ApkStart-win64-portable/ApkStart.exe
-
-# 5. Compress to ZIP for release (uses specialized script for optimal ratio)
-node build/zip.js dist/ApkStart-win64-portable ApkStart-win64-portable.zip
-```
-
-### Single-File Standalone Installer (Bundled Complete Runtime)
-
-To create an all-in-one standalone installer that runs offline without post-installation downloads:
-
-```powershell
-# Prepare the distribution runtime in engine/
-# (system.img is compressed via xz/LZMA2 from 3.1GB to ~1.1GB; unused architectures pruned)
-npm run runtime
-
-# Compile standalone NSIS installer
-npm run build:exe
-# Output: dist/release/ApkStart-<version>-Setup.exe
-```
+## Everyday use
 
-Size breakdown: Electron runtime (~180 MB), pruned emulator (~480 MB), xz-compressed system image (~1.1 GB), resulting in a final package of ~1.32 GB (saving ~490 MB compared to gzip).
+### Installing an app
 
-Upon first launch, the compressed image extracts to `%APPDATA%\apkstart\system-images` (~20 seconds, performed once), and is reused on all subsequent boots. AVD and user data remain stored in `%APPDATA%\apkstart\avd`.
+You can install an Android app in a few ways:
 
-## Runtime Architecture: Fully Independent
+- Double-click the `.apk` file in Windows, if file association is enabled.
+- Use the install option inside ApkStart.
+- Use the command line and point it at the `.apk` file.
 
-ApkStart is self-contained. All runtime components are downloaded, validated, and managed locally under `%APPDATA%\apkstart\runtime`:
+After install, ApkStart can create a desktop shortcut and a Start menu shortcut for the app.
 
-| Component | Source | Size | Role |
-|---|---|---|---|
-| ADB (platform-tools) | dl.google.com official repository | ~8 MB | App installation, launching, and lifecycle control |
-| Android Emulator | dl.google.com official repository | ~440 MB | Core virtualization engine with device models and GPU translation |
-| Android 14 System Image (Google Play x86_64) | dl.google.com official repository | ~3.1 GB raw (~1.1 GB xz) | Universal base layer: supports x86, ARM-only (via translation), and GMS services |
-| AEHD Driver (optional) | dl.google.com official repository | ~0.2 MB | Hardware hypervisor acceleration (alternative to Windows WHPX) |
+### Opening an app
 
-Upon initial launch, the Setup Wizard handles deployment in a single automated step:
-1. Downloads ADB, emulator engine, and system image automatically;
-2. Boots the environment and configures initial parameters; subsequent shortcut clicks launch instantly.
+Double-click the app's desktop icon. Because the apps share the same Android runtime, opening a second app is usually quick once the runtime is already running.
 
+### The app window
 
+Each app opens in its own window. You can:
 
-### Automated Device Compatibility
+- switch between fullscreen and windowed mode,
+- rotate the screen between portrait and landscape,
+- and in many cases let ApkStart remember the app's size and orientation.
 
-- Automatically falls back to software simulation when hardware acceleration is unavailable; retries with up to 4 fallback parameter matrices (`GPU backend → Accel mode → Memory / Cold boot`).
-- Dynamic `-gpu` selection based on emulator version (`software` on 37.x, `swiftshader` on older builds); auto-adjusts RAM under 16 GB down to 4 GB; dynamically binds free ports; normalizes Chinese paths; cleans stale AVD locks.
-- Translates error logs into human-readable suggestions; supports exporting full diagnostic bundles.
-- Downloads utilize 8 parallel streams with resume support, falling back to single-stream downloads if range requests are unsupported.
-- **Strictly isolated from other third-party emulators**: ApkStart does not scan, intercept, or modify installations of MuMu, LDPlayer, BlueStacks, or WSA. Their configuration changes do not impact ApkStart.
-- **Host Preflight & Auto-Configuration**: Evaluates CPU virtualization (VT-x/SVM), Windows Hypervisor Platform, GPU vendors, VRAM, and system versions; automatically writes optimal memory, cores, and rendering modes into drivers ([docs/preflight.md](docs/preflight.md)).
-- **Compatibility Driver Extensions**: Supports declarative JSON compatibility patches that adjust parameters for specific hardware models without altering application source code ([docs/drivers.md](docs/drivers.md)).
+Fullscreen makes the window fill the screen height and stay centered. Windowed mode lets you drag and resize the window.
 
-### Containerized Low-Overhead Operation
+### Moving files between Windows and Android
 
-- **Read-Only Base Layer**: A single shared `system-images/` directory is used across all applications, eliminating duplicate images.
-- **Thin Writable Layer**: Individual AVD instances use delta qcow2 overlays + quickboot memory snapshots. When the last app window closes, the memory state is saved to snapshot for instant resumption.
-- **Background Prewarming (Enabled by Default)**: Pre-boots the Android runtime in the background with hidden windows upon ApkStart launch, making app launches near-instantaneous (~1 GB idle memory).
-- **Accelerated Cold Boot**: Results of acceleration and engine version probes are cached on disk; unneeded `wmic` process enumerations are skipped; guest initialization commands are batched into single round-trips.
-- **Self-Constructed `/data` Partition**: Directly formats a 4 KB block ext4 partition with file-level encryption and SELinux attributes, expanding to configured capacity using bundled `qemu-img` and `resize2fs`.
-- **Zero Console Window Leaks**: Suppresses `conhost.exe` and `netsimd` console windows before launch and enforces window filtering to prevent stray console flashes.
-- **Seamless Window Experience**: The emulator window (`Android Emulator - apkstart5554`) is never displayed as an isolated window — it is either suppressed or hosted within the app window.
+ApkStart can keep a folder on Windows and a folder inside Android in sync.
 
-## Project Structure
+- On Windows, the shared folder is usually under your user profile.
+- Inside Android, the matching folder is under its shared storage.
 
-```
-apkstart/
-├─ src/
-│  ├─ main.js              Main process: windows, tray, single-instance lock, CLI routing, IPC
-│  ├─ preload.js           Security bridge
-│  ├─ ui/                  Renderer layer (vanilla HTML/CSS/JS, zero frameworks)
-│  └─ core/
-│     ├─ zip.js            Minimalist streaming ZIP extractor
-│     ├─ axml.js           Android Binary XML (AXML) parser
-│     ├─ arsc.js           resources.arsc parser (resolves app names and icon resources)
-│     ├─ apk.js            APK metadata extractor: package, version, launcher Activity, icon, ABI
-│     ├─ png.js            Zero-dependency PNG encoder + icon generator
-│     ├─ shortcut.js       Multi-resolution ICO generator + Windows .lnk shortcut creator
-│     ├─ assoc.js          .apk file association (HKCU, no admin required)
-│     ├─ adb.js            ADB client (install, launch, sync, capture, diagnostics)
-│     ├─ engine.js         Runtime management: probing, emulator lifecycle, idle reclamation
-│     ├─ sharer.js         Host ↔ Android bidirectional shared folder synchronization
-│     ├─ installer.js      APK installation pipeline orchestrator
-│     └─ store.js          Application catalog and configuration persistence
-├─ engine/                 Runtime component cache (emulator, system-images, platform-tools)
-├─ tools/platform-tools/   Bundled portable ADB
-├─ test/                   Unit tests, Electron integration tests, automated test suite
-├─ build/pack.js           Portable distribution packager
-└─ scripts/assoc.js        CLI switch for .apk file association
-```
+If you put a file in one place, it can show up in the other.
 
-## Command Line Interface
+### Finding your apps in Windows
 
-```
-ApkStart.exe                      Open main management interface
-ApkStart.exe <path\to.apk>        Install APK directly
-ApkStart.exe --launch <pkg-name>  Launch specific app (used by desktop shortcuts)
-```
+Shortcuts can be placed on both the desktop and in the Start menu. That means you can search for an app by name in Windows and launch it directly, just like any other program.
 
-## Testing
+---
 
-```powershell
-npm test                                   # Unit tests + engine pipeline tests (pure Node, offline)
-npm run test:boot                          # Real boot verification with 61MB Alpine guest
-npm run selftest                           # Runtime verification: install → launch → screenshot → shared sync
-electron test/electron-integration.js      # ICO & shortcut integration tests
-electron . --smoke test\shot.png           # Headless launch and smoke screenshot test
-```
+## What ApkStart handles for you
 
-## Technical Architecture & Tradeoffs
+ApkStart is designed to reduce the number of manual steps a normal user has to remember.
 
-- **Built on AOSP / QEMU / ADB**: Android kernel virtualization, GPU translation, and ART execution represent decades of engineering; ApkStart focuses on delivering a seamless, native desktop integration layer over standard AOSP/QEMU components.
-- **Synchronized Shared Storage**: When Windows operates without root privileges, directly mounting host NTFS partitions into Android is restricted; ApkStart implements high-speed bidirectional synchronization to provide equivalent behavior.
-- **ARM Translation & High Compatibility**: Supports modern ARM-only applications through the **Android 14 (API 34) Google Play image** equipped with Google's native bridge translator. Tested with complex modern mobile applications.
+It can:
 
-| Running ARM64 Application (Android 14 · AEHD Hardware Acceleration) |
-|:---:|
+- create shortcuts automatically after install,
+- keep each app's icon and window settings,
+- restart the Android runtime when needed,
+- try different settings if one setting does not work,
+- check the computer and suggest better settings,
+- and tidy up stale locks or leftover processes when something gets stuck.
 
+You are not expected to manage emulator paths, ADB ports, or image files by hand unless you want to.
 
-### Troubleshooting: "Hardware Acceleration Not Enabled"
+---
 
-Android emulation on Windows supports two acceleration interfaces:
+## Settings made simple
 
-| Mechanism | Description | Admin Privileges Required | Reboot Required |
-|---|---|---|---|
-| **WHPX** | Built-in Windows feature: "Windows Hypervisor Platform" | During feature enablement | Yes |
-| **AEHD** | Google official kernel driver | During driver installation | No |
+Starting in version 0.6.0, settings are grouped into eight categories with a search box at the top. That means you do not have to hunt through everything to find one setting.
 
-- **Installer / Portable Editions**: Open Settings → Environment Check → click **Fix** next to "Hardware Acceleration Not Enabled". Windows prompts for UAC to automatically enable WHPX; if unsupported or declined, it falls back to installing the AEHD driver.
-- **Microsoft Store (MSIX) Edition**: Store applications cannot elevate privileges directly. Clicking "Fix" opens the "Turn Windows features on or off" dialog; check **"Windows Hypervisor Platform"** (`HypervisorPlatform`), click OK, and reboot your computer.
+The main groups are:
 
-Alternatively, enable via Administrator PowerShell:
+- **General and setup** — runtime, first-time setup, starting with Windows, disk space, and cleanup.
+- **Display and windows** — how apps appear, fullscreen, screen orientation, window mode, and related layout options.
+- **Controls and input** — mouse and keyboard behavior.
+- **Performance and resources** — memory, quality, data partition, language, snapshots, and startup warming.
+- **Network and downloads** — where updates and downloads come from, and how many download parts to use at once.
+- **Diagnostics and repair** — computer checkups, compatibility patches, and automatic issue detection.
+- **Integration and files** — shortcuts, shared folder, and system integration.
+- **Updates and about** — checking for new versions and seeing project info.
 
-```powershell
-dism /online /enable-feature /featurename:HypervisorPlatform /all /norestart
-dism /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-```
+The search box helps when you only know a keyword like "memory", "sound", or "orientation".
 
-> Note: Ensure **"HypervisorPlatform"** is enabled, not just "VirtualMachinePlatform" (which is used by WSL2). The emulator specifically requires the hypervisor platform interface.
+---
 
-### Troubleshooting: Shortcut Displays Generic / ApkStart Icon
+## Automatic checks and fixes
 
-Each Android application shortcut is configured with its own dedicated icon (extracted from the APK to `%APPDATA%\apkstart\icons\<package>.ico`). If a shortcut displays a default icon:
+ApkStart can run background checks and point out common problems.
 
-1. Navigate to **Settings → System Integration → Rebuild Shortcuts** (rewrites desktop and Start menu shortcuts based on active apps, repairing icon paths and taskbar identities);
-2. If unresolved, delete the shortcut, right-click the app in ApkStart, and select Recreate Shortcut or reinstall the APK.
+These checks can look at things like:
 
-Each shortcut includes an individual `AppUserModelID`, ensuring pinned taskbar buttons group under their specific app icon rather than collapsing into ApkStart.
+- whether the computer supports the acceleration it needs,
+- whether the Android runtime can be seen,
+- whether there is enough disk space,
+- whether settings are conflicting,
+- and whether the Android side has network access.
 
-### Troubleshooting: ADB Cannot Find Device
+When it finds something fixable, it can often offer a one-click fix.
 
-ApkStart's internal ADB daemon operates on **dedicated port 5044**, isolated from the system default ADB port (5037). This prevents conflicts with Android Studio, scrcpy, or existing emulators.
+Two important ideas behind the checks:
 
-To connect via command line:
+- if a check cannot read the computer's state, it says "unknown" instead of guessing,
+- and it tries not to keep showing the same problem over and over.
 
-```powershell
-$env:ANDROID_ADB_SERVER_PORT = 5044
-adb devices              # Displays emulator-5554
-```
+If you are ever stuck, the same Diagnostics area can also help you export a report that is useful when asking for help.
 
-⚠️ **Do not** manually run `adb connect 127.0.0.1:5555`: the Play Store system image will display an authorization popup covering the active app.
+---
 
-## About the Project
+## When something does not work
+
+The most common issues are usually not mysterious. A few examples:
+
+- **Slow startup or "hardware acceleration not enabled"**
+  This often means the computer is running without the acceleration it would prefer. ApkStart can still work, but it may be slower. The app can guide you to turn on the right Windows feature or driver.
+
+- **Install fails**
+  Install errors can happen for many reasons, such as an incomplete download, a signature mismatch, or not enough space. ApkStart translates many of these into plain language in the app.
+
+- **App installs but will not start**
+  Some apps need ARM translation support, and a few need a compatible runtime image. ApkStart includes logic to handle common cases automatically.
+
+- **The app will not launch at all**
+  This can be caused by a stale shortcut, an old version still being referenced, or the runtime not being ready yet. The troubleshooting notes in the app walk through the likely causes step by step.
+
+- **No sound**
+  If only ApkStart's apps are silent, the cause is often a setting or a Windows audio service issue. If the whole computer is silent, fix Windows audio first.
+
+If you are helping someone else or reporting an issue, the most useful things to include are:
+
+- a diagnostic report from the app,
+- the last part of the app log,
+- and the version and type of ApkStart you are using.
+
+---
+
+## Command line basics
+
+ApkStart can also be used from the command line.
+
+- Running it with no arguments opens the main window.
+- Running it with an `.apk` path starts the install process.
+- Running it with a launch command starts a specific app directly. That is what desktop shortcuts normally use.
+
+---
+
+## Building from source
+
+If you want to build ApkStart yourself, the basic steps are:
+
+1. Install dependencies.
+2. Start the development setup.
+3. Optionally enable `.apk` file association.
+4. Package the build if you want a standalone copy.
+
+There are a few packaging options depending on whether you want a light portable build, a full build with the runtime included, or a Store package.
+
+A couple of practical notes:
+
+- The full build is larger because it includes the Android runtime.
+- The light build is smaller, but it may download part of the runtime the first time it runs.
+- The installer package is useful if you want shortcuts and a normal uninstall entry.
+
+---
+
+## How ApkStart is put together
+
+ApkStart is made of a few parts that work together:
+
+- the main program that manages windows, shortcuts, and startup,
+- a small bridge that lets the safe parts of the app talk to the interface,
+- the interface itself,
+- and the core logic that reads Android packages, manages the runtime, shares files, and handles installation.
+
+It also uses a local runtime folder to keep the parts it needs, such as the Android tools and system image, on your computer.
+
+One design goal is independence: ApkStart does not rely on other emulator installations you may have. It manages its own runtime instead.
+
+---
+
+## What it does not do
+
+To keep expectations honest:
+
+- ApkStart is not an Android phone replacement.
+- It does not magically make every Android app work on Windows.
+- It does not depend on, change, or interfere with other emulator software on your PC.
+- It does not require you to become a developer to use it.
+
+---
+
+## About the project
 
 ApkStart is maintained by **farmanullah1**.
 
-- GitHub: <https://github.com/farmanullah1/apkstart>
+You can find the project on GitHub.
 
-
-
-<p align="center"><i>Powered by <b>farmanullah1</b></i></p>
+---
 
 ## Contributing
 
-Issues and Pull Requests are welcome. The shell core maintains zero third-party runtime dependencies; please ensure `npm test` passes before submitting. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+If you want to help, bug reports and suggestions are welcome.
+
+Because the app tries to stay simple and self-contained, it helps to test your change with the existing tests before submitting anything.
+
+---
 
 ## License
 
-[MIT](LICENSE). Distribution builds contain only ApkStart source code and the Electron runtime. System images, QEMU binaries, and Google platform tools are downloaded on demand upon initial setup from official repositories in accordance with their respective licenses.
+The project is released under the MIT license.
+
+The ApkStart code and the Electron runtime are included in distribution builds. Other parts, such as system images, emulator binaries, and Google platform tools, are downloaded from official sources when first needed, and they remain subject to their own licenses.

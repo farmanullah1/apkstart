@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-"""把 docs/USER-MANUAL.md 转成单文件、可打印的 HTML（无外部依赖）。
-只用标准库，便于离线重建：python docs/build-manual-html.py
+"""
+Turn docs/USER-MANUAL.md into a self-contained, printable HTML file (no external dependencies).
+Standard library only, so it can be rebuilt offline:  python docs/build-manual-html.py
 """
 import html
 import os
@@ -9,9 +10,9 @@ import re
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SRC = os.path.join(HERE, 'USER-MANUAL.md')
-OUT = os.path.join(HERE, 'ApkStart-用户手册.html')
-# 0.6.2 起手册内嵌进软件：同一份 HTML 也要落到 src/ui，随包分发。
-# 主进程打开的就是这一份，绝不依赖 docs/ 或外部文件。
+OUT = os.path.join(HERE, 'ApkStart-User-Manual.html')
+# Since 0.6.2 the manual is embedded in the app: the same HTML is also written to src/ui so it ships inside the package.
+# The main process opens this copy and never depends on docs/ or any external file.
 APP_OUT = os.path.join(ROOT, 'src', 'ui', 'manual.html')
 
 with open(SRC, encoding='utf-8') as f:
@@ -48,7 +49,7 @@ code_buf = []
 while i < n:
     line = lines[i]
 
-    # 代码块
+    # Code block
     if line.startswith('```'):
         if not in_code:
             in_code = True
@@ -63,13 +64,13 @@ while i < n:
         i += 1
         continue
 
-    # 水平线
+    # Horizontal rule
     if re.match(r'^---+\s*$', line):
         out.append('<hr/>')
         i += 1
         continue
 
-    # 标题
+    # Heading
     m = re.match(r'^(#{1,4})\s+(.*)$', line)
     if m:
         lvl = len(m.group(1))
@@ -81,8 +82,8 @@ while i < n:
         i += 1
         continue
 
-    # 表格
-    if line.strip().startswith('|') and i + 1 < n and re.match(r'^\s*\|?[\s:\-|]+\|?\s*$', lines[i + 1]):
+    # Table
+    if line.strip().startswith('|') and i + 1 < n and re.match(r'^\s*\|?[\-:\s|]+\|?\\s*$', lines[i + 1]):
         def cells(row):
             return [c.strip() for c in row.strip().strip('|').split('|')]
         header = cells(line)
@@ -102,7 +103,7 @@ while i < n:
         out.append(''.join(t))
         continue
 
-    # 引用
+    # Blockquote
     if line.startswith('> '):
         q = []
         while i < n and lines[i].startswith('>'):
@@ -111,7 +112,7 @@ while i < n:
         out.append('<blockquote>' + inline(' '.join(q)) + '</blockquote>')
         continue
 
-    # 有序列表
+    # Ordered list
     if re.match(r'^\d+\.\s+', line):
         items = []
         while i < n and re.match(r'^\d+\.\s+', lines[i]):
@@ -120,7 +121,7 @@ while i < n:
         out.append('<ol>' + ''.join('<li>' + inline(x) + '</li>' for x in items) + '</ol>')
         continue
 
-    # 无序列表
+    # Unordered list
     if re.match(r'^\s*[-*]\s+', line):
         items = []
         while i < n and re.match(r'^\s*[-*]\s+', lines[i]):
@@ -129,12 +130,12 @@ while i < n:
         out.append('<ul>' + ''.join('<li>' + inline(x) + '</li>' for x in items) + '</ul>')
         continue
 
-    # 空行
+    # Blank line
     if not line.strip():
         i += 1
         continue
 
-    # 段落（合并连续普通行）
+    # Paragraph (merge consecutive ordinary lines)
     para = [line.strip()]
     i += 1
     while i < n and lines[i].strip() and not re.match(r'^(#{1,4})\s|^\s*[-*]\s+|^\d+\.\s+|^>|^\s*\||^```|^---+\s*$', lines[i]):
@@ -151,11 +152,11 @@ for lvl, anchor, text in toc:
 toc_html = '\n'.join(toc_html)
 
 doc = '''<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ApkStart 产品使用手册与问题解决方案</title>
+<title>ApkStart User Manual and Troubleshooting Guide</title>
 <style>
 :root{--bg:#ffffff;--fg:#1f2328;--mut:#57606a;--line:#d0d7de;--code:#eff1f3;--accent:#0969da;--accent-soft:#ddf4ff;--warn:#9a6700;--warn-bg:#fff8c5;--head:#f6f8fa;--tbl:#f6f8fa}
 *{box-sizing:border-box}
@@ -197,15 +198,15 @@ tbody tr:nth-child(even){background:#fbfcfd}
 </head>
 <body>
 <div class="wrap">
-<aside><h2>目录</h2>
-<input id="tocSearch" type="search" placeholder="筛选目录（Ctrl+F 全文搜索）" autocomplete="off" />
+<aside><h2>Contents</h2>
+<input id="tocSearch" type="search" placeholder="Filter contents (Ctrl+F for full-text search)" autocomplete="off" />
 <div id="tocList">__TOC__</div>
 </aside>
 <main>
 __BODY__
 </main>
 </div>
-<div class="btnbar"><button onclick="window.print()">打印 / 存为 PDF</button></div>
+<div class="btnbar"><button onclick="window.print()">Print / Save as PDF</button></div>
 <script>
 (function () {
   var input = document.getElementById('tocSearch');
@@ -215,12 +216,12 @@ __BODY__
     var q = input.value.trim().toLowerCase();
     links.forEach(function (a) { a.hidden = !!q && a.textContent.toLowerCase().indexOf(q) < 0; });
   });
-  // 自动教程按锚点打开时，把命中的目录项滚进视野
+  // When a tutorial opens at an anchor, scroll the matching contents entry into view
   if (location.hash) {
     var hit = document.getElementById(decodeURIComponent(location.hash.slice(1)));
     if (hit) setTimeout(function () { hit.scrollIntoView({ block: 'start' }); }, 80);
   }
-}());
+}())
 </script>
 </body>
 </html>
@@ -230,5 +231,5 @@ doc = doc.replace('__TOC__', toc_html).replace('__BODY__', body)
 for target in (OUT, APP_OUT):
     with open(target, 'w', encoding='utf-8') as f:
         f.write(doc)
-    print('生成:', target)
+    print('写入:', target)
     print('大小: %d KB' % (os.path.getsize(target) // 1024))
