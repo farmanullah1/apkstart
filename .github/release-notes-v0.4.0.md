@@ -1,52 +1,52 @@
 # ApkStart v0.4.0
 
-> 一句话：修好「红果打不开 / 一直黑屏」这个回归，托盘单击就能开主界面，再压了一轮启动速度，并把运行期的杂窗统一压掉。
+> In one sentence: fix the "Hongguo cannot open / always black screen" regression, single-click the tray to open the main interface, compress another round of boot speed, and uniformly suppress miscellaneous windows during runtime.
 
-## 一、修复：红果打不开 / 一直黑屏（v0.3.9 的回归）
+## 1. Fix: Hongguo cannot open / always black screen (v0.3.9 regression)
 
-**原因**：上一版为了「等网络就绪再启动应用」，在启动流程里调了带**冷启动重试**的等待逻辑。网络慢的时候它会「停掉虚拟机 → 冷启动」，而应用启动正要 `adb install` / `am start` —— 设备在途中消失，于是：
+**Cause**: the previous version, in order to "wait for network ready before launching the app", called wait logic with **cold boot retry** in the launch flow. When the network is slow, it will "stop the virtual machine → cold boot", while the app launch is just about to `adb install` / `am start` — the device disappears midway, and so:
 
 ```
 adb.exe: device 'emulator-5554' not found
 launch failed com.phoenix.read
 ```
 
-**修复**：
+**Fix**:
 
-- **启动路径上永远只等、不重启**：最多等 20 秒，等不到就先启动应用（页面慢一点没关系，不能直接失败）；
-- 冷启动/重置这类重活只在用户主动点「修复网络」时才做；
-- `waitForNetwork` 不再一看到 `device-offline` 就放弃 —— 刚重启的虚拟机有几十秒 adb 还没上线，现在给 45 秒宽限（之前的版本因此误判「修复失败」）。
+- **On the launch path, only wait, never restart**: wait at most 20 seconds; if not ready, launch the app first (slower page is fine, cannot directly fail);
+- Cold boot / reset and other heavy work is only done when the user actively taps "Repair network";
+- `waitForNetwork` no longer gives up as soon as it sees `device-offline` — a just-restarted virtual machine has tens of seconds where ADB is not yet online; now given a 45-second grace period (previous versions therefore misjudged "repair failed").
 
-**同时把「修复网络」改对了**：实测这个镜像只有 `-wipe-data` 后的那次开机才稳定联网，所以现在直接重置数据（应用清单保留、点开自动重装），联网成功后**立刻存快照** —— 下次从快照恢复时网卡状态一起还原。
+**At the same time, fix "Repair network"**: hands-on found this image only stably connects to the network on the boot after `-wipe-data`; so now directly reset data (app list retained, automatically reinstall when opened), and **immediately save a snapshot** after network succeeds — when restoring from snapshot next time, the network card state is restored together.
 
-实测：修复后启动日志出现 `虚拟机网络就绪（10.0.2.16）`，点「同意并继续」进入 `MainFragmentActivity`，首页正常刷出剧集与推荐流。
+Hands-on: after fix, boot log shows `Virtual machine network ready (10.0.2.16)`, tap "Agree and continue" to enter `MainFragmentActivity`, home page normally refreshes episodes and recommendation feed.
 
-## 二、托盘：单击即可打开主界面
+## 2. Tray: single-click opens main interface
 
-之前只绑了双击，用户单击没反应会以为托盘图标坏了。现在单击直接打开主窗口（右键仍是菜单，双击照旧）。
+Previously only double-click was bound; single-click having no response made users think the tray icon was broken. Now single-click directly opens the main window (right-click is still the menu, double-click as before).
 
-## 三、启动速度
+## 3. Boot speed
 
-- 启动路径不再做冷启动重试，去掉了动辄 3~5 分钟的等待；
-- 网络等待从 60 秒降到 **20 秒**，且设备掉线时立刻返回而不是空转；
-- 修好网络后会存一份「网络正常」的快照，之后每次从快照恢复：实测完整启动（开机→联网→安装→嵌入）约 **48 秒**，其中开机约 20 秒。
+- The launch path no longer does cold boot retry, removing waits that could take 3~5 minutes;
+- Network wait dropped from 60 seconds to **20 seconds**, and returns immediately when the device goes offline instead of spinning;
+- After network is fixed, a "network normal" snapshot is saved; from then on, every recovery from snapshot: hands-on full launch (boot → network → install → embed) about **48 seconds**, of which boot is about 20 seconds.
 
-## 四、运行期杂窗
+## 4. Runtime miscellaneous windows
 
-窗口代理新增一层兜底：把**属于我们运行时目录的进程**创建的所有多余可见顶层窗口统一隐藏（Qt 提示框、崩溃对话框、音量条、日志窗等），只保留要嵌进宿主的那一个模拟器主窗口。之前的实现是按类名逐个点名，漏一个就闪一次。
+The window agent adds a layer of fallback: **all extra visible top-level windows created by processes belonging to our runtime directory** are uniformly hidden (Qt prompt boxes, crash dialogs, volume bars, log windows, etc.), retaining only the one emulator main window to embed into the host. The previous implementation named each by class name; missing one would flash once.
 
-## 五、工程加固
+## 5. Engineering strengthening
 
-- `agent.ps1` 重新带上 **UTF-8 BOM**。之前用普通方式保存会丢 BOM，PowerShell 5.1 按 ANSI 读中文注释，可能把注释和下一行代码并成一行导致 `Add-Type` 编译失败（表现就是「窗口代理启动失败 / 应用窗口不嵌入」）。
-- 新增回归测试：**窗口代理脚本必须带 UTF-8 BOM**，以后再丢会直接测试失败。
+- `agent.ps1` brought back **UTF-8 BOM**. Previously saving with an ordinary method lost BOM; PowerShell 5.1 reads Chinese comments as ANSI, possibly merging the comment and the next line of code into one line, causing `Add-Type` compile failure (manifesting as "window agent startup failed / app window not embedded").
+- Added regression test: **window agent script must carry UTF-8 BOM**; losing it later will directly fail the test.
 
-## 六、实测
+## 6. Hands-on
 
-- `npm test`：**114 项全部通过**（8 + 25 + 81）。
-- 红果：启动 → 同意 → 首页正常显示视频流（截图确认）。
-- 托盘单击可打开主界面。
+- `npm test`: **all 114 items passing** (8 + 25 + 81).
+- Hongguo: launch → agree → home page normally displays video feed (screenshot confirmed).
+- Tray single-click can open main interface.
 
-## 七、升级方式
+## 7. Upgrade method
 
-- 便携版：解压覆盖，数据目录（默认 `%APPDATA%\apkstart`）保持不变。
-- 安装版：直接安装覆盖。
+- Portable version: unzip and overwrite; data directory (default `%APPDATA%\apkstart`) remains unchanged.
+- Installer version: directly install and overwrite.

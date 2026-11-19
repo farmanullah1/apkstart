@@ -1,61 +1,51 @@
 # ApkStart v0.3.6
 
-> 一句话：**修好了「红果点『同意并继续』后一直黑屏」**。真因是安卓虚拟机的 Wi-Fi 迟迟连不上、应用在没网时就加载首页，页面上只剩一块黑底 —— 和显卡、渲染后端无关。
+> In one sentence: **fixed "Hongguo always black screen after tapping 'Agree and continue'"**. The real cause is the Android virtual machine's Wi-Fi failing to connect for a long time; the app loads the home page without network, leaving only a black background — unrelated to GPU or rendering backend.
 
-## 一、红果点「同意」后黑屏 —— 真因与修复
+## 1. Hongguo black screen after tapping "Agree" — real cause and fix
 
-### 上一版的误判
+### The previous version's misjudgment
 
-v0.3.5 把黑屏归因到 GPU 后端（swangle / software），是**错的**。换后端当然没用。
+v0.3.5 attributed the black screen to the GPU backend (swangle / software), which was **wrong**. Switching backends naturally did not help.
 
-### 这次实测定位到的真因
+### The real cause located this time by hands-on
 
-用 adb 逐层查下来：
+Investigated layer by layer with adb:
 
-- `cmd wifi status`：`Wifi is not connected`；`ip -o addr show wlan0`：**没有任何 IP**；
-- 也就是说**虚拟机当时没有网络**；
-- 红果的隐私弹窗是本地页面，所以正常显示；点「同意并继续」之后要拉首页数据，
-  拿不到数据就渲染成一整块黑底 —— 用户看到的就是「点同意后黑屏」；
-- 而 `sys.boot_completed` 只代表系统起来了，**Wi-Fi 关联 + DHCP 往往还要再等几十秒到两分多钟**。
-  应用启动得比网络就绪早，首页请求全部失败，页面就一直黑着。
+- `cmd wifi status`: `Wifi is not connected`; `ip -o addr show wlan0`: **no IP at all**;
+- That is, **the virtual machine had no network at that time**;
+- Hongguo's privacy popup is a local page, so it displays normally; after tapping "Agree and continue", it wants to pull home page data; getting no data, it renders into a whole black block — what the user sees is "black screen after agreeing";
+- While `sys.boot_completed` only means the system came up; **Wi-Fi association + DHCP often still need to wait tens of seconds to over two minutes**. The app starts earlier than network ready; all home page requests fail, and the page stays black.
 
-实测证据：同一个虚拟机，开机后立刻查是「无 IP」，等一两分钟后再查就变成
-`wlan0 inet 10.0.2.16/24` + `Wifi is connected to "AndroidWifi"`，此时红果首页完全正常。
+Hands-on evidence: the same virtual machine, checked immediately after boot is "no IP"; checked again one or two minutes later becomes `wlan0 inet 10.0.2.16/24` + `Wifi is connected to "AndroidWifi"`; at that time Hongguo home page is completely normal.
 
-### 本版修复
+### This version's fix
 
-1. **拉起应用前先等网络就绪**：`installer.launch` 会在 `am start` 之前最多等 150 秒，
-   日志里会打 `正在等待安卓虚拟机联网… Ns`，就绪后才真正启动应用 —— 从根上避免
-   「应用比网络先跑起来」导致的黑屏。
-2. **启动后网络体检**：开机成功就检查虚拟机有没有拿到 IP，没网时日志里明确写出原因，
-   不再让用户对着黑屏猜。
-3. **设置 → 修复网络**（新按钮）：一键修复。做法是重置安卓用户数据并重新开机，
-   然后一直等到网络就绪（最长 4 分钟），成功后再把「网络正常」的状态存成快速启动快照。
-   - **应用清单会保留**，点开应用会自动重装，不用手动重装 APK；
-   - 应用内的登录态、追剧记录等运行时数据会丢失，需要重新登录；
-   - 只影响当前 AVD，系统镜像和本机 APK 缓存都不动。
+1. **First wait for network ready before launching the app**: `installer.launch` will wait at most 150 seconds before `am start`; the log prints `Waiting for Android virtual machine network… Ns`; only after ready does it truly launch the app — rooting out "app runs before network" causing black screen.
+2. **Network checkup after boot**: after boot succeeds, check whether the virtual machine got an IP; when no network, the log clearly writes the cause, no longer leaving the user guessing at a black screen.
+3. **Settings → Repair network** (new button): one-click repair. The method is to reset Android user data and re-boot, then keep waiting until network is ready (at most 4 minutes); after success, save the "network normal" state as a quickboot snapshot.
+   - **App list is retained**; opening an app auto-reinstalls; no need to manually reinstall APK;
+   - In-app login status, binge-watching records, and other runtime data will be lost; need to log in again;
+   - Only affects the current AVD; system image and local APK cache are untouched.
 
-> 红果现在黑屏的话：先直接点开红果试试（本版会自动等网络）；仍黑再点「设置 → 修复网络」。
+> If Hongguo is still black screen now: first directly try opening Hongguo (this version will auto-wait for network); if still black, tap "Settings → Repair network".
 
-## 二、上一版「清理缓存」修复继续生效
+## 2. Previous version's "clean cache" fix remains effective
 
-v0.3.5 的 `includeSnapshots` + 「重置安卓数据」未改动，继续可用。
+v0.3.5's `includeSnapshots` + "reset Android data" unmodified, still usable.
 
-## 三、已知限制
+## 3. Known limitations
 
-- 该 Android 14（`google_apis_playstore`）镜像存在上游问题：在**已有用户数据**上冷启动时，
-  Wi-Fi 经常一直 `NO-CARRIER`、拿不到 IP；重置数据后的那次开机则能正常连上。
-  因此「修复网络」会重置数据，并立刻存快照来保住可用状态。
-- Play Store 镜像不允许 `adb root`，无法单独删掉坏掉的 Wi-Fi 配置。
+- This Android 14 (`google_apis_playstore`) image has an upstream problem: on **existing user data**, cold boot often keeps Wi-Fi at `NO-CARRIER` and cannot get an IP; the boot after data reset connects normally. Therefore "Repair network" will reset data, and immediately save a snapshot to preserve the usable state.
+- The Play Store image does not allow `adb root`, so cannot separately delete bad Wi-Fi configuration.
 
-## 四、实测记录
+## 4. Hands-on record
 
-- 修复后：点「同意并继续」→ 进入 `MainFragmentActivity`，首页正常显示剧集列表与推荐流
-  （截图确认，非黑屏）。
-- 同一虚拟机等待网络就绪后：`wlan0 inet 10.0.2.16/24`、`Wifi is connected to "AndroidWifi"`。
-- `npm test`：**113 项全部通过**（8 + 25 + 80）。
+- After fix: tap "Agree and continue" → enter `MainFragmentActivity`, home page normally displays episode list and recommendation feed (screenshot confirmed, not black screen).
+- Same virtual machine after waiting for network ready: `wlan0 inet 10.0.2.16/24`, `Wifi is connected to "AndroidWifi"`.
+- `npm test`: **all 113 items passing** (8 + 25 + 80).
 
-## 五、升级方式
+## 5. Upgrade method
 
-- 便携版：解压覆盖，数据目录（默认 `%APPDATA%\apkstart`）保持不变。
-- 安装版：直接安装覆盖。
+- Portable version: unzip and overwrite; data directory (default `%APPDATA%\apkstart`) remains unchanged.
+- Installer version: directly install and overwrite.

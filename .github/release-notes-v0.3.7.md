@@ -1,49 +1,45 @@
 # ApkStart v0.3.7
 
-> 一句话：修好**应用窗口右上角的关闭（关掉要真正结束安卓应用）**，并把**虚拟机网络**从「等运气」改成「自动自愈」；CI 同步 Gitee 的 token 也配好了。
+> In one sentence: fix **the close button in the top-right of the app window (closing now truly ends the Android app)**, and change **virtual machine network** from "waiting for luck" to "automatic self-healing"; also the CI sync to Gitee token is now configured.
 
-## 一、修复：右上角窗口按钮，关闭现在会真正结束应用
+## 1. Fix: top-right window button, close now truly ends the app
 
-**问题**：点标题栏的 ⨯，窗口消失了，但安卓应用还在后台跑；再点开那个应用时看起来像「没关掉过」。
+**Problem**: tap the ⨯ on the title bar, the window disappears, but the Android app is still running in the background; when you tap that app again, it looks like "it was never closed".
 
-**原因**：`shell:close` 直接调了 Electron 的 `win.close()`，绕过了 `AppWindow.close()` 的收尾逻辑。窗口的 `closed` 事件只清了内部状态，**既没有 `force-stop` 安卓应用，也没有把模拟器窗口从宿主上摘下来**。走 Alt+F4 / 任务栏关闭时同样如此。
+**Cause**: `shell:close` directly called Electron's `win.close()`, bypassing `AppWindow.close()`'s cleanup logic. The window's `closed` event only cleared internal state; **neither `force-stop` the Android app, nor detach the emulator window from the host**. The same when closing via Alt+F4 / taskbar.
 
-**修复**：
+**Fix**:
 
-- ⨯ 按钮改为走 `appWin.close()`：先把模拟器窗口摘下藏好，再 `am force-stop` 停掉安卓应用；
-- `closed` 事件也补上同样的收尾（覆盖 Alt+F4、任务栏关闭、系统关机等路径）；
-- 旋转 / 最小化 / 最大化逻辑保持原样，未改动。
+- The ⨯ button now goes through `appWin.close()`: first detach and hide the emulator window, then `am force-stop` to stop the Android app;
+- The `closed` event also supplements the same cleanup (covering Alt+F4, taskbar close, system shutdown, and other paths);
+- Rotation / minimize / maximize logic kept as-is, unmodified.
 
-**实测**：向应用窗口发 `WM_CLOSE` 后，`pidof com.phoenix.read` 从 `5152` 变成**空**，前台回到安卓桌面 —— 应用是真的退出了。
+**Hands-on**: after sending `WM_CLOSE` to the app window, `pidof com.phoenix.read` changes from `5152` to **empty**, foreground returns to the Android desktop — the app truly exited.
 
-## 二、网络：不再靠运气，改成自动自愈
+## 2. Network: no longer relying on luck, changed to automatic self-healing
 
-上一版已经定位到「红果点同意后黑屏」= 虚拟机没网。但当时只是"多等一会儿"，遇上 Wi-Fi 一直不关联的启动还是会超时。
+The previous version already located "Hongguo black screen after agreeing" = virtual machine no network. But at that time it was only "wait a bit longer"; when Wi-Fi continuously does not associate at boot, it still times out.
 
-本版把网络处理改成**按代价从小到大自动升级**：
+This version changes network handling to **automatic escalation by cost from small to large**:
 
-1. **启动应用前先等网络**（最多 60s，日志可见进度）；
-2. 等不到就**冷启动一次虚拟机**（`-no-snapshot-load`，绕开可能是"没网"时存下的快速启动快照），再等最多 180s；
-3. 网络一通就**立刻存快照**，下次恢复时网卡状态一起还原；
-4. 「设置 → 修复网络」用同一套流程，只有前两步都失败才**重置安卓数据**（应用清单保留、点开会自动重装，但应用内登录态/记录会丢）。
+1. **First wait for network before launching the app** (at most 60s, progress visible in log);
+2. If not ready, **cold boot the virtual machine once** (`-no-snapshot-load`, bypassing the quickboot snapshot that might have been saved when "no network"), then wait at most 180s;
+3. As soon as network is connected, **immediately save a snapshot**, so the network card state is restored together next time;
+4. "Settings → Repair network" uses the same flow; only if the first two steps both fail does it **reset Android data** (app list retained, auto-reinstall when opened; but in-app login status / records will be lost).
 
-> 关于「提高安卓版本」：这次没有换镜像。原因是换镜像要让所有用户重新下载 1.5 GB，
-> 而实测问题的根子在**模拟器 Wi-Fi 关联慢/偶发不关联**，不在 Android 版本本身；
-> 用「等待 + 冷启动自愈」能在不增体积的前提下覆盖同样场景。若后续证明某版本镜像更稳，
-> 再单独发版迁移。
+> About "upgrade Android version": this time no image was swapped. The reason is that swapping the image would require all users to re-download 1.5 GB, while the hands-on root of the problem is **emulator Wi-Fi association slow / intermittently not associating**, not the Android version itself; using "wait + cold boot self-healing" can cover the same scenario without increasing size. If a later version image is proven more stable, a separate release will migrate.
 
-## 三、CI：Gitee 同步的 token 已配好
+## 3. CI: Gitee sync token now configured
 
-GitHub 仓库的 Actions secret `GITEE_TOKEN` 已写入，以后打 `v*` 标签发布时，
-Release 工作流会自动把便携版同步到 Gitee，不用再手动跑脚本。
+The GitHub repo Actions secret `GITEE_TOKEN` has been written; from now on, when tagging `v*` for release, the Release workflow automatically syncs the portable version to Gitee, no longer needing to manually run the script.
 
-## 四、实测
+## 4. Hands-on
 
-- `npm test`：**113 项全部通过**（8 + 25 + 80）。
-- 关闭窗口后 `pidof com.phoenix.read` 为空（应用真正退出）。
-- 网络就绪日志：`虚拟机网络就绪（10.0.2.16）`，随后红果首页正常渲染。
+- `npm test`: **all 113 items passing** (8 + 25 + 80).
+- After closing window, `pidof com.phoenix.read` is empty (app truly exited).
+- Network ready log: `Virtual machine network ready (10.0.2.16)`, then Hongguo home page normally renders.
 
-## 五、升级方式
+## 5. Upgrade method
 
-- 便携版：解压覆盖，数据目录（默认 `%APPDATA%\apkstart`）保持不变。
-- 安装版：直接安装覆盖。
+- Portable version: unzip and overwrite; data directory (default `%APPDATA%\apkstart`) remains unchanged.
+- Installer version: directly install and overwrite.
