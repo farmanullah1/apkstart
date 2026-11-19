@@ -1,5 +1,5 @@
 'use strict';
-// 临时验证：窗口代理脚本能编译、能连上、boothide 能下发
+// Temporary check: the window agent script compiles, connects, and accepts boothide commands
 const { WinAgent } = require('../src/core/agent');
 
 (async () => {

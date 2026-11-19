@@ -1133,8 +1133,8 @@ public class ApkAgent
             // Why it is needed: when the emulator starts qemu, Windows creates a console window owned by
             // conhost / WindowsTerminal, so IsOurs is false and only IsOurConsole's "title = our runtime path" rule
             // can recognise it. Such windows stay visible for only 200-300ms, so the 250ms main sweep can miss them --
-            // all the user sees is a black box flashing at boot. A 100ms round always catches it before it vanishes.
-            // 闪一下黑框。这里 100ms 一轮，必然能在它消失前抓到。
+                        // all the user sees is a black box flashing at boot. A 100ms round always catches it before it vanishes.
+
             if (_quiet && now - _bootHideStart < 15000
                 && now - _consoleSweep > (_perfMode ? 200 : 100))
             {
@@ -1214,7 +1214,6 @@ public class ApkAgent
                             _chromeRender = FindChromeRender(want);
                             // Third-party backends (MuMu etc.) report the picture window handle directly;
                             // "target" is a comma-separated candidate list -- SetParent each until one really becomes our child.
-                            // 第一个真的成为宿主子窗口的就是它。
                             string targets = S(line, "target");
                             _emu = IntPtr.Zero;
                             if (_quiet) { _quiet = false; _bootHideUntil = 0; }   // stop hiding the window we are about to embed

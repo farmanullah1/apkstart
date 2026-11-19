@@ -1,25 +1,25 @@
 'use strict';
 /**
- * 窗口验证：按主进程的方式拉起 emulator，确认「桌面上一个多余窗口都不出现」。
+ * Window verification: boot the emulator the way the main process does and confirm no extra window lands on the desktop.
  *
- * 要盯的是两类窗口：
- *   1. "Android Emulator - apkstart5554"（QWindowIcon，模拟器主窗）
- *      —— 正常应该只在 embed 之后作为我们窗口的子窗口出现，桌面上永远看不到；
- *   2. 控制台黑窗（conhost 的 ConsoleWindowClass / CASCADIA_HOSTING_WINDOW_CLASS）
- *      —— qemu、netsimd 各会弹一个，标题是被启动的 exe 路径。
+ * Two kinds of window matter:
+ *   1. "Android Emulator - apkstart5554" (QWindowIcon, the emulator main window)
+ *      -- it should only exist as a child of our window after embed, never on the desktop;
+ *   2. console black windows (conhost's ConsoleWindowClass / CASCADIA_HOSTING_WINDOW_CLASS)
+ *      -- qemu and netsimd each open one, titled with the path of the launched exe.
  *
- * 用法: node tools/check-windows.js [runtimeRoot]
- *   runtimeRoot 默认取仓库里的 engine/（本地下载的运行时），也可以传安装目录的
+ * Usage: node tools/check-windows.js [runtimeRoot]
+ *   runtimeRoot defaults to the repo's engine/ (a locally downloaded runtime); you can also pass an install directory's
  *   resources/runtime。
  */
 const path = require('path');
 const { spawn } = require('child_process');
 const { WinAgent } = require('../src/core/agent');
 
-// 运行时目录：命令行参数 > 环境变量 > 仓库里的 engine/
+// Runtime directory: CLI argument > environment variable > engine/ in the repo
 const ROOT = path.resolve(process.argv[2] || process.env.APKSTART_RUNTIME || path.join(__dirname, '..', 'engine'));
 const EMU = path.join(ROOT, 'emulator', 'emulator.exe');
-// AVD 可能在别的盘（设置里 runtime.avdDir），线上用户常见；这里也支持显式指定
+// The AVD may live on another drive (runtime.avdDir in the settings), common for real users, so allow it explicitly
 const AVD_HOME = process.env.APKSTART_AVD_HOME
   || path.join(process.env.APPDATA || '', 'apkstart', 'avd');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -42,10 +42,10 @@ const bad = (w) => {
     return (r && r.list) || [];
   };
 
-  // 代理只碰「运行时目录里的进程」建的窗口：先声明范围，否则它什么都不藏
+  // The proxy only touches windows created by "processes in the runtime directory": declare the scope first, or it hides nothing
   await agent.scope([ROOT]);
   await agent.bootHide();
-  console.log('常驻压制已开启');
+  console.log('Resident suppression enabled');
 
   const proc = spawn(EMU, [
     '-avd', 'apkstart', '-port', '5554', '-no-boot-anim', '-no-metrics',
@@ -73,21 +73,21 @@ const bad = (w) => {
     const hit = list.filter(bad);
     if (hit.length) {
       leaked += hit.length;
-      console.log(`[${((i + 1) * 0.5).toFixed(1)}s] 可见的异常窗口:`, JSON.stringify(hit));
+      console.log(`[${((i + 1) * 0.5).toFixed(1)}s] unexpected visible window:`, JSON.stringify(hit));
     }
   }
 
   const probe = await agent.probe().catch(() => null);
-  console.log('probe（隐藏窗口也应当能被找到）:', JSON.stringify(probe));
+  console.log('probe (hidden windows should still be found):', JSON.stringify(probe));
 
   const left = (await windows()).filter(bad);
-  console.log('结束时仍在桌面上的异常窗口:', JSON.stringify(left));
+  console.log('Unexpected windows still on the desktop at the end:', JSON.stringify(left));
 
   const okProbe = !!(probe && Number(probe.emu) !== 0);
-  // 允许「出现过但 400ms 内被压掉」的情况，最终必须为 0
+  // "Appeared but was suppressed within 400ms" is acceptable; the final count must be 0
   const ok = left.length === 0 && okProbe;
   console.log('');
-  console.log(`结果：${ok ? '通过' : '失败'}（过程中可见异常窗口累计 ${leaked} 次，结束时 ${left.length} 个）`);
+  console.log(`Result: ${ok ? 'PASS' : 'FAIL'} (${leaked} sightings during the run, ${left.length} left at the end)`);
 
   try { proc.kill(); } catch (_) { /* ignore */ }
   agent.dispose();

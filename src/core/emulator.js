@@ -756,6 +756,8 @@ class EmulatorEngine {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     this.proc = proc;
+    this._plan = plan;
+    this._booted = false;
     try { proc.unref(); } catch (_) { /* ignore */ }
 
     const pipe = (stream) => {
@@ -777,10 +779,24 @@ class EmulatorEngine {
     proc.on('exit', (code) => {
       this.lastExitCode = code;
       const meaning = describeExitCode(code);
-      this.log(`emulator exit ${code}${meaning ? `（${meaning}）` : ''}`);
-      this._logWrite(logFile, `emulator exit ${code}${meaning ? `（${meaning}）` : ''}\n`);
+      this.log(`emulator exit ${code}${meaning ? ` (${meaning})` : ''}`);
+      this._logWrite(logFile, `emulator exit ${code}${meaning ? ` (${meaning})` : ''}\n`);
       this.proc = null;
       onLog(`Runtime exited (code=${code}${meaning ? `, ${meaning}` : ''})`);
+      // A crash *after* the VM was declared ready used to leave no trace at all: the same render backend
+      // was picked again on the next launch and died again the same way (issue: "the emulator stops working
+      // after a few minutes"). Record it, demote that backend, and tell the caller so it can react.
+      const wasReady = !!this._booted;
+      this._booted = false;
+      if (wasReady && code != null && Number(code) !== 0) {
+        const plan = this._plan || {};
+        this._noteGpuFailure(plan, { postBoot: true });
+        this._persistFailure({ why: 'runtime-crashed', plan: plan.label || '', gpu: plan.gpu || '', exitCode: code });
+        onLog('The runtime crashed after boot; the next launch will try a different render backend.');
+        if (typeof this.onRuntimeCrash === 'function') {
+          try { this.onRuntimeCrash({ exitCode: code, meaning, plan }); } catch (_) { /* ignore */ }
+        }
+      }
     });
     proc.on('error', (e) => {
       this.log(`spawn error: ${e.message}`);
@@ -1181,6 +1197,7 @@ class EmulatorEngine {
       // and switching apps failed outright.
       // So confirm something really runs on the console port before reusing.
       if (await this._consoleAlive()) {
+        this._booted = true;   // an adopted external instance: a crash is still a crash
         return { ok: true, reused: true, serial: this.serial, port: this.port };
       }
       onLog('The previous emulator has exited; booting again...');
@@ -1375,7 +1392,8 @@ class EmulatorEngine {
       }
 
       if (!probe) {
-        return { ok: true, serial: this.serial, port, accel: accelInfo, logFile, profile, attempts: this.attempts };
+          this._booted = true;   // from here on, an exit is a crash, not a failed attempt
+          return { ok: true, serial: this.serial, port, accel: accelInfo, logFile, profile, attempts: this.attempts };
       }
 
       const started = Date.now();
@@ -1446,6 +1464,7 @@ class EmulatorEngine {
             + ' Apps that need the internet may show a black screen: reopen them in a moment;'
             + ' if it stays offline, use Settings -> Repair network (installed apps are kept).');
         }
+        this._booted = true;   // the VM is up; a later exit is a crash
         return {
           ok: true, serial: this.serial, port, accel: accelInfo, logFile,
           profile, attempts: this.attempts, bootMs, quickBoot: true, network,
@@ -1591,12 +1610,14 @@ class EmulatorEngine {
    * Remember the GPU backend that "crashed on start" so it is tried last next time.
    * Only in auto mode: an explicit backend chosen by the user is respected, never silently changed.
    */
-  _noteGpuFailure(plan) {
+  _noteGpuFailure(plan, { postBoot = false } = {}) {
     try {
       const gpu = plan && plan.gpu;
       if (!gpu) return;
-      // Software rendering is the fallback; it is already the slowest/steadiest option with nothing worse to fall back to
-      if (/software|swiftshader|swangle/.test(gpu)) return;
+      // Software rendering is the last resort, so a *startup* failure there is not worth remembering
+      // (there is nothing better to fall back to). A crash after the VM was already up is different:
+      // swangle also dies mid-session, so it must be demoted too or every launch repeats the crash.
+      if (postBoot ? /software|swiftshader/.test(gpu) : /software|swiftshader|swangle/.test(gpu)) return;
       if ((this.settings.engine.gpuMode || 'auto') !== 'auto') return;
       store.saveSettings({ engine: { badGpu: `${this._emuVersion || ''}|${gpu}` } });
     } catch (_) { /* ignore */ }
