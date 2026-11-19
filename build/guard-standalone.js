@@ -1,48 +1,48 @@
 'use strict';
 /**
- * 独立运行守卫：安装包里**不允许**出现第三方模拟器的任何文件。
+ * Standalone guard: **no third-party emulator file** may appear in an installer.
  *
- * 为什么需要一道构建期检查：
- *   ApkStart 的安装包（NSIS / 便携版 / MSIX）必须开箱即用 —— 自带 emulator +
- *   platform-tools + 系统镜像，装完就能跑，不要求用户先装 MuMu / 雷电 / 蓝叠。
- *   0.5.6 起更进一步：**代码里根本没有第三方底座**，安装的不是「自带运行时 + 可选复用」，
- *   而是「只有自带运行时」。所以这里除了拦二进制，也拦第三方底座的适配器源码
- *   （backends/mumu.js / backends/fydeos.js / mumu-compat.js）—— 一旦有人把它们加回来，
- *   构建直接失败，避免「代码里又留了一条能接管别人模拟器的路」。
+ * Why a build-time check is necessary:
+ *   ApkStart installers (NSIS / portable / MSIX) must work out of the box -- they carry emulator +
+ *   platform-tools + the system image, so the app runs right after install without asking users to install MuMu / LDPlayer / BlueStacks.
+ *   Since 0.5.6 it goes further: **the code has no third-party backend at all** -- it is not "bundled runtime + optional
+ *   reuse" but "bundled runtime only". So besides binaries, this also blocks the backend adapter sources
+ *   (backends/mumu.js / backends/fydeos.js / mumu-compat.js) -- if anyone adds them back, the build fails
+ *   outright, so a path that takes over someone else's emulator cannot quietly return.
  *
- *   这条约束很容易被悄悄破坏：比如某次把 MuMu 目录当运行时拷进了 build/runtime，
- *   或者在本地把模拟器目录塞进 resources 再打包。那时候应用在开发机上照样能跑，
- *   用户装完却是「要另外装个模拟器」——问题只在别人电脑上暴露。
- *   所以在打包前扫一遍文件名，命中就直接让构建失败。
+ *   This constraint is easy to break silently: someone copies a MuMu directory into build/runtime as the runtime,
+ *   or drops an emulator directory into resources before packaging. The app still works on the dev machine,
+ *   but users end up having to install another emulator -- a problem that only shows up on someone else's PC.
+ *   Hence a filename scan before packaging that fails the build on any hit.
  */
 
 const fs = require('fs');
 const path = require('path');
 
 /**
- * 这些名字一旦出现在打包产物里，就说明把「别人的模拟器」塞进来了。
- * 只匹配各个模拟器自己的特征文件名，不用宽泛的 /android/ 之类，避免误报。
+ * Once these names appear in build output, someone's emulator has been bundled.
+ * Match only each emulator's own signature filenames, never broad patterns like /android/, to avoid false positives.
  */
 const BANNED = [
-  { re: /^mumu/i, vendor: 'MuMu 模拟器' },          // MuMuManager.exe / MuMuPlayer.exe / MuMuVMMVbox
-  { re: /\.nemu$/i, vendor: 'MuMu 模拟器' },        // 实例描述文件 MuMuPlayer-12.0-0.nemu
-  { re: /^nemu$/i, vendor: 'MuMu 模拟器' },         // MuMu 的 nemu 目录
-  { re: /^nx_main$/i, vendor: 'MuMu 模拟器' },      // MuMu 的 nx_main / nx_device 目录
-  { re: /^nx_device$/i, vendor: 'MuMu 模拟器' },
-  { re: /^ldplayer/i, vendor: '雷电模拟器' },
-  { re: /^dnplayer/i, vendor: '雷电模拟器' },
-  { re: /^bluestacks/i, vendor: '蓝叠模拟器' },
-  { re: /^hd-player/i, vendor: '蓝叠模拟器' },
-  { re: /^mgalaxy/i, vendor: 'MEmu 模拟器' },
+  { re: /^mumu/i, vendor: 'MuMu emulator' },          // MuMuManager.exe / MuMuPlayer.exe / MuMuVMMVbox
+  { re: /\.nemu$/i, vendor: 'MuMu emulator' },        // instance descriptor MuMuPlayer-12.0-0.nemu
+  { re: /^nemu$/i, vendor: 'MuMu emulator' },         // MuMu's nemu directory
+  { re: /^nx_main$/i, vendor: 'MuMu emulator' },      // MuMu's nx_main / nx_device directories
+  { re: /^nx_device$/i, vendor: 'MuMu emulator' },
+  { re: /^ldplayer/i, vendor: 'LDPlayer emulator' },
+  { re: /^dnplayer/i, vendor: 'LDPlayer emulator' },
+  { re: /^bluestacks/i, vendor: 'BlueStacks emulator' },
+  { re: /^hd-player/i, vendor: 'BlueStacks emulator' },
+  { re: /^mgalaxy/i, vendor: 'MEmu emulator' },
 ];
 
-/** 只有这些扩展名算「模拟器本体」；.js/.md/.json 这类是源码与配置，不在拦截范围内 */
+/** Only these extensions count as "the emulator itself"; .js/.md/.json are source and config, out of scope */
 const BINARY_EXT = /\.(exe|dll|sys|nemu|vdi|vmdk|vbox|iso|msi|bin|dat|db|img)$/i;
 
 /**
- * 递归找命中的文件/目录。
- * @param {string} dir 要扫描的根目录（通常是打包出来的 resources/runtime 或 app 目录）
- * @param {object} [opts] { limit } 命中多少个就停（默认 20，够用来提示）
+ * Recursively find matching files and directories.
+ * @param {string} dir root to scan (usually the packaged resources/runtime or app directory)
+ * @param {object} [opts] { limit } stop after this many hits (default 20, enough to explain the problem)
  * @returns {Array<{path: string, name: string, vendor: string}>}
  */
 function findBundled(dir, { limit = 20 } = {}) {
@@ -53,15 +53,15 @@ function findBundled(dir, { limit = 20 } = {}) {
     try {
       entries = fs.readdirSync(d, { withFileTypes: true });
     } catch (_) {
-      return; // 没权限 / 不存在：当作没东西
+      return; // no permission / does not exist: treat it as empty
     }
     for (const e of entries) {
       if (hits.length >= limit) return;
       const hit = BANNED.find((b) => b.re.test(e.name));
-      // 目录直接算；文件必须像二进制（否则会把源码里的 backends/mumu.js 误判成 MuMu 本体）
+      // Directories count immediately; files must look like binaries (otherwise backends/mumu.js in source is mistaken for MuMu itself)
       if (hit && (e.isDirectory() || BINARY_EXT.test(e.name))) {
         hits.push({ path: path.join(d, e.name), name: e.name, vendor: hit.vendor });
-        continue; // 命中目录就不再往里钻，报出来更有用
+        continue; // once a directory matched, do not descend -- reporting it is more useful
       }
       if (e.isDirectory()) walk(path.join(d, e.name));
     }
@@ -71,19 +71,19 @@ function findBundled(dir, { limit = 20 } = {}) {
 }
 
 /**
- * 第三方底座的适配器源码（打包产物里出现就说明把「可复用别人模拟器」的能力带回来了）。
- * 这些是 .js，不在 BINARY_EXT 里，所以单独判。
+ * Third-party backend adapter sources (their presence means the ability to reuse someone else's emulator came back).
+ * These are .js, not covered by BINARY_EXT, so they are checked separately.
  */
 const BANNED_SOURCE = [
-  { re: /^mumu\.js$/i, what: 'MuMu 底座适配器' },
-  { re: /^fydeos\.js$/i, what: 'FydeOS 底座适配器' },
-  { re: /^mumu-compat\.js$/i, what: 'MuMu 兼容策略' },
-  { re: /^frame\.js$/i, what: 'MuMu 帧体检' },
+  { re: /^mumu\.js$/i, what: 'MuMu backend adapter' },
+  { re: /^fydeos\.js$/i, what: 'FydeOS backend adapter' },
+  { re: /^mumu-compat\.js$/i, what: 'MuMu compatibility policy' },
+  { re: /^frame\.js$/i, what: 'MuMu frame check' },
 ];
 
 /**
- * 找打包产物里的第三方底座源码。
- * 只认「backends/xxx.js」或直接位于 src/core 下的那几个文件名，避免误伤别的 frame.js。
+ * Find third-party backend sources in build output.
+ * Only "backends/xxx.js" or those exact names directly under src/core count, so an unrelated frame.js is left alone.
  * @param {string} dir
  * @returns {Array<{path: string, name: string, vendor: string}>}
  */
@@ -101,8 +101,8 @@ function findForbiddenSource(dir) {
       if (e.isDirectory()) { walk(path.join(d, e.name)); continue; }
       const hit = BANNED_SOURCE.find((b) => b.re.test(e.name));
       if (!hit) continue;
-      // 只认这几个明确的落点：backends/ 下的 mumu|fydeos、core/ 下的 mumu-compat / frame。
-      // 别处同名文件（比如渲染层的 frame.js）不拦，避免误伤。
+      // Only these exact locations: mumu|fydeos under backends/, mumu-compat / frame under core/.
+      // Same-named files elsewhere (the renderer's frame.js, for instance) are ignored to avoid false positives.
       const suspicious = dirName === 'backends' || (dirName === 'core' && !/^builtin\.js$/i.test(e.name));
       if (suspicious) hits.push({ path: path.join(d, e.name), name: e.name, vendor: hit.what });
     }
@@ -112,23 +112,23 @@ function findForbiddenSource(dir) {
 }
 
 /**
- * 断言目录里没有第三方模拟器。
+ * Assert that a directory contains no third-party emulator.
  * @param {string} dir
- * @param {object} [opts] { label, exit } label 用于提示；exit=false 只返回结果不杀进程
+ * @param {object} [opts] { label, exit } label appears in messages; exit=false returns the result without killing the process
  * @returns {{ok: boolean, skipped?: boolean, hits: Array}}
  */
-function assertStandalone(dir, { label = '打包产物', exit = true } = {}) {
+function assertStandalone(dir, { label = 'build output', exit = true } = {}) {
   if (!dir || !fs.existsSync(dir)) return { ok: true, skipped: true, hits: [] };
   const hits = findBundled(dir).concat(findForbiddenSource(dir));
   if (!hits.length) return { ok: true, hits: [] };
 
   const vendors = [...new Set(hits.map((h) => h.vendor))].join(' / ');
-  console.error(`\n[守卫] ${label} 里混进了第三方模拟器（${vendors}）：`);
+  console.error(`\n[guard] ${label} contains third-party emulator files (${vendors}):`);
   for (const h of hits) console.error(`  - ${h.path}`);
   console.error('');
-  console.error('ApkStart 的安装包必须自带运行时、独立运行：不能依赖、不能捆绑别的模拟器，');
-  console.error('也不允许把「接管别人模拟器」的适配器源码带回来。');
-  console.error('请把上面这些路径从打包目录里删掉后重试。\n');
+  console.error('An ApkStart installer must bundle its runtime and run standalone: it may not depend on or bundle another emulator,');
+  console.error('and the adapter sources that take over someone else\'s emulator must not come back.');
+  console.error('Delete those paths from the packaged directory and try again.\n');
   if (exit) process.exit(4);
   return { ok: false, hits };
 }
