@@ -141,9 +141,9 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const p = doctor.autoProfile({ ...common, settings: { engine: { autoMemory: true, gpuMode: 'auto', memoryMB: 0, cores: 0 } } });
     const text = doctor.describeProfile(p);
     assert(p.gpu === 'host' || p.gpu === 'swangle', `应为 host 或 swangle（AMD 机器），实际 ${p.gpu}`);
-    assert(p.accelOk === true && text.includes('硬件加速'), text);
+    assert(p.accelOk === true && text.includes('hardware accel'), text);
     assert(!text.includes('swiftshader_indirect'), text);
-    assert(text.includes('端口 5562'), text);
+    assert(text.includes('port 5562'), text);
 
     // 老引擎仍应用老后端；用户手动填的高级参数仍然生效
     const old = doctor.autoProfile({ ...common, emulatorVersion: '35.1.4.0', settings: {} });
@@ -894,7 +894,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
       accel: { ok: true }, emulatorVersion: '37.3.8.0', diskMB: 100000, host,
     });
     assert(manual.cores === 6, '用户手动指定的核数必须优先于轻量模式');
-    assert(/轻量容器/.test(doctor.describeProfile(auto)), '诊断摘要应标出轻量容器');
+    assert(/light container/.test(doctor.describeProfile(auto)), 'the profile summary must mark the light container');
   });
 
   await test('全局鼠标钩子默认关闭，且窗口代理不再长时间阻塞消息泵', () => {
@@ -2399,12 +2399,12 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     // 冷启动都误报；而以前的补救建议是「重置安卓数据」（会删掉已装应用）。
     assert(/checkNetwork\('', \{ waitMs: \d+, interval: \d+ \}\)/.test(emuJs),
       '开机后的网络体检要给等待窗口，不能查一次就下结论');
-    const boot = emuJs.slice(emuJs.indexOf('运行时就绪'));
+    const boot = emuJs.slice(emuJs.indexOf('Runtime ready'));
     const warn = boot.slice(0, 4000);
     // 只看代码行：上面解释「以前这里建议重置数据」的注释不算
     const warnCode = warn.split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
-    assert(!/重置安卓数据/.test(warnCode), '这条提示不能建议「重置安卓数据」（会丢已装应用）');
-    assert(/暂时没连上网/.test(warnCode), '要改成不吓人、不误导的说法');
+    assert(!/Reset Android data/.test(warnCode), 'this warning must not suggest "Reset Android data" (it would lose installed apps)');
+    assert(/has no network yet/.test(warnCode), 'the wording must be calm and not misleading');
   });
 
   await test('开机时那个控制台黑窗要用高频通道压掉', () => {
@@ -2431,7 +2431,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(/_consoleAlive\(\)/.test(reuse), 'start() 的复用分支必须再确认控制台端口上真有机器');
     assert(/this\.proc = null;/.test(reuse), '确认没在跑就把 proc 清掉，走真正的开机流程');
     // stop() 关干净后必须丢掉启动器句柄，否则 running() 永远为 true
-    const stopFn = emuJs.slice(emuJs.indexOf('async stop('), emuJs.indexOf('async stop(') + 1800);
+    const stopFn = emuJs.slice(emuJs.indexOf('async stop('), emuJs.indexOf('async stop(') + 4000);
     assert(/killAttempt\(\)[\s\S]{0,200}this\.proc = null;/.test(stopFn), 'stop() 收尾要清掉 this.proc');
     // engine 层还要防另一种假象：模拟器刚退出时 adb 仍短时报 device，
     // isOnline() 于是判成就绪，后续命令全部 device not found。
@@ -2638,7 +2638,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     assert(/windowEmbedChosen !== true/.test(storeJs), '主动选过的配置不迁移');
     // Looking only at the mark is not enough: the old configuration may be "migrated2=true but the value is still true" (migration not written to disk / hand-edited),
     // and in that case it was previously passed through as-is → startup would again be the beautified shell window. The judgment baseline must be "whether it was ever actively chosen".
-    const migBody = storeJs.slice(storeJs.indexOf('窗口承载方式的最终裁决'), storeJs.indexOf('窗口承载方式的最终裁决') + 1200);
+    const migBody = storeJs.slice(storeJs.indexOf('Final verdict on window hosting'), storeJs.indexOf('Final verdict on window hosting') + 1200);
     assert(/d\.windowEmbedChosen !== true && d\.windowEmbed !== false/.test(migBody),
       'migration condition must not depend on windowEmbedMigrated2, otherwise old marks will be missed');
     // 原生窗口要尽早接出来，别让用户对着美化等待页干等
@@ -2697,7 +2697,7 @@ const { AdbClient, friendlyInstallError, friendlyLaunchError } = require('../src
     const root = path.join(__dirname, '..');
     const provJs = fs.readFileSync(path.join(root, 'src', 'core', 'provision.js'), 'utf8');
     assert(/LZMA_MISSING/.test(provJs), '缺 lzma 要用 LZMA_MISSING 错误码');
-    assert(/安装包不完整/.test(provJs), '错误文案要直说安装包不完整，别让用户以为电脑坏了');
+    assert(/installation package is incomplete/.test(provJs), 'the message must say the package is incomplete instead of implying the PC is broken');
     // 不能再是无保护的 require.resolve：那会在缺依赖时抛原始模块错误
     assert(/try\s*\{[^}]*require\.resolve\('@napi-rs\/lzma'\)/.test(provJs),
       'require.resolve 要包在 try 里，失败时给友好错误');

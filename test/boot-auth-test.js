@@ -110,13 +110,13 @@ const adbDevices = (line) => `List of devices attached\n${line}\n`;
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', 'emulator.js'), 'utf8');
     const fn = src.slice(src.indexOf('async _saveViaAdb('), src.indexOf('async _saveViaAdb(') + 700);
     assert.ok(/_adbGuestHealthy/.test(fn), '_saveViaAdb 必须先判 guest 健康');
-    const stopFn = src.slice(src.indexOf('async stop('), src.indexOf('async stop(') + 2400);
+    const stopFn = src.slice(src.indexOf('async stop('), src.indexOf('async stop(') + 5000);
     assert.ok(/_adbGuestHealthy/.test(stopFn), 'stop() 关机前也要判断健康');
     assert.ok(/invalidateSnapshot\(\)/.test(stopFn), '不健康关机要作废快照');
   });
   await atest('源码级：开机探测要识别 unauthorized 并冷启动自愈', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', 'engine.js'), 'utf8');
-    const boot = src.slice(src.indexOf('async bootEmulator('), src.indexOf('async bootEmulator(') + 4200);
+    const boot = src.slice(src.indexOf('async bootEmulator('), src.indexOf('async bootEmulator(') + 6000);
     assert.ok(/isUnauthorizedError/.test(boot), '探测要按报错文本识别 unauthorized');
     assert.ok(/deviceState\(\)/.test(boot), '探测要按 devices state 列二次确认');
     assert.ok(/invalidateSnapshot\(\)/.test(boot), '命中授权卡住要作废旧快照');

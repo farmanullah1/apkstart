@@ -264,7 +264,7 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || '断言失败'); 
 
     const partial = mk(path.join(TMP, 'partial.iso'), 2 * 1024 * 1024, true);
     const c = p.inspectIso(partial);
-    assert(!c.ok && /未完成/.test(c.reason), `未下完的镜像未被拦截：${JSON.stringify(c)}`);
+    assert(!c.ok && /did not finish/.test(c.reason), `incomplete image was not rejected: ${JSON.stringify(c)}`);
 
     for (const f of [good, broken, partial]) fs.rmSync(f, { force: true });
   });

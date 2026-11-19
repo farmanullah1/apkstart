@@ -481,7 +481,7 @@ async function markInstalled() {
 /** Translate installation errors to actionable suggestions */
 function friendlyInstallErrorText(msg) {
   const s = String(msg || 'Unknown error');
-  // TODO(i18n): verify - "空间不足" is part of the match, not display copy: it matches the
+  // Note: the localized "out of space" text is part of the match pattern, not display copy: it matches the
   // Chinese wording some Android/adb builds print, so it must stay in the pattern.
   if (/INSUFFICIENT_STORAGE|not enough space|空间不足|ENOSPC/i.test(s)) {
     return `${s}\nInsufficient storage in Android data partition: Settings → Performance & Resources → expand Data Partition.`;

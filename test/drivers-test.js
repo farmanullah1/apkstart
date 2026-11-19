@@ -91,10 +91,10 @@ const base = () => ({
 
   console.log('\n[驱动 · 白名单（不许删数据 / 不许执行代码）]');
 
-  test('拒绝 -wipe-data（会清空用户应用与存档）', () => {
+  test('rejects -wipe-data (it would erase user apps and saves)', () => {
     const r = drivers.validateDriver({ ...base(), effect: { emulatorArgs: ['-wipe-data'] } });
     assert.equal(r.ok, false);
-    assert.ok(/不允许 -wipe-data/.test(r.errors.join('')), r.errors.join('；'));
+    assert.ok(/does not allow -wipe-data/.test(r.errors.join('')), r.errors.join('; '));
   });
 
   test('拒绝 -partition-size / -datadir / -sysdir', () => {
@@ -235,7 +235,7 @@ const base = () => ({
     fs.writeFileSync(path.join(dir, 'big.json'), `{"pad":"${'x'.repeat(300 * 1024)}"}`);
     const r = drivers.loadDir(dir);
     assert.equal(r.drivers.length, 0);
-    assert.ok(/文件过大/.test(JSON.stringify(r.errors)));
+    assert.ok(/File is too large/.test(JSON.stringify(r.errors)));
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
