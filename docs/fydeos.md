@@ -1,169 +1,145 @@
-# ApkStart 的 FydeOS 底座（Windows 上也能用）
+# ApkStart's FydeOS Base (usable on Windows too)
 
-> 一句话：**用 FydeOS 自带的安卓环境替代 Google 模拟器**。
-> FydeOS 可以装在本机，也可以跑在 VMware / VirtualBox 里、由 Windows 上的 ApkStart 连过去。
-
----
-
-## ⚠️ 先看这段：FydeOS 路线的真实风险
-
-我把这条路的可行性查证清楚了，结论不乐观，**你应该先知道再决定要不要投入**：
-
-1. **官方的 VMware 镜像是 preview**。下载页原文写的是「专为用户在虚拟化环境中
-   **测试和预览** FydeOS 而设计」（[FydeOS for VMware](https://fydeos.com/download/vm/x86_64/)）。
-2. **VMware 版里安卓子系统经常不能用**。FydeOS 社区里明确的说法是
-   「VMware 版本仅作为预览使用，暂时不保证功能的完全可用性」；有用户实测反馈
-   安卓应用无法联网、`adb` 能连上但画面是黑屏。
-   （[社区讨论](https://community.fydeos.com/t/topic/47865)）
-3. **有人说旧版本（v18）反而能正常工作**，新版本坏掉。也就是说这条路依赖特定版本，
-   很可能哪天就不能用了。
-
-**结论**：FydeOS 底座我做了、能用，但**它不该被当成主力方案**。
-如果你只是想要「比 Google 模拟器更轻、窗口不再出问题」——
-那 v0.5.0 修好的联网 + **独立窗口模式**已经解决了，不需要换底座。
+> In one sentence: **replace the Google emulator with the Android environment that FydeOS comes with**.
+> FydeOS can be installed on the local machine, or run inside VMware / VirtualBox, with ApkStart on Windows connecting to it.
 
 ---
 
-## 两种用法
+## ⚠️ Read this first: the real risks of the FydeOS route
 
-### 用法 A：ApkStart 和 FydeOS 在同一台机器（FydeOS 装在本机）
+I verified the feasibility of this route and the conclusion is not optimistic. **You should know this before deciding whether to invest.**
 
-前提：你装的是 FydeOS 系统本身（不是 Windows）。
+1. **The official VMware image is a preview.** The download page original text says it is "designed for users to **test and preview** FydeOS in a virtualized environment" ([FydeOS for VMware](https://fydeos.com/download/vm/x86_64/)).
+2. **The Android subsystem in the VMware version often does not work.** The FydeOS community has explicit statements that "the VMware version is for preview only and does not guarantee full feature availability"; user hands-on feedback reports that Android apps cannot connect to the network, `adb` can connect but the screen is black. ([Community discussion](https://community.fydeos.com/t/topic/47865))
+3. **Some people say an older version (v18) actually works normally, and newer versions are broken.** That is, this route depends on a specific version and is likely to stop working one day.
 
-1. FydeOS 应用启动器 → 打开「安卓设置」
-2. 系统 → 开发者选项 → 打开 **ADB 调试**
-   （找不到开发者选项：安卓设置 → 关于设备 → 连点「版本号」7 次）
-3. FydeOS 设置 → Linux → 开启 Linux 子系统
-4. Linux 终端里：`sudo apt update && sudo apt install -y adb`
-5. ApkStart → 设置 → 运行时 → 引擎模式选 **FydeOS 安卓子系统**，地址**留空**
-   （自动依次试 `arc:5555`、`100.115.92.2:5555`、`127.0.0.1:5555`）
+**Conclusion**: I built the FydeOS base and it is usable, but **it should not be treated as the main solution**. If you just want "lighter than the Google emulator, windows no longer have problems" — the networking + **independent window mode** already fixed in v0.5.0 already solves that; no need to switch bases.
 
-### 用法 B：ApkStart 在 Windows，FydeOS 跑在虚拟机里
+---
 
-这是你想要的形态。完整步骤：
+## Two usage methods
 
-#### 1. 装一个虚拟机软件
+### Usage A: ApkStart and FydeOS on the same machine (FydeOS installed locally)
 
-- **VMware Workstation Player**（免费）—— 官方 FydeOS VM 镜像就是 `.ova`，导入即可
-- **VirtualBox** —— 也行，但 `.ova` 导入后可能要手动调 UEFI
+Prerequisite: you installed the FydeOS system itself (not Windows).
 
-> 注意：**不要用 Hyper-V**。ApkStart 的自带运行时靠 AEHD 加速，AEHD 和 Hyper-V 互斥，
-> 开了 Hyper-V 自带运行时就用不了了。用 VMware / VirtualBox 没有这个问题。
+1. FydeOS app launcher → open "Android settings"
+2. System → Developer options → enable **ADB debugging** (cannot find developer options: Android settings → About device → tap "Build number" 7 times)
+3. FydeOS settings → Linux → enable Linux subsystem
+4. In the Linux terminal: `sudo apt update && sudo apt install -y adb`
+5. ApkStart → Settings → Runtime → engine mode select **FydeOS Android subsystem**, address **leave blank** (automatically tries `arc:5555`, `100.115.92.2:5555`, `127.0.0.1:5555` in order)
 
-#### 2. 导入 FydeOS 镜像
+### Usage B: ApkStart on Windows, FydeOS running in a virtual machine
 
-从 [FydeOS for VMware 下载页](https://fydeos.com/download/vm/x86_64/) 拿 `.ova`
-（约 1.5GB+），VMware 里「打开虚拟机」→ 选那个 `.ova`。
-如果提示「未通过 OVF 规格一致性检测」，按提示点**重试**放宽校验，仍可正常导入。
+This is the form you want. Full steps:
 
-建议给虚拟机 **4GB 以上内存**（安卓子系统吃内存）。
+#### 1. Install a virtual machine program
 
-#### 3. 在 FydeOS 里开启 ADB 调试
+- **VMware Workstation Player** (free) — the official FydeOS VM image is `.ova`, import it directly
+- **VirtualBox** — also works, but after importing `.ova` you may need to manually adjust UEFI
 
-1. 启动虚拟机，走完 FydeOS 初始化（登录/本地账户）
-2. 打开安卓设置，启用安卓子系统
-3. 安卓设置 → 系统 → 开发者选项 → 打开 **ADB 调试**
+> Note: **Do not use Hyper-V.** ApkStart's built-in runtime relies on AEHD acceleration, and AEHD and Hyper-V are mutually exclusive; with Hyper-V enabled the built-in runtime cannot be used. VMware / VirtualBox do not have this problem.
 
-#### 4. 让 Windows 能连到那台虚拟机
+#### 2. Import the FydeOS image
 
-两条路，选一条：
+Get the `.ova` from the [FydeOS for VMware download page](https://fydeos.com/download/vm/x86_64/) (about 1.5GB+), in VMware "Open Virtual Machine" → select that `.ova`. If it prompts "OVF specification compliance check failed", click **Retry** to relax the validation as prompted; import can still proceed normally.
 
-**路 1（推荐，最省事）：NAT 端口转发**
+Recommend giving the virtual machine **4GB+ memory** (the Android subsystem eats memory).
 
-VMware：虚拟机设置 → 网络适配器 → 选 NAT → 「NAT 设置」→ 端口转发 → 添加：
+#### 3. Enable ADB debugging inside FydeOS
 
-| 主机端口 | 类型 | 虚拟机 IP | 虚拟机端口 |
+1. Start the virtual machine, complete FydeOS initialization (login / local account)
+2. Open Android settings, enable the Android subsystem
+3. Android settings → System → Developer options → enable **ADB debugging**
+
+#### 4. Let Windows connect to that virtual machine
+
+Two routes, pick one:
+
+**Route 1 (recommended, simplest): NAT port forwarding**
+
+VMware: Virtual machine settings → Network adapter → select NAT → "NAT Settings" → Port forwarding → Add:
+
+| Host port | Type | Virtual machine IP | Virtual machine port |
 |---|---|---|---|
-| 5555 | TCP | （留空或 192.168.x.x） | 5555 |
+| 5555 | TCP | (leave blank or 192.168.x.x) | 5555 |
 
-VirtualBox：设置 → 网络 → 高级 → 端口转发 → 加一条 `127.0.0.1:5555 → 10.0.2.15:5555`
+VirtualBox: Settings → Network → Advanced → Port forwarding → add one `127.0.0.1:5555 → 10.0.2.15:5555`
 
-然后 ApkStart 里地址填：`127.0.0.1:5555`
+Then in ApkStart fill in the address: `127.0.0.1:5555`
 
-**路 2：直接用虚拟机 IP**
+**Route 2: use the virtual machine IP directly**
 
-虚拟机网络改成「桥接」，在 FydeOS 里 `crosh`（Ctrl+Alt+T）→ `shell` → `ip addr` 看 IP，
-然后 ApkStart 里填 `<那个IP>:5555`。
+Change the virtual machine network to "Bridged", in FydeOS `crosh` (Ctrl+Alt+T) → `shell` → `ip addr` to see the IP, then in ApkStart fill in `<that IP>:5555`
 
-#### 5. 配 ApkStart
+#### 5. Configure ApkStart
 
-1. 设置 → 运行时 → 引擎模式选 **FydeOS 安卓子系统**
-2. 地址填上一步的（例如 `127.0.0.1:5555`）
-3. 点检测
+1. Settings → Runtime → engine mode select **FydeOS Android subsystem**
+2. Fill in the address from the previous step (e.g. `127.0.0.1:5555`)
+3. Click Detect
 
-**第一次连接时，FydeOS 里会弹出「允许调试吗」的授权框 —— 一定要点「允许」**，
-否则 APK 装不进去。
+**The first time you connect, a "Allow debugging?" authorization dialog will pop up in FydeOS — be sure to click "Allow"**, otherwise APKs cannot be installed.
 
 ---
 
-## 它和自带运行时的区别
+## Differences from the built-in runtime
 
-| | 自带运行时（QEMU） | FydeOS 底座 |
+| | Built-in runtime (QEMU) | FydeOS base |
 |---|---|---|
-| 安卓从哪来 | ApkStart 自己下载镜像、自己开机 | FydeOS 系统提供，已在运行 |
-| 关机后启动 | 需开机（v0.5.0 约 18 秒） | 几乎瞬时（虚拟机本来就开着） |
-| 额外内存 | 约 3GB | 取决于虚拟机分配 |
-| 镜像占用 | 几 GB | 无（FydeOS 自己的磁盘） |
-| 窗口嵌入 | ✅ 可嵌进 ApkStart 窗口 | ❌ 画面由 FydeOS 自己显示 |
-| 一个应用一个窗口 | ✅ | ❌ 所有应用共用 FydeOS 桌面 |
-| 稳定性 | 高（实测过） | **取决于 FydeOS 版本，见开头警告** |
+| Where Android comes from | ApkStart downloads its own image and boots it | Provided by the FydeOS system, already running |
+| Boot after shutdown | Requires booting (v0.5.0 about 18 seconds) | Nearly instant (the virtual machine is already on) |
+| Extra memory | About 3GB | Depends on virtual machine allocation |
+| Image usage | Several GB | None (FydeOS's own disk) |
+| Window embedding | ✅ Can embed into the ApkStart window | ❌ Screen is displayed by FydeOS itself |
+| One app per window | ✅ | ❌ All apps share the FydeOS desktop |
+| Stability | High (hands-on tested) | **Depends on FydeOS version, see warning at the start** |
 
-**关于「一个应用一个窗口」**：这是 ApkStart 最有价值的那部分体验，FydeOS 底座给不了。
-原因是安卓画面在 FydeOS 桌面里（或在那台虚拟机的窗口里），不是某个安卓应用的
-独立窗口，没有可以 `SetParent` 的 HWND。
+**About "one app per window"**: This is the most valuable part of the ApkStart experience, and the FydeOS base cannot provide it. The reason is that the Android screen is inside the FydeOS desktop (or inside that virtual machine's window), not an independent window of some Android app, so there is no HWND that `SetParent` can use.
 
-所以 FydeOS 底座下，ApkStart 的角色变成：**应用清单 + 装包 + 启动 + 图标/快捷方式管理**，
-画面由 FydeOS 自己显示。
+So under the FydeOS base, ApkStart's role becomes: **app list + install packages + launch + icon/shortcut management**, with the screen displayed by FydeOS itself.
 
 ---
 
-## 常见问题
+## Common problems
 
-### 提示「请先填 FydeOS 的地址」
+### Prompt "Please fill in the FydeOS address first"
 
-Windows 上没有「本机安卓」，ApkStart 无从猜测那台虚拟机在哪。按上面第 4 步配端口转发或填 IP。
+On Windows there is no "local Android", so ApkStart has no way to guess where that virtual machine is. Configure port forwarding or fill in the IP as in step 4 above.
 
-### 一直 unauthorized，授权框也不弹
+### Always unauthorized, authorization dialog does not pop up
 
-FydeOS X 某些版本的已知问题（宿主机和 Linux 子系统的 adb key 不一致）。手工同步 key：
+A known issue on some versions of FydeOS X (adb key mismatch between host and Linux subsystem). Manually sync the key:
 
 ```bash
-# 1. FydeOS 的 Linux 终端里
+# 1. In FydeOS's Linux terminal
 adb start-server
-cat ~/.android/adbkey.pub      # 复制内容
+cat ~/.android/adbkey.pub      # copy the content
 
-# 2. Crosh（Ctrl+Alt+T）→ shell 进入宿主机
+# 2. Crosh (Ctrl+Alt+T) → shell to enter the host
 sudo mount -o remount,rw /
 sudo mkdir -p /opt/google/containers/android/rootfs/android-data/data/misc/adb
 sudo tee /opt/google/containers/android/rootfs/android-data/data/misc/adb/adb_keys <<'EOF'
-<把上面 adbkey.pub 的内容粘这里>
+<paste the adbkey.pub content here>
 EOF
 sudo chown 1000:1000 /opt/google/containers/android/rootfs/android-data/data/misc/adb/adb_keys
 sudo mount -o remount,ro /
 ```
 
-然后重启安卓子系统再连。
+Then restart the Android subsystem and connect again.
 
-### 连上了但应用装进去打不开
+### Connected but apps installed into it will not open
 
-如果是 `INSTALL_FAILED_NO_MATCHING_ABIS`，说明这个 APK 只有 arm64 版本，而 FydeOS
-在 x86 上跑。FydeOS 有内置的 ARM 兼容层，但覆盖不全 —— 这种应用换自带运行时
-（它带 Google 的 ARM 转译）更容易成功。
+If it is `INSTALL_FAILED_NO_MATCHING_ABIS`, the APK only has an arm64 version and FydeOS runs on x86. FydeOS has a built-in ARM compatibility layer but coverage is not complete — for such apps, switching to the built-in runtime (which comes with Google's ARM translation) is more likely to succeed.
 
-### 应用界面黑屏
+### App screen is black
 
-这是 FydeOS VMware 版的老问题（见开头警告）。先确认 FydeOS 自带的安卓应用能不能正常打开；
-如果系统自己的应用都黑屏，那不是 ApkStart 的问题，换 FydeOS 版本（有人反馈 v18 可用）或改用自带运行时。
+This is a long-standing problem of the FydeOS VMware version (see the warning at the start). First confirm whether FydeOS's own Android apps can open normally; if the system's own apps are also black screen, that is not an ApkStart problem — switch FydeOS versions (some report v18 works) or switch to the built-in runtime.
 
 ---
 
-## 技术细节（给维护者）
+## Technical details (for maintainers)
 
-- 后端实现在 `src/core/backends/fydeos.js`
-- 能力位刻意声明得很克制：不 `provision`（不装镜像）、不 `snapshot`（没有自己的快照）、
-  不 `rotatePanel`（面板由系统管）。只有 `shutdown`，而且它只是断开 adb 连接，
-  不会真去关系统里的安卓 —— 那会影响用户其它应用。
-- `embedCapable = false`。上层（`main.js` 的 `attachAppWindow`）看到这个标记就跳过
-  画面接管，不会兜一圈 `SetParent` 失败再刷一堆 `attach failed`。
-- Windows 上用 ApkStart 自带的 adb（`runtime/platform-tools/adb.exe`），
-  不要求用户自己装 platform-tools。
+- The backend is implemented in `src/core/backends/fydeos.js`
+- Capability bits are deliberately declared conservatively: no `provision` (no image installation), no `snapshot` (no own snapshots), no `rotatePanel` (panel managed by the system). Only `shutdown`, and it only disconnects the adb connection; it does not really shut down Android inside the system — that would affect the user's other apps.
+- `embedCapable = false`. Upper layers (`main.js`'s `attachAppWindow`) see this flag and skip screen takeover, without circling around `SetParent` failures and refreshing a bunch of `attach failed` messages.
+- On Windows, use ApkStart's own adb (`runtime/platform-tools/adb.exe`); users are not required to install platform-tools themselves.
