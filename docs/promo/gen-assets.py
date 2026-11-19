@@ -89,11 +89,7 @@ LOGO = Image.open(os.path.join(IMG, 'logo.png')).convert('RGB')
 APP = Image.open(os.path.join(IMG, 'app.png')).convert('RGB')
 HONGGUO = Image.open(os.path.join(IMG, 'compat-hongguo-playing.png')).convert('RGB')
 BRAND = Image.open(os.path.join(IMG, 'brand.png')).convert('RGB')
-<<<<<<< HEAD
 RELEASE = 'https://github.com/farmanullah1/APK-START-English/releases/tag/v0.2.2'
-=======
-RELEASE = 'https://github.com/RoutineMiku/apkstart/releases/tag/v0.2.2'
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 
 # ---------- 微信公众号封面 900x383 ----------
@@ -132,11 +128,7 @@ def download_qr():
     for x, name, asset, tip in cards:
         rounded(im, (x, 170, x + 460, 636), 24, fill=(246, 250, 247), outline=(222, 232, 226), width=2)
         d.text((x + 26, 192), name, font=font(30, True), fill=(13, 17, 23))
-<<<<<<< HEAD
         url = f'https://github.com/farmanullah1/APK-START-English/releases/download/v0.2.2/{asset}'
-=======
-        url = f'https://github.com/RoutineMiku/apkstart/releases/download/v0.2.2/{asset}'
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
         paste_fit(im, qr_png(url, 360), (x + 50, 240, 360, 360))
         d.text((x + 26, 608), tip, font=font(22), fill=(80, 100, 90))
     im.save(os.path.join(OUT, 'download-qr.png'))
@@ -153,11 +145,7 @@ def douyin_base(idx, title, subtitle=None):
     # 顶部品牌条
     paste_fit(im, LOGO, (64, 62, 92, 92), radius=20)
     d.text((178, 78), 'ApkStart', font=font(38, True), fill=WHITE)
-<<<<<<< HEAD
     d.text((178, 126), 'Powered by farmanullah1', font=font(22), fill=MUTED)
-=======
-    d.text((178, 126), 'Powered by RoutineMiku', font=font(22), fill=MUTED)
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     # 页码
     d.text((930, 80), f'{idx}/5', font=font(30, True), fill=GREEN)
     y = text_block(d, (64, 232), title, 62, WHITE, 950, bold=True, spacing=14)
@@ -239,11 +227,7 @@ def dy5():
     text_block(d, (100, 826), '解压双击 ApkStart.exe 直接进主界面', 28, MUTED, 880)
     paste_fit(im, qr_png(RELEASE, 400), (64, 950, 400, 400))
     text_block(d, (510, 990), '扫码下载', 46, WHITE, 500, bold=True)
-<<<<<<< HEAD
     text_block(d, (510, 1060), 'GitHub 搜索\nfarmanullah1/APK-START-English', 30, MUTED, 500, spacing=6)
-=======
-    text_block(d, (510, 1060), 'GitHub 搜索\nRoutineMiku/apkstart', 30, MUTED, 500, spacing=6)
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     text_block(d, (510, 1170), '抖音 @日常MIKU', 34, GREEN, 500, bold=True)
     text_block(d, (510, 1224), '公众号见主页二维码', 28, MUTED, 500)
     im.save(os.path.join(OUT, 'douyin-5.png'))

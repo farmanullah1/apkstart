@@ -1,20 +1,11 @@
 'use strict';
 /**
-<<<<<<< HEAD
  * Pure Node tests for the downloader range validation (no real network / emulator needed).
  * Covers the Content-Range validation and 416 resume fix contributed in #92:
  *   - validRange compares the start/end positions, total size, and Content-Length item by item;
  *   - when a single stream encounters 416, discard the bad residue and re-download the whole thing;
  *   - when a chunk / multi-source download encounters a mismatched range, reject it and do not splice corrupted bytes into the target file.
  * Run: node test/range-validation-test.js
-=======
- * 下载器范围校验的纯 Node 测试（不需要真实网络/模拟器）。
- * 覆盖 #92 贡献的 Content-Range 校验与 416 续传修复：
- *   - validRange 逐项比对起止位、总大小、Content-Length；
- *   - 单流遇到 416 时丢弃坏残片、重新完整下载；
- *   - 分块/多源下载遇到不匹配的范围时拒绝，不把损坏字节拼进目标文件。
- * 运行：node test/range-validation-test.js
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 const assert = require('assert/strict');
 const http = require('http');
@@ -43,11 +34,7 @@ function serve(handler) {
 const baseOf = (server) => `http://127.0.0.1:${server.address().port}`;
 
 (async () => {
-<<<<<<< HEAD
   console.log('\n[download.js Content-Range validation]');
-=======
-  console.log('\n[download.js Content-Range 校验]');
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
   test('validRange 接受完全匹配的响应', () => {
     const res = { headers: { 'content-range': 'bytes 100-199/500', 'content-length': '100' } };
@@ -98,7 +85,6 @@ const baseOf = (server) => `http://127.0.0.1:${server.address().port}`;
         assert.equal(fs.readFileSync(out, 'utf8'), 'good');
       });
 
-<<<<<<< HEAD
       await atest('Single-stream 206 rejects on range mismatch', async () => {
         const out = path.join(dir, 'resume');
         fs.writeFileSync(out, 'xxxx'); // make the request carry Range: bytes=4-
@@ -119,28 +105,6 @@ const baseOf = (server) => `http://127.0.0.1:${server.address().port}`;
         await assert.rejects(
           downloadMulti([`${base}/bad1`, `${base}/bad2`], out, { connections: 2, minChunk: 2, retries: 1 }),
           /mismatched chunk range/,
-=======
-      await atest('单流 206 范围不符时拒绝', async () => {
-        const out = path.join(dir, 'resume');
-        fs.writeFileSync(out, 'xxxx'); // 让请求带 Range: bytes=4-
-        await assert.rejects(download(`${base}/bad`, out), /范围/);
-      });
-
-      await atest('downloadParallel 范围不符时拒绝，不留半截文件', async () => {
-        const out = path.join(dir, 'two');
-        await assert.rejects(
-          downloadParallel(`${base}/bad`, out, { connections: 2, minChunk: 2, retries: 1 }),
-          /范围/,
-        );
-        assert.equal(fs.existsSync(out), false, '失败后目标文件应被清理');
-      });
-
-      await atest('downloadMulti 范围不符时拒绝', async () => {
-        const out = path.join(dir, 'three');
-        await assert.rejects(
-          downloadMulti([`${base}/bad1`, `${base}/bad2`], out, { connections: 2, minChunk: 2, retries: 1 }),
-          /范围/,
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
         );
       });
 

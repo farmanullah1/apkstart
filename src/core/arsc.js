@@ -1,20 +1,11 @@
 'use strict';
 /**
-<<<<<<< HEAD
  * resources.arsc parser (compact version)
  * Purpose: Resolves @0x7f... resource references in AndroidManifest to
  *          application labels (strings) and icon file paths (png under res/...).
  *
  * Parses only ResTable / ResTable_package / ResTable_type three-tier structure,
  * sufficient to cover 99% of app name and icon extraction scenarios.
-=======
- * resources.arsc 解析器（精简版）
- * 用途：把 AndroidManifest 里的 @0x7f... 资源引用还原成
- *       应用名（字符串）和图标文件路径（res/... 下的 png）。
- *
- * 只解析 ResTable / ResTable_package / ResTable_type 三层结构，
- * 足以覆盖 99% 的应用名与图标场景。
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 
 const RES_TABLE_TYPE = 0x0002;
@@ -70,7 +61,6 @@ function parseConfig(buf, off) {
   return cfg;
 }
 
-<<<<<<< HEAD
 /** Scores values for different purposes: strings prefer default config, images prefer high density */
 function score(cfg, prefer) {
   let s = 0;
@@ -79,16 +69,6 @@ function score(cfg, prefer) {
     if (cfg.density === 0xfffe) s -= 500;               // anydpi may be xml, penalize
   } else {
     s -= cfg.density === 0 ? 0 : 10;                    // Strings: prefer no density qualifier
-=======
-/** 为不同用途的取值打分：字符串偏好默认配置，图片偏好高密度 */
-function score(cfg, prefer) {
-  let s = 0;
-  if (prefer === 'file') {
-    s += cfg.density === 0 ? 0 : cfg.density;          // 高密度优先
-    if (cfg.density === 0xfffe) s -= 500;               // anydpi 可能是 xml，扣分
-  } else {
-    s -= cfg.density === 0 ? 0 : 10;                    // 字符串：无密度优先
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     if (cfg.language) s -= 40;
     if (cfg.sdkVersion) s -= cfg.sdkVersion / 1000;
     if (cfg.uiMode) s -= 20;
@@ -106,11 +86,7 @@ class ResTable {
 
   _parse() {
     const buf = this.buf;
-<<<<<<< HEAD
     if (buf.readUInt16LE(0) !== RES_TABLE_TYPE) throw new Error('resources.arsc format error');
-=======
-    if (buf.readUInt16LE(0) !== RES_TABLE_TYPE) throw new Error('resources.arsc 格式错误');
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     const headerSize = buf.readUInt16LE(2);
     const total = buf.readUInt32LE(4);
     const pkgCount = buf.readUInt32LE(8);
@@ -141,11 +117,7 @@ class ResTable {
     try {
       if (typeStringsOff) typeStrings = readStringPool(buf, start + typeStringsOff);
       if (keyStringsOff) keyStrings = readStringPool(buf, start + keyStringsOff);
-<<<<<<< HEAD
     } catch (_) { /* Fault-tolerant: missing string pool does not break primary flow */ }
-=======
-    } catch (_) { /* 容错：缺字符串池不影响主流程 */ }
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
     const types = new Map(); // typeId -> [{ config, entries: Map }]
     let pos = start + headerSize;
@@ -180,11 +152,7 @@ class ResTable {
     const entriesBase = start + entriesStart;
 
     if (flags & 0x01) {
-<<<<<<< HEAD
       // FLAG_SPARSE: entryCount pairs of (idx:u16, offset:u16)
-=======
-      // FLAG_SPARSE：entryCount 个 (idx:u16, offset:u16)
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
       for (let i = 0; i < entryCount; i++) {
         const idx = buf.readUInt16LE(offsetsBase + i * 4);
         const off = buf.readUInt16LE(offsetsBase + i * 4 + 2) * 4;
@@ -215,11 +183,7 @@ class ResTable {
     if (at + 8 > buf.length) return null;
     const entrySize = buf.readUInt16LE(at);
     const flags = buf.readUInt16LE(at + 2);
-<<<<<<< HEAD
     if (flags & 0x0001) return null; // Complex resource (bag/map), ignored here
-=======
-    if (flags & 0x0001) return null; // 复杂资源（bag/map），此处不处理
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     const valueAt = at + entrySize;
     return {
       dataType: buf.readUInt8(valueAt + 3),
@@ -228,11 +192,7 @@ class ResTable {
   }
 
   /**
-<<<<<<< HEAD
    * Resolves a resource reference
-=======
-   * 解析资源引用
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
    * @param {number} ref 0xPPTTEEEE
    * @param {'string'|'file'|'any'} prefer
    * @param {number} depth

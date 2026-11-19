@@ -229,27 +229,16 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || '断言失败'); 
     assert(/^image\.sysdir\.1=\S*system-images\//m.test(cfg), 'image.sysdir.1 缺失');
   });
 
-<<<<<<< HEAD
   await test('Install-failure wording: NO_MATCHING_ABIS points to the ARM native library issue', async () => {
-=======
-  await test('安装失败原因翻译：NO_MATCHING_ABIS 给出中文指引', async () => {
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     const { friendlyInstallError } = require('../src/core/adb');
     const out = friendlyInstallError(
       'Performing Streamed Install\nadb.exe: failed to install x.apk: '
       + 'Failure [INSTALL_FAILED_NO_MATCHING_ABIS: Failed to extract native libraries, res=-113]',
     );
-<<<<<<< HEAD
     assert(/ARM native librar/.test(out), `should explain ARM native library issue: ${out}`);
     assert(out.includes('INSTALL_FAILED_NO_MATCHING_ABIS'), 'should preserve original error code');
     const other = friendlyInstallError('Failure [INSTALL_FAILED_INVALID_APK: x]');
     assert(other.includes('corrupt') || other.includes('incomplete'), `unknown errors should also be readable: ${other}`);
-=======
-    assert(out.includes('ARM 原生库'), `应解释 ARM 原生库问题：${out}`);
-    assert(out.includes('INSTALL_FAILED_NO_MATCHING_ABIS'), '应保留原始错误码');
-    const other = friendlyInstallError('Failure [INSTALL_FAILED_INVALID_APK: x]');
-    assert(other.includes('损坏') || other.includes('不完整'), `未知错误也应可读：${other}`);
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   });
 
   await test('镜像校验：区分有效 ISO9660 / 损坏 / 未下完', async () => {
@@ -346,20 +335,12 @@ function assert(cond, msg) { if (!cond) throw new Error(msg || '断言失败'); 
     await new Promise((r) => srv.close(r));
   });
 
-<<<<<<< HEAD
   await test('When no system is installed, ensure returns needsSetup', async () => {
-=======
-  await test('未安装系统时 ensure 返回 needsSetup', async () => {
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     store.saveSettings({ runtime: { installed: false }, engine: { mode: 'builtin' } });
     const rt = new Runtime(TMP);
     // 用假 adb 保证 isOnline 快速失败
     const r = await rt.ensure({ onLog: () => {} });
-<<<<<<< HEAD
     assert(r.ok === false, 'should not be ready');
-=======
-    assert(r.ok === false, '不应就绪');
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     assert(['provision', 'install'].includes(r.needsSetup), `needsSetup=${r.needsSetup}`);
   });
 

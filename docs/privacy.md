@@ -41,11 +41,7 @@ ApkStart 是一个在本机运行的 Android 应用运行器。我们的原则�
 ### 6. 变更与联系
 
 政策如有变更，会更新本页面并修改「最后更新」日期。
-<<<<<<< HEAD
 问题请提交 issue 到 https://github.com/farmanullah1/APK-START-English/issues
-=======
-问题请提交 issue 到 https://github.com/RoutineMiku/apkstart/issues
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 ---
 
@@ -71,8 +67,4 @@ Network behaviour:
 
 Third-party apps you run are provided by their own developers and governed by their own privacy policies.
 
-<<<<<<< HEAD
 Contact: open an issue at https://github.com/farmanullah1/APK-START-English/issues
-=======
-Contact: open an issue at https://github.com/RoutineMiku/apkstart/issues
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93

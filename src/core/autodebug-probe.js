@@ -1,6 +1,5 @@
 'use strict';
 /**
-<<<<<<< HEAD
  * Auto-detection · Probe layer (runs in main process only)
  *
  * Responsibility: Collect real machine status into a **pure data** snapshot `obs` and pass it to src/core/autodebug.js for evaluation.
@@ -12,30 +11,13 @@
  *   - Free disk space, data partition capacity, shared directory writability
  *   - AVD leftover locks, hollow snapshots, orphan emulator processes
  *   - Error lines in recent logs
-=======
- * 自动检测 · 采集层（只在主进程跑）
- *
- * 职责：把机器的真实状态采成一份**纯数据**快照 obs，交给 src/core/autodebug.js 判定。
- * 采集层允许失败 —— 拿不到就留空，让判定层「不知道」，绝不编造结论。
- *
- * 采集项与耗时预算（一次全量约 2~5 秒）：
- *   - 运行时状态（引擎 status：环境 + adb 在线）
- *   - adb 设备授权状态
- *   - 磁盘余量、数据分区容量、共享目录可写性
- *   - AVD 残留锁、快照空壳、孤儿模拟器进程
- *   - 最近日志里的错误行
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 const fs = require('fs');
 const path = require('path');
 const { execFile } = require('child_process');
 const { AVD_NAME, SNAPSHOT_NAME } = require('./emulator');
 
-<<<<<<< HEAD
 /** Boot phase timing: timestamp when first observed "running but not ready" */
-=======
-/** 引导阶段计时：第一次看到「在跑但没 ready」的时刻 */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 let bootingSince = 0;
 
 function withTimeout(promise, ms, fallback) {
@@ -45,11 +27,7 @@ function withTimeout(promise, ms, fallback) {
   ]);
 }
 
-<<<<<<< HEAD
 /** Count residual .lock entries in AVD directory (both files and directories count) */
-=======
-/** 数 AVD 目录里残留的 .lock（文件或目录都算） */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 function countLocks(avdDir) {
   try {
     return fs.readdirSync(avdDir).filter((f) => /\.lock$/i.test(f)).length;
@@ -59,15 +37,9 @@ function countLocks(avdDir) {
 }
 
 /**
-<<<<<<< HEAD
  * Check if snapshot is a "hollow shell": snapshot.pb exists but RAM image is missing or too small.
  * Such snapshots cause every boot to "fail loading then cold boot", wasting several GB of disk.
  * Read-only check, does not delete here - deletion is left to user confirmation or fix action.
-=======
- * 快照是不是「空壳」：snapshot.pb 在但内存镜像没了或太小。
- * 这种快照每次开机都要「加载失败再冷启动」，等于白占几 GB 磁盘。
- * 只读判断，不在这里删 —— 删除交给用户确认或修复动作。
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 function inspectSnapshot(avdHome, avdName, snapshotName) {
   const base = path.join(avdHome, `${avdName}.avd`, 'snapshots', snapshotName);
@@ -80,11 +52,7 @@ function inspectSnapshot(avdHome, avdName, snapshotName) {
   return { present: true, stale, mb };
 }
 
-<<<<<<< HEAD
 /** Count surviving emulator orphan processes (emulator.exe / qemu-system*.exe) */
-=======
-/** 数还活着的模拟器孤儿进程（emulator.exe / qemu-system*.exe） */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 function countOrphanProcesses() {
   return new Promise((resolve) => {
     let out = '';
@@ -101,34 +69,7 @@ function countOrphanProcesses() {
   });
 }
 
-<<<<<<< HEAD
 /** Read error lines from recent log files (checks at most the last 300 lines) */
-=======
-/**
- * Windows Audio（Audiosrv）是不是在运行。
- * 只有明确拿到 sc query 的输出才写 true/false；探测失败留 null，
- * 判定层当「不知道」，绝不因为查询失败就报「音频服务已停止」。
- */
-function queryWindowsAudioService() {
-  return new Promise((resolve) => {
-    if (process.platform !== 'win32') { resolve(null); return; }
-    try {
-      execFile('sc.exe', ['query', 'Audiosrv'], { timeout: 8000, windowsHide: true }, (err, stdout) => {
-        if (err) { resolve(null); return; }
-        const text = String(stdout || '');
-        if (!/SERVICE_NAME:\s*Audiosrv/i.test(text)) { resolve(null); return; }
-        const m = text.match(/STATE\s*:\s*\d+\s+([A-Z_]+)/i);
-        if (!m) { resolve(null); return; }
-        resolve(/^RUNNING$/i.test(m[1]));
-      });
-    } catch (_) {
-      resolve(null);
-    }
-  });
-}
-
-/** 读最近日志文件里的错误行（最多看尾部 300 行） */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 function recentLogErrors(files, max = 300) {
   const out = [];
   for (const file of files) {
@@ -154,11 +95,7 @@ function recentLogErrors(files, max = 300) {
 }
 
 /**
-<<<<<<< HEAD
  * Collect an observation snapshot
-=======
- * 采一份快照
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  * @param {object} ctx { runtime, store, doctor }
  * @returns {Promise<object>} obs
  */
@@ -173,46 +110,22 @@ async function collect(ctx) {
     network: {},
     logs: {},
     accel: { checked: false },
-<<<<<<< HEAD
   };
 
   // ---- Settings (cheapest, fetch first) ----
-=======
-    audio: { checked: false, enabled: null, serviceRunning: null },
-  };
-
-  // ---- 设置（最便宜，先取） ----
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   let settings = {};
   try { settings = store.getSettings() || {}; } catch (_) { settings = {}; }
   obs.settings = {
     orientationMode: (settings.display && settings.display.orientationMode) || 'auto',
     landscape: !!(settings.display && settings.display.landscape),
-<<<<<<< HEAD
     // Default to native window since 0.6.0: only explicit true counts as embedded mode
-=======
-    // 0.6.0 起默认原生窗口：只有显式 true 才算嵌入模式
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     windowEmbed: !!(settings.display && settings.display.windowEmbed === true),
     autoFullscreen: !!(settings.display && settings.display.autoFullscreenOnLaunch),
     keepSnapshot: !(settings.engine && settings.engine.keepSnapshot === false),
     resourceMode: (settings.engine && settings.engine.resourceMode) || '',
   };
 
-<<<<<<< HEAD
   // ---- Runtime status ----
-=======
-  // ---- 声音 ----
-  // 引擎的 audio=false 会让模拟器带 -no-audio 启动，是「只有 ApkStart 没声音」的头号原因；
-  // Windows Audio 服务被停掉则系统其它软件也没声。两者都被 0.6.2 纳入自动检测。
-  obs.audio = {
-    checked: true,
-    enabled: !(settings.engine && settings.engine.audio === false),
-    serviceRunning: await withTimeout(queryWindowsAudioService(), 9000, null),
-  };
-
-  // ---- 运行时状态 ----
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   let status = null;
   try {
     status = await withTimeout(runtime.status(), 20000, null);
@@ -238,22 +151,14 @@ async function collect(ctx) {
     phase,
     ready,
     bootMs: bootingSince ? Date.now() - bootingSince : 0,
-<<<<<<< HEAD
     error: (status && status.error && !/(?:Missing adb|Missing adb)/i.test(status.error)) ? status.error : '',
-=======
-    error: (status && status.error && !/缺少 adb/.test(status.error)) ? status.error : '',
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     lastFailure: lastFailure ? { error: lastFailure.error || lastFailure.reason || '' } : null,
     locks: paths ? countLocks(paths.avdHome) : 0,
     orphans: null,
     snapshotStale: false,
   };
 
-<<<<<<< HEAD
   // ---- adb device authorization status ----
-=======
-  // ---- adb 设备授权状态 ----
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   try {
     const client = runtime.client();
     if (client && typeof client.deviceState === 'function') {
@@ -262,15 +167,9 @@ async function collect(ctx) {
         obs.device = { checked: true, state };
       }
     }
-<<<<<<< HEAD
   } catch (_) { /* Leave checked:false if undetectable */ }
 
   // ---- Storage ----
-=======
-  } catch (_) { /* 探测不到就留 checked:false */ }
-
-  // ---- 存储 ----
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   try {
     const root = paths ? paths.root : null;
     if (root) {
@@ -299,11 +198,7 @@ async function collect(ctx) {
     }
   } catch (_) { /* ignore */ }
 
-<<<<<<< HEAD
   // ---- Snapshot / locks / orphans ----
-=======
-  // ---- 快照 / 锁 / 孤儿 ----
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   try {
     if (paths) {
       const snap = inspectSnapshot(paths.avdHome, AVD_NAME, SNAPSHOT_NAME);
@@ -314,41 +209,25 @@ async function collect(ctx) {
 
   const orphans = await countOrphanProcesses();
   if (orphans !== null) {
-<<<<<<< HEAD
     // The running instance itself consists of emulator.exe + qemu (2 processes), not leftovers.
-=======
-    // 正在跑的那台本身就是 emulator.exe + qemu 两个进程，不是残留。
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
     const expected = running ? 2 : 0;
     obs.runtime.orphans = Math.max(0, orphans - expected);
   }
 
-<<<<<<< HEAD
   // ---- Network ----
-=======
-  // ---- 网络 ----
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   try {
     const snap = typeof runtime._networkSnapshot === 'function' ? runtime._networkSnapshot() : null;
     if (snap) obs.network = { ok: !!snap.ok, reason: snap.reason || '', ip: snap.ip || '' };
   } catch (_) { /* ignore */ }
 
-<<<<<<< HEAD
   // ---- Acceleration ----
-=======
-  // ---- 加速 ----
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   try {
     if (status && status.accel) {
       obs.accel = { checked: true, ok: !!status.accel.ok, note: status.accel.note || '' };
     }
   } catch (_) { /* ignore */ }
 
-<<<<<<< HEAD
   // ---- Logs ----
-=======
-  // ---- 日志 ----
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   try {
     const dir = path.join(store.DATA_DIR, 'logs');
     const files = [path.join(store.DATA_DIR, 'app.log'), path.join(dir, 'emulator.log')];

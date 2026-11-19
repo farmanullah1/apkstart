@@ -1,14 +1,8 @@
 'use strict';
 /**
-<<<<<<< HEAD
  * Android Binary XML (AXML) parser
  * AndroidManifest.xml inside an APK is compiled into binary format and cannot be read as plain text.
  * This parses the string pool and element/attribute tree into a standard DOM structure.
-=======
- * Android 二进制 XML(AXML) 解析器
- * AndroidManifest.xml 在 APK 内是编译后的二进制格式，无法直接当文本读。
- * 这里实现字符串池 + 元素/属性树解析，输出普通的 DOM 结构。
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
  */
 
 const RES_STRING_POOL_TYPE = 0x0001;
@@ -31,11 +25,7 @@ const ANDROID_NS = 'http://schemas.android.com/apk/res/android';
 
 function readStringPool(buf, start) {
   const type = buf.readUInt16LE(start);
-<<<<<<< HEAD
   if (type !== RES_STRING_POOL_TYPE) throw new Error('Invalid string pool type');
-=======
-  if (type !== RES_STRING_POOL_TYPE) throw new Error('字符串池类型错误');
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   const headerSize = buf.readUInt16LE(start + 2);
   const chunkSize = buf.readUInt32LE(start + 4);
   const count = buf.readUInt32LE(start + 8);
@@ -53,17 +43,10 @@ function readStringPool(buf, start) {
   for (let i = 0; i < count; i++) {
     let p = base + offsets[i];
     if (isUtf8) {
-<<<<<<< HEAD
       // utf16 length (1~2 bytes)
       let len = buf[p++];
       if (len & 0x80) { len = ((len & 0x7f) << 8) | buf[p++]; }
       // utf8 byte length
-=======
-      // utf16 长度（1~2 字节）
-      let len = buf[p++];
-      if (len & 0x80) { len = ((len & 0x7f) << 8) | buf[p++]; }
-      // utf8 字节长度
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
       let byteLen = buf[p++];
       if (byteLen & 0x80) { byteLen = ((byteLen & 0x7f) << 8) | buf[p++]; }
       strings[i] = buf.toString('utf8', p, p + byteLen);
@@ -84,11 +67,7 @@ function readStringPool(buf, start) {
 function parseAxml(buffer) {
   const buf = buffer;
   if (buf.readUInt16LE(0) !== RES_XML_TYPE) {
-<<<<<<< HEAD
     throw new Error('Not valid Android binary XML (possibly obfuscated or invalid APK)');
-=======
-    throw new Error('不是 Android 二进制 XML（可能被混淆或非法 APK）');
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   }
   let pos = buf.readUInt16LE(2); // headerSize
   const total = buf.readUInt32LE(4);
@@ -123,11 +102,7 @@ function parseAxml(buffer) {
       const attrCount = buf.readUInt16LE(pos + 28);
 
       const node = { name: pool[nameIdx], attrs: [], children: [], parent: stack[stack.length - 1] };
-<<<<<<< HEAD
       // attributeStart is relative to ResXMLTree_attrExt (chunk + 16)
-=======
-      // attributeStart 相对 ResXMLTree_attrExt（chunk + 16）起算
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
       const attrBase = pos + 16 + attrStart;
       for (let i = 0; i < attrCount; i++) {
         const a = attrBase + i * attrSize;
@@ -170,11 +145,7 @@ function parseAxml(buffer) {
   }
 
   const el = root.children.find((c) => c.name === 'manifest') || root.children[0];
-<<<<<<< HEAD
   if (!el) throw new Error('APK manifest is empty');
-=======
-  if (!el) throw new Error('APK 清单为空');
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   return el;
 }
 

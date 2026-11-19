@@ -12,11 +12,7 @@
 🔥 老镜像上必崩的字节系应用（实测红果短剧），换新版翻译层后：安装 → 推荐流 → 视频播放，全程不崩
 
 两个版本任选：轻量版 0.11GB（首启一键部署）／完整版 1.35GB（开箱即用）
-<<<<<<< HEAD
 GitHub 搜 farmanullah1/APK-START-English，点 Releases 下载，项目完全开源可自行编译 👀
-=======
-GitHub 搜 RoutineMiku/apkstart，点 Releases 下载，项目完全开源可自行编译 👀
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 有问题评论区问我，或者来公众号 / 抖音 @日常MIKU 找我～
 

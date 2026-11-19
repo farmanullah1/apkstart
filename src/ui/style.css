@@ -39,11 +39,7 @@ body {
   height: 100vh;
 }
 
-<<<<<<< HEAD
 /* ---------------- Titlebar ---------------- */
-=======
-/* ---------------- 标题栏 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .titlebar {
   height: 44px;
@@ -55,11 +51,7 @@ body {
   background: var(--bg);
   border-bottom: 1px solid transparent;
   -webkit-app-region: drag;
-<<<<<<< HEAD
   padding-right: 148px; /* Reserve space for system window buttons */
-=======
-  padding-right: 148px; /* 给系统窗口按钮留位 */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 }
 
 .brand { display: flex; align-items: center; gap: 8px; }
@@ -81,11 +73,7 @@ body {
   line-height: 16px;
 }
 .brand-tag.ok { color: var(--brand-dark); background: var(--brand-soft); }
-<<<<<<< HEAD
 /* Status tag doubles as entry point: click to open Runtime settings panel */
-=======
-/* 状态标签兼作入口：点它进设置里的运行时面板 */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .brand-tag { cursor: pointer; user-select: none; }
 .brand-tag:hover { filter: brightness(.97); }
 
@@ -101,11 +89,7 @@ body {
 }
 .icon-btn:hover { background: #edf0f3; color: var(--text); }
 
-<<<<<<< HEAD
 /* ---------------- Layout ---------------- */
-=======
-/* ---------------- 布局 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .shell {
   flex: 1;
@@ -171,11 +155,7 @@ body {
 .btn.lg { height: 38px; padding: 0 18px; border-radius: 11px; }
 .btn:disabled { opacity: .55; cursor: default; }
 
-<<<<<<< HEAD
 /* ---------------- App Grid ---------------- */
-=======
-/* ---------------- 应用网格 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .content {
   flex: 1;
@@ -267,11 +247,7 @@ body {
 }
 .card:hover .open-hint { opacity: 1; transform: none; }
 
-<<<<<<< HEAD
 /* ---------------- Empty State ---------------- */
-=======
-/* ---------------- 空状态 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .empty {
   height: 100%;
@@ -286,11 +262,7 @@ body {
 .empty-art { opacity: .9; }
 .hint { margin-top: 14px !important; font-size: 11.5px !important; color: var(--faint) !important; }
 
-<<<<<<< HEAD
 /* ---------------- Status Bar ---------------- */
-=======
-/* ---------------- 状态栏 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .statusbar {
   flex: 0 0 32px;
@@ -349,11 +321,7 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-<<<<<<< HEAD
 /* ---------------- Drag & Drop ---------------- */
-=======
-/* ---------------- 拖放 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .dropzone {
   position: fixed; inset: 0;
@@ -375,11 +343,7 @@ body {
 .dropzone-inner strong { font-size: 15px; color: var(--text); }
 .dropzone-inner span { font-size: 12px; color: var(--muted); }
 
-<<<<<<< HEAD
 /* ---------------- Context Menu ---------------- */
-=======
-/* ---------------- 右键菜单 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .ctxmenu {
   position: fixed;
@@ -407,11 +371,7 @@ body {
 .ctxmenu .item .k { margin-left: auto; color: var(--faint); font-size: 11px; }
 .ctxmenu .divider { height: 1px; background: var(--line); margin: 5px 6px; }
 
-<<<<<<< HEAD
 /* ---------------- Settings Dialog ---------------- */
-=======
-/* ---------------- 设置弹窗 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .modal-mask {
   position: fixed; inset: 0;
@@ -435,11 +395,7 @@ body {
 }
 @keyframes pop { from { opacity: 0; transform: scale(.985) translateY(4px); } }
 
-<<<<<<< HEAD
 /* Settings category nav (left column) + content area (right scroll) */
-=======
-/* 设置页分类导航（左侧一列）+ 内容区（右侧滚动） */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .modal-main {
   flex: 1 1 auto;
   min-height: 0;
@@ -491,11 +447,7 @@ body {
 .set-nav-badge[hidden] { display: none; }
 .set-nav-badge.warn { background: #d97706; }
 
-<<<<<<< HEAD
 /* Search box: jump to setting items by keyword */
-=======
-/* 搜索框：设置项太多时按关键词直达 */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .set-search-wrap {
   flex: 1 1 auto;
   max-width: 320px;
@@ -524,11 +476,7 @@ body {
 .set-search-clear:hover { color: var(--text); }
 .set-search-clear[hidden] { display: none; }
 
-<<<<<<< HEAD
 /* Auto-detection results */
-=======
-/* 自动检测结果 */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .dbg-list { margin-bottom: 10px; }
 .dbg-group { margin-bottom: 10px; }
 .dbg-group-title {
@@ -564,15 +512,6 @@ body {
   border: 1px solid var(--brand); color: var(--brand); background: var(--brand-soft);
 }
 .dbg-item .dbg-fix:hover { background: var(--brand); color: #fff; }
-<<<<<<< HEAD
-=======
-.dbg-item .dbg-help {
-  flex: 0 0 auto; align-self: center;
-  height: 28px; padding: 0 9px; font-size: 12px; border-radius: 8px;
-  border: 1px solid var(--line); color: var(--muted); background: transparent;
-}
-.dbg-item .dbg-help:hover { border-color: var(--brand); color: var(--brand); }
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .dbg-ok {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 12px; border-radius: 10px;
@@ -691,11 +630,7 @@ body {
 .runtime-actions { display: flex; align-items: center; gap: 8px; margin: 2px 0 10px; }
 .inline-note { font-size: 11.5px; color: var(--faint); }
 
-<<<<<<< HEAD
 /* Health check count on status bar: issues shown at bottom, click to open settings */
-=======
-/* 状态条上的自检计数：主界面不再放大横幅，问题只在底部提示，点开进设置 */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .status-chip {
   height: 19px; padding: 0 8px; margin-left: 2px;
   font-size: 11px; line-height: 17px;
@@ -707,11 +642,7 @@ body {
 .status-chip:hover { filter: brightness(.97); }
 .status-chip[hidden] { display: none; }
 
-<<<<<<< HEAD
 /* ---------------- Health Check Banner ---------------- */
-=======
-/* ---------------- 环境自检横幅 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .env-check {
   flex: 0 0 auto;
@@ -756,25 +687,12 @@ body {
   border: 1px solid var(--brand); color: var(--brand); background: var(--brand-soft);
 }
 .env-check-item .ec-fix:hover { background: var(--brand); color: #fff; }
-<<<<<<< HEAD
-=======
-.env-check-item .ec-help {
-  flex: 0 0 auto; align-self: center;
-  height: 28px; padding: 0 9px; font-size: 12px; border-radius: 8px;
-  border: 1px solid var(--line); color: var(--muted); background: transparent;
-}
-.env-check-item .ec-help:hover { border-color: var(--brand); color: var(--brand); }
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .env-check-ok {
   display: flex; align-items: center; gap: 8px;
   padding: 12px 14px; color: var(--brand-dark); font-size: 12.5px;
 }
 
-<<<<<<< HEAD
 /* Runtime panel in settings: embedded health check and wizard styling */
-=======
-/* 设置里的运行时面板：自检块与旧向导样式内嵌化（不再整屏、不需要投影） */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .modal-body .env-check { margin: 6px 0 12px; box-shadow: none; }
 .modal-body .env-check-ok { padding: 10px 12px; }
 .modal-body .setup-guide { max-width: none; padding: 14px 16px; margin: 6px 0 4px; }
@@ -790,11 +708,7 @@ body {
 }
 .modal-foot .btn { margin-left: auto; }
 
-<<<<<<< HEAD
 /* ---------------- Runtime Deployment Wizard ---------------- */
-=======
-/* ---------------- 运行时部署向导 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 .setup {
   flex: 1;
@@ -917,11 +831,7 @@ kbd {
 }
 .guide-foot { display: flex; gap: 10px; margin-top: 14px; }
 
-<<<<<<< HEAD
 /* ---- About / Branding ---- */
-=======
-/* ---- 关于 / 品牌信息 ---- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .about-box {
   display: flex;
   gap: 16px;
@@ -993,11 +903,7 @@ kbd {
 }
 .powered-link:hover { color: var(--text); text-decoration: underline; }
 
-<<<<<<< HEAD
 /* Advanced settings collapsed by default: zero-config experience */
-=======
-/* 高级参数默认折叠：零配置体验，不把内部参数暴露给普通用户 */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .advanced-group {
   border-top: 1px solid var(--line, #e8ebf0);
   margin: 4px 0 0;
@@ -1022,11 +928,7 @@ kbd {
 .advanced-group[open] > summary::before { transform: rotate(90deg); }
 .advanced-group[open] > summary { color: var(--text, #2b3138); }
 
-<<<<<<< HEAD
 /* ---------------- Software Updates ---------------- */
-=======
-/* ---------------- 软件更新 ---------------- */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .update-bar {
   margin-top: 9px;
   height: 4px;
@@ -1056,11 +958,7 @@ kbd {
   color: var(--text-2, #556);
 }
 
-<<<<<<< HEAD
 /* Small collapsible sections within groups (container details, etc.) */
-=======
-/* 组内的小号折叠块（容器细节等） */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .mini-details {
   margin: 2px 0 6px;
   border: 1px dashed var(--line, #e8ebf0);
@@ -1085,9 +983,5 @@ kbd {
 }
 .mini-details[open] > summary::before { transform: rotate(90deg); }
 
-<<<<<<< HEAD
 /* Prevent inline buttons from wrapping */
-=======
-/* 行内按钮不要折行（空间紧张时「立即扩容」会被拆成两行） */
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 .row .btn { white-space: nowrap; flex: 0 0 auto; }

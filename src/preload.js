@@ -46,7 +46,6 @@ contextBridge.exposeInMainWorld('apkstart', {
   dataInfo: () => invoke('runtime:dataInfo'),
   setDataSize: (gb) => invoke('runtime:setDataSize', gb),
   resources: () => invoke('engine:resources'),
-<<<<<<< HEAD
   // System preflight / Auto-configuration
   preflightRun: () => invoke('preflight:run'),
   preflightApply: () => invoke('preflight:apply'),
@@ -59,20 +58,6 @@ contextBridge.exposeInMainWorld('apkstart', {
   clearSnapshot: () => invoke('app:clearSnapshot'),
   restartRuntime: () => invoke('runtime:restart'),
   // Drivers (compatibility patches): list / import / open folder / export local template / toggle
-=======
-  // 本机体检 / 自动配置
-  preflightRun: () => invoke('preflight:run'),
-  preflightApply: () => invoke('preflight:apply'),
-  // 自动检测（自动 debug）：定时采集 + 判定，产出按分类归组的问题清单
-  autodebugRun: () => invoke('autodebug:run'),
-  autodebugState: () => invoke('autodebug:state'),
-  autodebugConfig: (patch) => invoke('autodebug:config', patch || {}),
-  // 自动检测的修复动作
-  clearOrphans: () => invoke('app:clearOrphans'),
-  clearSnapshot: () => invoke('app:clearSnapshot'),
-  restartRuntime: () => invoke('runtime:restart'),
-  // 驱动（兼容补丁）：列清单 / 导入 / 打开目录 / 导出本机模板 / 启用停用
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   driversList: () => invoke('drivers:list'),
   driversImport: () => invoke('drivers:import'),
   driversOpenFolder: () => invoke('drivers:openFolder'),
@@ -100,11 +85,7 @@ contextBridge.exposeInMainWorld('apkstart', {
   installAehd: () => invoke('provision:installAehd'),
   enableAccel: () => invoke('provision:enableAccel'),
   enableVirtualization: () => invoke('provision:enableVirtualization'),
-<<<<<<< HEAD
   // Open "Turn Windows features on or off" dialog (Store version guides user to manually toggle)
-=======
-  // 打开「启用或关闭 Windows 功能」对话框（商店版只能引导用户自己去勾选）
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   openWindowsFeatures: () => invoke('provision:openWindowsFeatures'),
   downloadIso: () => invoke('provision:downloadIso'),
   createDisk: (gb) => invoke('provision:createDisk', gb),
@@ -116,11 +97,7 @@ contextBridge.exposeInMainWorld('apkstart', {
   removeSelf: () => invoke('app:removeSelf'),
   setSharedDir: (dir) => invoke('settings:setSharedDir', dir),
 
-<<<<<<< HEAD
   // Online updates (GitHub Releases)
-=======
-  // 在线更新（GitHub Releases）
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   updateCheck: (opts) => invoke('app:updateCheck', opts || {}),
   updateApply: () => invoke('app:updateApply'),
   updateCancel: () => invoke('app:updateCancel'),
@@ -135,22 +112,13 @@ contextBridge.exposeInMainWorld('apkstart', {
   openSharedDir: () => invoke('share:open'),
 
   openExternal: (url) => invoke('shell:open', url),
-<<<<<<< HEAD
-=======
-  // 0.6.2 内置手册：传 { topic } / { issue } / { error } 都会定位到对应章节
-  openManual: (payload) => invoke('manual:open', payload || {}),
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   winMinimize: () => invoke('window:minimize'),
   winMaximize: () => invoke('window:maximize'),
   winClose: () => invoke('window:close'),
   winHide: () => invoke('window:hide'),
   bringAppToFront: () => invoke('app:foreground'),
 
-<<<<<<< HEAD
   // App window (Rotate / Minimize / Maximize / Close only) APIs
-=======
-  // 应用窗口（只有 旋转 / 最小化 / 最大化 / 关闭）用到的接口
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   shell: {
     state: () => invoke('shell:state'),
     minimize: () => invoke('shell:minimize'),
@@ -167,11 +135,7 @@ contextBridge.exposeInMainWorld('apkstart', {
     },
   },
 
-<<<<<<< HEAD
   // Android system settings (WiFi / Volume / Display / Animation / Permissions ...)
-=======
-  // 安卓系统设置（WiFi / 音量 / 显示 / 动画 / 权限 …）
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   android: {
     status: () => invoke('android:status'),
     set: (key, value) => invoke('android:set', { key, value }),
@@ -181,11 +145,7 @@ contextBridge.exposeInMainWorld('apkstart', {
     grantAll: (pkg) => invoke('android:grantAll', pkg),
   },
 
-<<<<<<< HEAD
   // Keymapping (Game keyboard -> Touch)
-=======
-  // 按键映射（游戏键盘→触屏）
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
   keymap: {
     getPresets: () => invoke('keymap:getPresets'),
     getMap: (pkg) => invoke('keymap:getMap', pkg),

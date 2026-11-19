@@ -35,11 +35,7 @@ qemu 在系统繁忙时被饿到，是「点击要等一下才响应、视频掉
 
 ## 零、中文系统、中文输入法、窗口改名、旋转自愈（后补）
 
-<<<<<<< HEAD
 **System language defaults to English.** This step previously used `-prop persist.sys.locale=zh-CN` which was ineffective
-=======
-**系统语言默认简体中文。** 这一步踩了个坑：`-prop persist.sys.locale=zh-CN` 完全无效
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 （模拟器会拦截 `persist.sys.*`，`ro.product.locale` 又被 build.prop 覆盖），
 guest 里 `getprop` 一个都看不到。改用官方的 `-change-locale zh-CN` 后，系统设置页、
 权限弹窗、日期格式全部中文。它只在全量引导时生效，所以从旧英文快照恢复时会自动
@@ -162,11 +158,7 @@ FydeOS（基于 ChromiumOS）本身就能跑安卓应用。在它上面再开一
 体验更好的那个模式。
 
 完整安装步骤、ADB 授权、以及已知的「一直 unauthorized」解法见
-<<<<<<< HEAD
 [docs/fydeos.md](https://github.com/farmanullah1/APK-START-English/blob/main/docs/fydeos.md)。
-=======
-[docs/fydeos.md](https://github.com/RoutineMiku/apkstart/blob/main/docs/fydeos.md)。
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 
 > **状态说明**：FydeOS 底座的逻辑（连接、授权、错误提示、能力声明）和 Linux 的
 > `.desktop` 生成都已有单元测试覆盖，但**尚未在真实 FydeOS 设备上跑过端到端流程**。
@@ -176,11 +168,7 @@ FydeOS（基于 ChromiumOS）本身就能跑安卓应用。在它上面再开一
 ## 五、底座选型说明
 
 顺手把「要不要换 Waydroid / WSA / 应用宝 / 换个轻量系统」彻底评估了一遍，结论在
-<<<<<<< HEAD
 [docs/backend-roadmap.md](https://github.com/farmanullah1/APK-START-English/blob/main/docs/backend-roadmap.md)。
-=======
-[docs/backend-roadmap.md](https://github.com/RoutineMiku/apkstart/blob/main/docs/backend-roadmap.md)。
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 简要版：
 
 | 方案 | 结论 |

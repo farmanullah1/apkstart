@@ -74,10 +74,6 @@
 ## 微软商店
 
 - 包体：`dist/store/ApkStart_0.5.8.0_x64.msix`（x64，约 850 MB，内置完整运行时）
-<<<<<<< HEAD
 - 身份：`farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
-=======
-- 身份：`RoutineMiku.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
->>>>>>> 0dc0485ed33e53047ad93d2cdcd985cc80d60c93
 - 提交材料：`docs/store-listing.md`（含本版 What's new 中英文段）
 - 文档：`docs/preflight.md`（体检）、`docs/drivers.md`（驱动）
