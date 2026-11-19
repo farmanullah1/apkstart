@@ -1,62 +1,62 @@
 # ApkStart v0.4.3
 
-> 一句话：把**旋转/全屏**从"改运行时分辨率"彻底改成"换物理面板尺寸"，横屏终于**正立且铺满**；同时修掉整机卡顿，并新增**游戏 / 低延迟模式**（为 FPS 准备）。
+> In one sentence: change **rotation/fullscreen** from "change runtime resolution" to "swap physical panel size", so landscape is finally **upright and full**; also fix whole-machine lag, and add **game / low-latency mode** (in preparation for FPS).
 
-## 一、旋转 / 全屏：现在真的正立且铺满
+## 1. Rotation / fullscreen: now really upright and full
 
-### 之前为什么一直不对
+### Why it was always wrong before
 
-模拟器的画面来自一块「物理 LCD 面板」，Qt 会按面板尺寸开窗口、把画面贴在左上角。之前三种做法都是错路，而每一条都对应你截图里的一个现象：
+The emulator's screen comes from a "physical LCD panel"; Qt opens the window per panel size and pastes the screen at the top-left. The previous three approaches were all wrong paths, and each corresponds to one phenomenon in your screenshots:
 
-| 做法 | 结果 |
+| Approach | Result |
 |---|---|
-| 运行期改 `wm size` | 只改 Android 逻辑分辨率，物理面板仍是竖的 → 画面**躺倒 90°**、只占左上角一条、点击坐标错位 |
-| 运行期改 `wm density` | framebuffer 尺寸不变 → 画面**不会铺满**，最大化后右侧一大片空白 |
-| `adb emu rotate` | 只转画面内容，系统里还是竖屏 |
+| Changing `wm size` at runtime | Only changes Android logical resolution; the physical panel is still portrait → screen **lies down 90°**, occupies only a strip at top-left, click coordinates misaligned |
+| Changing `wm density` at runtime | Framebuffer size unchanged → screen **does not fill**; after maximize, a large empty area on the right |
+| `adb emu rotate` | Only rotates screen content; the system side is still portrait |
 
-### 现在怎么做
+### What it does now
 
-**旋转 = 改 `hw.lcd.width/height` 并重启模拟器**（约 30–60 秒，只在点旋转时发生一次）：
+**Rotation = change `hw.lcd.width/height` and restart the emulator** (about 30–60 seconds, only happens once when you tap rotation):
 
-- 竖屏面板 `720x1280`，横屏面板 `1280x720`；
-- 同时按方向锁 `wm user-rotation`（横屏锁 1、竖屏锁 0）+ 关闭传感器自动旋转 —— 面板变横但 rotation 仍是 0 时，画面就会躺倒；
-- 方向持久化在设置里，重开 ApkStart 仍按这个方向开机；
-- **全屏按钮 = 切横屏**：窗口最大化 + 物理面板转横，不再是把竖画面拉大。
+- Portrait panel `720x1280`, landscape panel `1280x720`;
+- At the same time set direction lock `wm user-rotation` (landscape lock 1, portrait lock 0) + disable sensor auto-rotation — when the panel becomes landscape but rotation is still 0, the screen lies down;
+- Direction is persisted in settings; re-opening ApkStart still boots with this direction;
+- **Fullscreen button = switch to landscape**: window maximize + physical panel turns landscape, instead of stretching the portrait screen.
 
-### 顺带修掉的两个真 bug
+### Two real bugs also fixed along the way
 
-1. **`-no-skin` 覆盖 `-skin`**：启动参数同时带了这两个，`-no-skin` 让面板尺寸退回 `config.ini` 旧值 —— 这就是"设置里切了横屏、实际还是竖屏"的直接原因。已移除 `-no-skin`。
-2. **最大化后不铺满**：Electron 最大化时宿主窗口变成 1936×1048，但内部的 Chrome 渲染层仍停在旧尺寸（实测 532×984），而模拟器窗口挂在渲染层之下、会被父窗口裁剪。现在 Fit 会**先把渲染层拉满宿主客户区**，再按该尺寸贴模拟器；窗口扫描每轮也会自愈一次，即使 JS 的 resize 事件丢了也能恢复。
+1. **`-no-skin` overriding `-skin`**: launch parameters carried both; `-no-skin` made the panel size fall back to the `config.ini` old value — that is exactly the direct cause of "switched to landscape in settings, but actually still portrait". Removed `-no-skin`.
+2. **Not filling after maximize**: when Electron maximizes, the host window becomes 1936×1048, but the internal Chrome render layer still stays at the old size (tested 532×984), and the emulator window hangs below the render layer, getting clipped by the parent window. Now Fit **first stretches the render layer to fill the host client area**, then pastes the emulator per that size; the window scan also self-heals once per round, recovering even if JS's resize event is lost.
 
-## 二、卡顿：整机变卡的三处开销
+## 2. Lag: three costs that made the whole machine laggy
 
-1. **窗口扫描频率**：原来开机前 90 秒每 120ms 就全桌面枚举一次窗口（一轮里 4 次 `EnumWindows` + 进程路径查询），持续吃 CPU。现在改为前 10 秒 250ms、之后 **1500ms**；游戏模式进一步降到 **3000ms**。
-2. **模拟器优先级**：默认 balanced 会把 qemu 摁到 BelowNormal，关掉应用后甚至降到 **Idle**（最低）—— Android 因此严重掉帧。现在关闭应用后不再无条件降到 Idle。
-3. **全局鼠标钩子**：`WH_MOUSE_LL` 会对桌面每个鼠标事件同步回调，明显增加指针延迟。**游戏模式下完全不装**。
+1. **Window scan frequency**: previously in the first 90 seconds of boot, the whole desktop was enumerated once every 120ms (4 `EnumWindows` + process path query per round), continuously eating CPU. Now changed to 250ms for the first 10 seconds, then **1500ms**; game mode further drops to **3000ms**.
+2. **Emulator priority**: the default balanced pushes qemu to BelowNormal, and after closing the app even drops to **Idle** (lowest) — Android therefore seriously drops frames. Now after closing the app it no longer unconditionally drops to Idle.
+3. **Global mouse hook**: `WH_MOUSE_LL` synchronously callbacks every mouse event on the desktop, clearly increasing pointer latency. **Not installed at all in game mode**.
 
-## 三、新增：游戏 / 低延迟模式
+## 3. New: game / low-latency mode
 
-设置 → 性能与资源 → **虚拟机优先级 → 「游戏 / 低延迟」**：
+Settings → Performance & Resources → **Virtual machine priority → "Game / Low latency"**:
 
-- 模拟器进程提到 **High** 优先级，安卓渲染和输入优先拿到 CPU；
-- 关闭全局鼠标钩子，指针走原生输入路径；
-- 窗口扫描降到 3000ms，减少宿主侧打扰；
-- 「流畅」资源策略现在也直接进这个模式（视频/游戏优先）。
+- Emulator process raised to **High** priority; Android rendering and input preferentially get CPU;
+- Global mouse hook removed; pointer takes the native input path;
+- Window scan dropped to 3000ms, reducing host-side disturbance;
+- The "smooth" resource policy now also directly enters this mode (video/game priority).
 
-代价是整机其他程序会慢一些，所以默认仍是「均衡」。
+The cost is that other programs on the whole machine become a bit slower, so the default is still "balanced".
 
-## 四、顺带加固
+## 4. Strengthened along the way
 
-- `settings.json` 现在能容忍 **UTF-8 BOM**。之前文件一旦带 BOM，`JSON.parse` 直接抛错，整个配置静默回落到默认值 —— 用户会看到"设置全丢了"却查不出原因（我自己测试时就踩到了）。
-- 新增回归测试：横屏必须靠 `lcdFor({landscape})`、不得再用运行期 `wm size`；窗口模式必须用 `-skin` 且不得带 `-no-skin`；游戏模式必须是 High 且不装全局钩子。
+- `settings.json` now tolerates **UTF-8 BOM**. Previously once the file had a BOM, `JSON.parse` threw directly, and the whole configuration silently fell back to defaults — the user would see "all settings lost" but could not find the reason (I tripped over this myself during testing). 
+- Added regression tests: landscape must rely on `lcdFor({landscape})`, must not use runtime `wm size` again; window mode must use `-skin` and must not carry `-no-skin`; game mode must be High and not install the global hook.
 
-## 五、实测
+## 5. Hands-on
 
-- `npm test`：**117 项全部通过**（8 + 25 + 84）。
-- 横屏实测：`wm size` = `Physical size: 1280x720`、`user_rotation=1`，guest 画面**正立、布局正确、无黑边**；最大化后宿主客户区 1920×1032、渲染层同步拉满。
-- 竖屏实测：`720x1280`、`rotation=0`，画面正立铺满。
+- `npm test`: **all 117 items passing** (8 + 25 + 84).
+- Landscape hands-on: `wm size` = `Physical size: 1280x720`, `user_rotation=1`, guest screen **upright, layout correct, no black edges**; after maximize, host client area 1920×1032, render layer synchronously stretched full.
+- Portrait hands-on: `720x1280`, `rotation=0`, screen upright and full.
 
-## 六、升级方式
+## 6. Upgrade method
 
-- 便携版：解压覆盖，数据目录（默认 `%APPDATA%\apkstart`）保持不变。
-- 安装版：直接安装覆盖。
+- Portable version: unzip and overwrite; data directory (default `%APPDATA%\apkstart`) remains unchanged.
+- Installer version: directly install and overwrite.

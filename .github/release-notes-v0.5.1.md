@@ -1,66 +1,49 @@
 # ApkStart v0.5.1
 
-这一版是**稳定性与观感**的收尾：把上一版实机走查中确认的 6 个问题逐个复现、修复、再验证。
-新版号主要用于微软商店——已经提交过 0.5.0 的话，用 `0.5.1.0` 才能覆盖升级。
+This release is a stability and appearance wrap-up: it reproduces, fixes, and re-verifies the 6 issues confirmed during the previous version's hands-on review one by one. The new version number is mainly for the Microsoft Store — if 0.5.0 has already been submitted, only `0.5.1.0` can overwrite-upgrade.
 
-## 一、切换应用不再对着空屏等 40 秒
+## 1. Switching apps no longer waits facing a blank screen for 40 seconds
 
-独立窗口模式下，壳窗口平时是不显示的（画面在模拟器自己的窗口里）。但切换到
-**屏幕方向不同**的应用时要重启运行时换面板，约 40 秒——这段时间桌面上原本一扇窗口都没有，
-用户只会以为程序崩了。
+In standalone window mode, the shell window is normally not displayed (the screen is inside the emulator's own window). But when switching to an app with a **different screen orientation**, the runtime must be restarted to swap panels, taking about 40 seconds — during this time the desktop has no windows at all, and the user will only think the program crashed.
 
-现在等待期间会显示一扇「正在为《红果短剧》切换到竖屏（重启安卓环境，约 40 秒，只需一次）…」
-的窗口，画面接上后自动收起。
+Now, during the wait, a window is shown: "Switching 《Hongguo Short Dramas》 to portrait (restarting Android environment, about 40 seconds, only once)…", and it automatically retracts after the screen is connected.
 
-实测：t=2.1s 出现等待窗口，一直挂到 t=41.9s 画面接上，全程有交代。
+Hands-on: t=2.1s the wait window appears, hangs until t=41.9s the screen is connected, the whole process is communicated.
 
-## 二、不再误报「虚拟机没有网络，请重置安卓数据」
+## 2. No longer falsely reports "virtual machine has no network, please reset Android data"
 
-Wi-Fi 关联 + DHCP 普遍比 `sys.boot_completed` 晚 5~20 秒，而旧实现只查一次就下结论，
-于是**每次冷启动**都会打一条 ⚠️：「安卓虚拟机当前没有网络…可在『设置 → 修复网络』重置安卓数据来修」。
+Wi-Fi association + DHCP generally lag `sys.boot_completed` by 5~20 seconds, while the old implementation only checked once and concluded; so **every cold boot** produced a ⚠️: "Android virtual machine currently has no network… can be fixed by resetting Android data under 'Settings → Repair network'". This prompt itself is wrong (it will automatically connect a few seconds later), and the remedy it suggests **deletes installed apps**.
 
-这条提示本身是错的（几秒后就会自动连上），而它建议的补救手段会**删掉已装应用**。
+Now the network checkup is given a 12-second wait window (returns as soon as ready); only prompts on real timeout, and no longer suggests destructive operations.
 
-现在给网络体检 12 秒等待窗口（就绪即返回），真超时才提示，且不再建议破坏性操作。
+## 3. Fix "app launch failure after orientation-switch restart"
 
-## 三、修复「换向重启后应用启动失败」
+`emulator.exe` is only a launcher; after spawning qemu it exits on its own, but the process object is retained. So after an orientation-switch restart, the immediately following `ensure()` goes to `start()`'s "reuse" fast path, gets the serial of an **already-closed** emulator, and all subsequent adb commands report `device not found` / `Can't find service: activity`; manifesting as "switching apps directly fails and bounces back to the main interface".
 
-`emulator.exe` 只是启动器，spawn 完 qemu 自己就退出了，但进程对象一直留着。
-于是换面板重启后紧接着的 `ensure()` 会走到 `start()` 的「复用」快路径，拿到一个**已经关掉的**
-模拟器的 serial，后面所有 adb 命令报 `device not found` / `Can't find service: activity`，
-表现为「切换应用直接失败并弹回主界面」。
+Now reuse must confirm there is really a machine running on the console port; `stop()` cleanup also clears the launcher handle.
 
-现在复用前必须确认控制台端口上真的有机器在跑；`stop()` 收尾也会清掉启动器句柄。
+## 4. Launch serialization
 
-## 四、启动串行化
+One launch is at most 80 seconds (panel swap + cold boot). If you tap another app during this time, the old behavior was to **really concurrently run the second round**: `openAppWindow` closes the app that is starting, while the virtual machine is restarting, and both fail together.
 
-一次启动最长 80 秒（换面板 + 冷启动）。这期间再点一个应用，旧行为是**真的并发跑第二遍**：
-`openAppWindow` 把正在启动的应用关掉，而虚拟机又在重启，两边一起失败。
+Now: the same app rapid-tap = only launches once; switching apps queues and waits for the previous one to finish.
 
-现在：同一个应用连点 = 只启动一次；换应用会排队等前一次收尾。
+## 5. Console black box at boot, and new window flashing the previous app's name
 
-## 五、开机时的控制台黑框、以及新窗口闪上一个应用的名字
+- After Win11 changed the default console host to Windows Terminal, qemu's console window belongs to `WindowsTerminal.exe`; pid / parent chain / title all cannot identify ownership, so every boot flashes a 200~300ms black box on screen. Now it uses "take a snapshot of the console window before boot + new appearance within 20 seconds after boot + title empty or containing terminal" to identify, and added a 100ms high-frequency scan channel (only in the first 15 seconds).
+- The window agent caches the last set title, while `setTitle` was originally after `show()`, causing the new window to first display **the previous app's name** for about 0.5 seconds. Now the title is set before `show`.
 
-- Win11 把默认控制台宿主换成 Windows Terminal 之后，qemu 的控制台窗口属于
-  `WindowsTerminal.exe`，pid / 父进程链 / 标题都认不出归属，于是每次开机都在屏幕上
-  闪 200~300ms 的黑框。现在用「开机前给控制台窗口拍快照 + 开机后 20 秒内新出现 +
-  标题为空或带 terminal」来认，并加了一条 100ms 的高频扫描通道（只在前 15 秒）。
-- 窗口代理缓存着上次设过的标题，而 `setTitle` 原本在 `show()` 之后，导致新窗口先显示
-  **上一个应用的名字**约 0.5 秒。现在标题在 `show` 之前就设好。
+## 6. Documentation: why `adb devices` cannot see this Android device
 
-## 六、文档：为什么 `adb devices` 看不到这台安卓设备
-
-ApkStart 的 adb 服务跑在**专用端口 5044**（你自己的 adb 是 5037），这是刻意隔离。
-想连的话：`$env:ANDROID_ADB_SERVER_PORT = 5044` 再执行 `adb devices`。
-另外别对 5555 手动 `adb connect`——Play 版镜像会弹「允许 USB 调试吗」并盖在应用上。
+ApkStart's adb service runs on a **dedicated port 5044** (your own adb is 5037); this is an intentional isolation. To connect: `$env:ANDROID_ADB_SERVER_PORT = 5044` then run `adb devices`. Also do not manually `adb connect` on 5555 — the Play image will pop "Allow USB debugging?" and cover the app.
 
 ---
 
-## 微软商店
+## Microsoft Store
 
-- 包体：`dist/store/ApkStart_0.5.1.0_x64.msix`（x64，约 850 MB，内置完整运行时）
-- 身份：`farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
-- 升级：商店按四段版本号比较，`0.5.1.0 > 0.5.0.0`，可以直接覆盖已提交的 0.5.0
-- 上架材料见 `docs/store-listing.md`，步骤见 `docs/store-upload-walkthrough.md`
+- Package: `dist/store/ApkStart_0.5.1.0_x64.msix` (x64, about 850 MB, full runtime bundled)
+- Identity: `farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+- Upgrade: Store compares four-segment version numbers; `0.5.1.0 > 0.5.0.0`, can directly overwrite the already-submitted 0.5.0
+- Listing materials see `docs/store-listing.md`, steps see `docs/store-upload-walkthrough.md`
 
-测试：9 + 25 + 117 = 151 通过。
+Test: 9 + 25 + 117 = 151 passing.

@@ -1,115 +1,89 @@
 # ApkStart v0.6.0
 
-这一版把设置页重新整理了一遍，并加上了**自动检测**：
-设置项按用途分成八类、可搜索；后台定时体检这台机器，
-只在发现新问题时提醒一次，其余安静地列在「诊断与修复」里。
+This release reorganizes the settings page and adds **auto-detection**:
+settings items are grouped into 8 categories by purpose and are searchable; the background periodically checks this machine's health and only notifies once when a new issue is found, with the rest quietly listed under "Diagnostics & Repair".
 
 ---
 
-## 一、设置页重新分类
+## 1. Settings page reclassified
 
-设置项一路涨到 16 个分组，单列长滚动已经不好找。现在左侧一列导航，分八类：
+Settings items grew to 16 groups; a single long scroll was already hard to navigate. Now there is a left navigation column, grouped into eight categories:
 
-| 分类 | 装了什么 |
+| Category | What's included |
 |---|---|
-| 常用与安装 | 运行时与环境、一键完成、开机自启、磁盘占用与清理 |
-| 显示与窗口 | 显示模式、自动全屏、屏幕方向、镜像自动旋转、平板排版、窗口承载方式、竖屏大小、安卓系统设置（Wi-Fi / 动画 / 音量 / 字体 / 显示大小） |
-| 操作与输入 | 鼠标键位、键盘映射（游戏手柄） |
-| 性能与资源 | 资源策略、画质、数据分区、系统语言、中文输入法、网络加速、声音、快照、容器细节、后台裁剪、开机预热、高级参数 |
-| 网络与下载 | 更新与下载源、公共加速镜像、镜像前缀、下载线程数、Gitee token |
-| 诊断与修复 | 本机体检 · 自动配置、驱动 · 兼容补丁、自动检测 · 智能诊断 |
-| 集成与文件 | 桌面与应用、文件互通、系统集成 |
-| 更新与关于 | 软件更新、关于 |
+| General & Installation | Runtime & environment, one-click setup, launch at startup, disk usage & cleanup |
+| Display & Window | Display mode, auto-fullscreen, screen orientation, mirror auto-rotate, tablet layout, window hosting mode, portrait size, Android system settings (Wi-Fi / animations / volume / font / display size) |
+| Controls & Input | Mouse keybindings, keyboard mapping (gamepad) |
+| Performance & Resources | Resource policy, graphics quality, data partition, system language, Chinese IME, network acceleration, sound, snapshots, container details, background trimming, boot warm-up, advanced parameters |
+| Network & Downloads | Update & download sources, public acceleration mirrors, mirror prefixes, download thread count, Gitee token |
+| Diagnostics & Repair | System health check & auto-config, drivers & compatibility patches, auto-detection & smart diagnostics |
+| Integration & Files | Desktop & app shortcuts, file sharing, system integration |
+| Updates & About | Software updates, about |
 
-外加一个搜索框：输入「横屏」「内存」「代理」「快照」等关键词，
-命中项**跨分类**显示（不会因为当前在别的分类就「搜了个寂寞」）。
-上次停留的分类会记住（localStorage），下次打开就在原地。
+Plus a search box: type keywords like "landscape", "memory", "proxy", "snapshot", and matches **cross categories** (no "searched in vain" just because you were in another category). The last-stayed category is remembered (localStorage), and reopens there next time.
 
-跳转逻辑也一起改了：托盘的「安装引导」、状态条上的自检计数、
-检测面板里的「数据分区有问题」这些入口，现在都走统一的 `focusGroup()` ——
-先切到对应分类再滚动，不会滚到一个当前不可见的分组上。
+Jump logic was also updated: tray "install guide", status bar self-check count, and "data partition has a problem" entries inside the detection panel now all go through the unified `focusGroup()` — switching to the corresponding category first and then scrolling, instead of scrolling to a currently-invisible group.
 
-## 二、自动检测（自动 debug）
+## 2. Auto-detection (auto debug)
 
-后台定时把机器状态采一遍，出一份**按分类归组的问题清单**：
+The background periodically samples machine state and produces a **problem list grouped by category**:
 
-| 分类 | 查什么 |
+| Category | What it checks |
 |---|---|
-| 运行时 | 上次启动失败的真实原因、引导卡死、残留锁文件、孤儿模拟器进程、快照空壳、没有硬件加速 |
-| 设备连接 | adb 未授权（安卓弹了「允许 USB 调试吗」没人点）、offline、运行时在跑但 adb 看不到设备 |
-| 存储 | 磁盘余量、数据分区配置值 vs 实际值（差量盘挡住扩容）、共享目录可写性 |
-| 设置 | 方向策略与物理面板打架、独立窗口下的自动全屏不生效、磁盘紧 + 快照关闭 |
-| 网络 | 安卓侧没网、下载源不通 |
-| 日志 | 最近日志里的错误行 |
+| Runtime | Real cause of last boot failure, boot freeze, leftover lock files, orphaned emulator processes, empty snapshot shells, no hardware acceleration |
+| Device connection | ADB unauthorized (the "Allow USB debugging?" prompt was never clicked), offline, runtime running but ADB cannot see the device |
+| Storage | Disk space, data partition configured value vs actual value (differential disk blocks expansion), shared folder writability |
+| Settings | Orientation policy vs physical panel conflict, auto-fullscreen not working in standalone window mode, disk tight + snapshots off |
+| Network | No internet on the Android side, download source unreachable |
+| Logs | Error lines in recent logs |
 
-### 三条设计原则（都是被坑出来的）
+### Three design principles (all learned the hard way)
 
-1. **采集与判定分离**：`src/core/autodebug-probe.js` 负责采集（会调系统命令），
-   `src/core/autodebug.js` 是纯函数判定层，不碰 fs / electron / child_process ——
-   所以 CI 能直接 require 并单测（记忆 2026-11-17 的教训：CI 环境下
-   顶层 `require('electron')` 的模块会全红）。
-2. **探测失败 ≠ 有问题**：拿不到状态就留空，判定层当「不知道」。
-   绝不为了「有东西可报」而编一条 —— 误报一次，用户就不信自动检测了。
-3. **只在新问题出现时打扰**：老问题已经提示过，每轮都弹窗就是噪音；
-   严重度升级（如 warn→error）会重新提醒；恢复了只静默记账。
+1. **Collection and judgment are separated**: `src/core/autodebug-probe.js` handles collection (it calls system commands), `src/core/autodebug.js` is a pure-function judgment layer that does not touch fs / electron / child_process — so CI can directly `require` it and unit-test it (lesson from 2026-11-17: in CI, modules with a top-level `require('electron')` all go red).
+2. **Detection failure ≠ problem**: if status cannot be obtained, leave it blank; the judgment layer treats it as "unknown". Never fabricate a line just to have "something to report" — one false alarm and users stop trusting auto-detection.
+3. **Only disturb when a new issue appears**: old issues have already been prompted; popping a window every round is noise; severity escalation (e.g. warn→error) re-prompts; recovery is only silently accounted.
 
-### 一键处理
+### One-click fix
 
-每条问题都带一个「处理」按钮，直接复用设置页原有的修复入口：
+Each problem carries a "Fix" button that directly reuses the settings page's existing repair entry:
 
-| 问题 | 处理动作 |
+| Problem | Fix action |
 |---|---|
-| 未授权 / 引导卡死 / 孤儿锁 | 重启运行时（走一次冷启动，授权弹窗重新出现） |
-| 残留锁文件 | 清理锁文件 |
-| 孤儿模拟器进程 | 杀掉占着 AVD 锁的残留进程 |
-| 快照空壳 | 作废快照（换一次冷启动，换回几 GB 磁盘） |
-| 磁盘紧张 | 清理可回收文件 |
-| 数据分区没生效 | 跳到性能页重建（会清空已装应用，**不自动做**） |
-| 方向冲突 | 把面板方向改成与策略一致 |
-| 安卓没网 | 重置安卓网络（应用清单保留） |
-| 日志有错 | 导出诊断报告 |
+| Unauthorized / boot freeze / orphan lock | Restart runtime (go through a cold boot, authorization popup reappears) |
+| Leftover lock file | Clear the lock file |
+| Orphaned emulator process | Kill the leftover process holding the AVD lock |
+| Empty snapshot shell | Invalidate snapshot (one cold boot, reclaim several GB disk) |
+| Disk pressure | Clean recoverable files |
+| Data partition not effective | Jump to the performance page to rebuild (will clear installed apps; **not done automatically**) |
+| Orientation conflict | Change the panel orientation to match the policy |
+| Android no network | Reset Android network (app list retained) |
+| Log errors | Export diagnostic report |
 
-## 三、关键修复：0.5.9「点应用没反应 / 所有应用都打不开」
+## 3. Critical fix: 0.5.9 "clicking an app does nothing / no app can open"
 
-这条是 0.5.9 的致命回归，本版根治。故障链有三环，缺一不成立：
+This was a fatal regression in 0.5.9, and this release roots it out. The failure chain has three links; missing any one does not trigger it:
 
-1. **打包漏带原生模块**：`build/pack.js` 只复制 `src/`，从不复制 `node_modules`。
-   系统镜像是 `.img.xz`，解压要靠 `@napi-rs/lzma`（`package.json` 里的生产依赖）。
-   打出来的包一启动就 `Cannot find module '@napi-rs/lzma'` —— 镜像展不开、运行时起不来，
-   四种参数组合全部 `boot-failed`，用户看到的就是「装完什么都打不开」。
-   现在打包会按 `dependencies` 复制生产依赖（作用域包连整个 scope 一起带，原生二进制在
-   `@napi-rs/*-win32-x64-msvc` 里）。缺少时也改成了可读报错（`LZMA_MISSING`），
-   而不是一长串 `require stack`。
+1. **Packaging forgot to include native modules**: `build/pack.js` only copies `src/`, never copies `node_modules`. The system image is `.img.xz`, and decompression relies on `@napi-rs/lzma` (a production dependency in `package.json`). The packaged app, on first launch, throws `Cannot find module '@napi-rs/lzma'` — the image cannot be expanded, the runtime cannot start, all four parameter combinations result in `boot-failed`, and what the user sees is "installed but nothing opens". Now packaging copies production dependencies per `dependencies` (scope packages bring the whole scope together; native binaries live in `@napi-rs/*-win32-x64-msvc`). When missing, it now reports a readable error (`LZMA_MISSING`) instead of a long `require stack`.
+2. **The image file itself was truncated**: `system.img.xz` was only 495 MB, decompressing to 1366 MB (should be 2958 MB), then reporting `failed to fill whole buffer`. Packaging now adds **xz integrity verification** (checks the footer); a truncated image now makes the build fail directly instead of waiting for the user to install and then discover.
+3. **Having an existing image went and decompressed again**: previously `paths()` picked `system-images` as long as the runtime directory had it, even if that place only had a compressed package while the user data directory already had a usable 3.1 GB `system.img`. Now it prefers the already-expanded location, using whichever is available.
 
-2. **镜像文件本身被截断**：`system.img.xz` 只有 495 MB，解到 1366 MB（应 2958 MB）就报
-   `failed to fill whole buffer`。打包时新增**xz 完整性校验**（检查 footer），
-   截断镜像会直接让构建失败，而不是等用户装完才发现。
+## 4. Verification
 
-3. **有现成镜像还去重复解压**：`paths()` 以前只要运行时目录里有 `system-images`
-   就选它，哪怕那里只有压缩包、而用户数据目录里已经有一份可用的 3.1 GB `system.img`。
-   现在优先选「已经展开好」的那一处，谁可用用谁。
+- Added `test/autodebug-test.js` **29 items**: empty snapshot no false alarm, unauthorized/offline distinction, disk and data partition thresholds, orientation conflict judgment, summary and diff, front-end/back-end category table consistency, IPC wiring.
+- Added `test/settings-categories-test.js` **12 items**: each group has a category, categories and navigation correspond one-to-one (no "clicked and it's empty"), search crosses categories, jumps uniformly via `focusGroup`.
+- Added `test/settings-ui-test.js` (real Electron window, 15 items): open settings → switch categories → auto-detection panel rendering → search → clear → remember category → console no errors.
+- Full plain Node test suite **355 items passing** (original 314 + 41 new).
+- UI screenshots: `test/out/settings-{display,diag,search}.png`.
 
-## 四、验证
+## Upgrade notes from 0.5.9
 
-- 新增 `test/autodebug-test.js` **29 项**：空快照不误报、unauthorized/offline 区分、
-  磁盘与数据分区阈值、方向冲突判定、汇总与差异、前后端分类表一致性、IPC 接线。
-- 新增 `test/settings-categories-test.js` **12 项**：每个分组都有分类、
-  分类与导航一一对应（不会出现「点了是空的」）、搜索跨分类、跳转统一走 `focusGroup`。
-- 新增 `test/settings-ui-test.js`（真实 Electron 窗口，15 项）：
-  打开设置 → 切分类 → 自动检测面板渲染 → 搜索 → 清除 → 记忆分类 → 控制台无报错。
-- 全套纯 Node 测试 **355 项通过**（原 314 项 + 新增 41 项）。
-- 界面截图：`test/out/settings-{display,diag,search}.png`。
+- `0.6.0.0 > 0.5.9.0`; Store can directly overwrite upgrade; installed apps, data, and snapshots are all retained.
+- No settings items were deleted, only reclassified; previously remembered scroll position no longer applies (changed to remember category).
+- Auto-detection is **enabled by default**: runs the first round 25 seconds after launch, then every 10 minutes. To disable, turn it off under "Settings → Diagnostics & Repair", or set the interval to 1 hour.
+- Detection is read-only and does not change the system: except for actions you tapped in "one-click fix", it does not change any settings.
 
-## 从 0.5.9 升级说明
+## Microsoft Store
 
-- `0.6.0.0 > 0.5.9.0`，商店可直接覆盖升级；已装应用、存档、快照都保留。
-- 设置项一个没删，只是重新分了类；原来记住的滚动位置不再适用（改成记住分类）。
-- 自动检测**默认开启**：启动 25 秒后跑第一轮，之后每 10 分钟一次。
-  不想要可以在「设置 → 诊断与修复」里关掉，或把间隔调到 1 小时。
-- 检测只读不改动系统：除了「一键处理」里你点过的动作，它不会改任何设置。
-
-## 微软商店
-
-- 包体：`dist/store/ApkStart_0.6.0.0_x64.msix`（x64，约 850 MB，内置完整运行时）
-- 身份：`farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
-- 提交材料：`docs/store-listing.md`（含本版 What's new 中英文段）
+- Package: `dist/store/ApkStart_0.6.0.0_x64.msix` (x64, about 850 MB, full runtime bundled)
+- Identity: `farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+- Submission materials: `docs/store-listing.md` (includes this version's What's new in Chinese and English)

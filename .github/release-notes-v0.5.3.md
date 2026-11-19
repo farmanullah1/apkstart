@@ -1,60 +1,53 @@
 # ApkStart v0.5.3
 
-这一版全部围绕**图标**：让每个安卓应用在桌面/任务栏上真的显示它自己的图标。
+This release is entirely around **icons**: making each Android app actually show its own icon on the desktop / taskbar.
 
-## 一、安卓应用的快捷方式恢复用「应用自己的图标」
+## 1. Android app shortcuts restored to "the app's own icon"
 
-上一版整理图标时，把所有 ApkStart 相关快捷方式的图标统一写成了 ApkStart 的品牌图标，
-于是红果、墨读的桌面快捷方式都变成了绿色播放键。
+The previous version, when organizing icons, uniformly wrote all ApkStart-related shortcut icons as ApkStart's brand icon; so the desktop shortcuts for Hongguo and MoreRead all became the green play button.
 
-现在用 App 自己的 `shortcut.writeShortcut()` 重写（和「设置 → 重建快捷方式」同一条代码路径）：
+Now use the app's own `shortcut.writeShortcut()` to rewrite (the same code path as "Settings → Rebuild shortcuts"):
 
-| 快捷方式 | 图标 |
+| Shortcut | Icon |
 |---|---|
-| 红果免费短剧（桌面 + 开始菜单） | `%APPDATA%\apkstart\icons\com.phoenix.read.ico` |
-| 墨读（桌面 + 开始菜单） | `%APPDATA%\apkstart\icons\cn.moread.app.ico` |
-| ApkStart / Demo（运行器本身） | 品牌图标 |
+| Hongguo free short dramas (desktop + Start menu) | `%APPDATA%\apkstart\icons\com.phoenix.read.ico` |
+| MoreRead (desktop + Start menu) | `%APPDATA%\apkstart\icons\cn.moread.app.ico` |
+| ApkStart / Demo (the runner itself) | Brand icon |
 
-> 产品代码本来就用的是 `app.icoPath`，这是环境被改坏的修复 + 补了一层任务栏身份。
+> The product code was already using `app.icoPath`; this is a fix for a corrupted environment + an added layer of taskbar identity.
 
-## 二、任务栏身份按应用切换
+## 2. Taskbar identity switches per app
 
-Windows 只有在「运行进程的 AUMID == 快捷方式的 AUMID」时，才会把正在运行的窗口和
-任务栏固定项合并、并沿用快捷方式的图标。每个应用的快捷方式写的是
-`farmanullah1.ApkStart.<包名>`，而进程级身份原本是 `farmanullah1.ApkStart` —— 对不上就会
-出现「固定项是应用图标，任务栏上却另起一个 ApkStart 按钮」。
+Windows only merges the currently running window with the taskbar pinned item, and inherits the shortcut's icon, when "the running process's AUMID == the shortcut's AUMID". Each app's shortcut writes `farmanullah1.ApkStart.<package name>`, while the process-level identity was originally `farmanullah1.ApkStart` — when they do not match, you get "the pinned item is the app icon, but the taskbar pops up another ApkStart button".
 
-现在：打开某个应用前把进程身份切成该应用的 AUMID，回到管理窗口再切回 ApkStart 的。
+Now: before opening an app, switch the process identity to that app's AUMID; when returning to the management window, switch back to ApkStart's.
 
-## 三、运行器 exe 的品牌化（0.5.2 起）
+## 3. Runner exe branding (since 0.5.2)
 
-`ApkStart.exe` 以前就是改名的 `electron.exe`：FileDescription=Electron、
-CompanyName=GitHub, Inc.、版本 33.4.11，图标也是 Electron 的。现在打包时会写入
+`ApkStart.exe` was previously just renamed `electron.exe`: FileDescription=Electron, CompanyName=GitHub, Inc., version 33.4.11, and the icon was Electron's. Now packaging writes:
 
 ```
-FileDescription  ApkStart 安卓应用运行器
+FileDescription  ApkStart Android App Runner
 ProductName      ApkStart
 CompanyName      farmanullah1
 FileVersion      0.5.3.0
 ProductVersion   0.5.3
 ```
 
-并嵌入 `appicon.ico`（16→256 共 9 帧）。
+And embeds `appicon.ico` (9 frames from 16→256).
 
 ---
 
-## 从 0.5.2 升级说明
+## Upgrade notes from 0.5.2
 
-- `0.5.3.0 > 0.5.2.0`，商店可以直接覆盖升级。
-- 已经装过 0.5.1 / 0.5.2 的用户：更新后**不需要重装安卓应用**，但建议在
-  「设置 → 重建快捷方式」点一次，把旧快捷方式的图标刷成应用自己的
-  （0.5.2 装的应用快捷方式本身是对的，只有被手工改坏的那几个需要重建）。
+- `0.5.3.0 > 0.5.2.0`, Store can directly overwrite upgrade.
+- Users who previously installed 0.5.1 / 0.5.2: after updating, **no need to reinstall Android apps**, but it is recommended to tap "Settings → Rebuild shortcuts" once, to refresh old shortcuts' icons to the app's own (shortcuts for apps installed in 0.5.2 are themselves correct; only the few manually corrupted ones need rebuilding).
 
-## 微软商店
+## Microsoft Store
 
-- 包体：`dist/store/ApkStart_0.5.3.0_x64.msix`（x64，约 850 MB，内置完整运行时）
-- 身份：`farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
-- 提交材料：`docs/store-listing.md`（含本版 What's new 中英文段）
-- 步骤：`docs/store-upload-walkthrough.md`
+- Package: `dist/store/ApkStart_0.5.3.0_x64.msix` (x64, about 850 MB, full runtime bundled)
+- Identity: `farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+- Submission materials: `docs/store-listing.md` (includes this version's What's new in Chinese and English)
+- Steps: `docs/store-upload-walkthrough.md`
 
-测试：9 + 25 + 121 = 155 通过。
+Test: 9 + 25 + 121 = 155 passing.

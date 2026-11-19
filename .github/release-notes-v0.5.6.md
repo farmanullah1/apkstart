@@ -1,70 +1,51 @@
 # ApkStart v0.5.6
 
-这一版只做一件事，但做得彻底：**把「第三方模拟器底座」整条链路删掉**。
+This release does only one thing, but does it thoroughly: **delete the entire "third-party emulator base" chain**.
 
-从这一版起，ApkStart **无论什么情况都独立运行**：只用自己的 adb / emulator / 系统镜像，
-不探测、不接管、不驱动、也不依赖你电脑上装的任何模拟器（MuMu / 雷电 / 蓝叠 / WSA / FydeOS 都不接）。
+From this release, ApkStart **runs independently in all cases**: it only uses its own adb / emulator / system image, and does not probe, take over, drive, or depend on any emulator installed on your machine (MuMu / LDPlayer / BlueStacks / WSA / FydeOS are all not connected).
 
-0.5.5 已经做到了「包里不带别人的模拟器、默认用自带运行时」，但代码里还留着 mumu / fydeos /
-attach 三种底座和「不可用就回退」的判断。只要那条路还在，用户在设置里切一下、
-或者导入一份旧 `settings.json`，ApkStart 就又会跑去驱动别人家的模拟器 —— 数据、存档、
-镜像落在哪里都说不清，对方一升级或换端口还会直接失效。这一版把路拆了，不是关掉。
+0.5.5 already achieved "the package does not carry someone else's emulator, defaults to the built-in runtime", but the code still retained the mumu / fydeos / attach three bases and the "fall back when unavailable" judgment. As long as that path remains, if the user switches in settings or imports an old `settings.json`, ApkStart will again go and drive someone else's emulator — where data, save files, and images land is unclear, and the other side's upgrade or port change will directly invalidate it. This release tears down the path; it does not just turn it off.
 
 ---
 
-## 一、只有一个运行时
+## 1. Only one runtime
 
-- `src/core/backends/` 现在只有 `base.js` / `builtin.js` / `index.js`：
-  `mumu.js`（842 行）、`fydeos.js`（365 行）、`mumu-compat.js`、`frame.js` 全部删除。
-- 注册表固定为 `['builtin']`，`create()` **故意忽略 `settings.engine.mode`**：
-  残留的 `mode=mumu`、`fydeos`、`attach`、以及手改出来的任何值，一律创建自带运行时。
-- 没有「自动挑选」了：不再扫描第三方模拟器的安装目录、注册表、adb 端口。
-  `autoPick()` 直接返回 builtin，源码里一次 `probe()` 都不调用。
-- 顺手去掉一个隐患：`adb` 的候选路径以前包含 MuMu / 雷电 / 蓝叠自带的 adb。
-  用它们的 adb 会继承别人的 server 状态（端口、授权、offline 抖动），现在只认
-  Android SDK 与手动安装目录，自己那份永远排第一。
+- `src/core/backends/` now only has `base.js` / `builtin.js` / `index.js`: `mumu.js` (842 lines), `fydeos.js` (365 lines), `mumu-compat.js`, `frame.js` all deleted.
+- The registry is fixed to `['builtin']`; `create()` **intentionally ignores `settings.engine.mode`**: residual `mode=mumu`, `fydeos`, `attach`, and any manually changed value, all create the built-in runtime.
+- No more "automatic selection": it no longer scans third-party emulator install directories, registry, or adb ports. `autoPick()` directly returns builtin; not a single `probe()` is called in the source.
+- Also removes a hidden risk: the adb candidate paths previously included MuMu / LDPlayer / BlueStacks' own adb. Using their adb would inherit someone else's server state (port, authorization, offline jitter); now it only recognizes the Android SDK and manually installed directories, and its own copy always goes first.
 
-## 二、旧配置不会把第三方带回来
+## 2. Old configuration will not bring third parties back
 
-- `store.getSettings()` 读盘时强制 `engine.mode = 'builtin'`，并删掉
-  `mumuPath / mumuIndex / mumuRenderProfile / mumuMemoryGB / mumuCores / fydeosHost` 这些残留字段。
-- 只改内存里的对象，不立刻回写磁盘：设置文件是用户的，等他下次保存设置时自然落盘。
-- 引擎里的 `_fallbackFrom` 回退标记、`backendAvailable()` 分叉、`attach` 分支、
-  `ATTACH_ENDPOINTS`（WSA / LDPlayer / MuMu / Nox / MEmu 的固定端口）全部移除。
+- `store.getSettings()` forcibly sets `engine.mode = 'builtin'` when reading from disk, and deletes residual fields like `mumuPath / mumuIndex / mumuRenderProfile / mumuMemoryGB / mumuCores / fydeosHost`.
+- Only changes the object in memory, does not immediately write back to disk: the settings file belongs to the user; it naturally lands on disk the next time they save settings.
+- The engine's `_fallbackFrom` fallback marker, `backendAvailable()` branching, `attach` branch, and `ATTACH_ENDPOINTS` (fixed ports for WSA / LDPlayer / MuMu / Nox / MEmu) are all removed.
 
-## 三、设置页更简单
+## 3. Settings page is simpler
 
-- 「引擎模式」下拉删除，换成一行只读说明：*ApkStart 自带运行时（QEMU + Android 14，独立运行）*。
-- 「MuMu 安装目录」「FydeOS 地址」「设备地址 + 探测按钮」「MuMu 实例资源分配」四组控件删除。
-- 内存 / CPU 核心 / 数据分区仍然可以自己分配（那是 0.5.5 加的，走 qemu 参数，与第三方无关），
-  上限依旧按宿主内存、核心数、磁盘剩余算。
+- The "engine mode" dropdown is removed, replaced with a one-line read-only note: *ApkStart built-in runtime (QEMU + Android 14, runs independently)*.
+- Four groups of controls are deleted: "MuMu install directory", "FydeOS address", "device address + detect button", "MuMu instance resource allocation".
+- Memory / CPU cores / data partition can still be allocated by the user (that was added in 0.5.5, goes through qemu parameters, unrelated to third parties); the upper limit is still calculated from host memory, core count, and remaining disk space.
 
-## 四、构建期守卫加严
+## 4. Build-time guard tightened
 
-`build/guard-standalone.js` 以前只拦「模拟器二进制和目录」，现在连**适配器源码**也拦：
-打包产物里出现 `backends/mumu.js`、`backends/fydeos.js`、`core/mumu-compat.js`、
-`core/frame.js` 任何一个，构建直接 `exit(4)`。
-这样「又留一条能接管别人模拟器的路」不会悄悄进包。
+`build/guard-standalone.js` previously only blocked "emulator binaries and directories"; now it also blocks **adapter source code**: if any of `backends/mumu.js`, `backends/fydeos.js`, `core/mumu-compat.js`, `core/frame.js` appears in the packaging output, the build directly `exit(4)`. This way "another path that can take over someone else's emulator" will not quietly slip into the package.
 
-## 五、验证
+## 5. Verification
 
-- 全套纯 Node 测试 **258 项通过**，`scripts/selftest.js` 对着真实运行的 `emulator-5554` **9/9 通过**
-  （设备、Android 版本、分辨率、freeform、共享目录双向同步）。
-- 独立运行测试从 15 项扩到 22 项，新增：注册表只有 builtin、各种残留 mode 只创建 builtin、
-  显式 `id=mumu` 也压不过去、第三方模块文件必须不存在、设置页不再有引擎下拉、
-  持久化层改写过期字段、adb 候选不含第三方 adb、守卫拦适配器源码且不误伤 `builtin.js`。
+- Full plain Node test suite **258 items passing**; `scripts/selftest.js` against a real running `emulator-5554` **9/9 passing** (device, Android version, resolution, freeform, shared folder two-way sync).
+- Independent-run tests expanded from 15 to 22 items; new: registry only builtin, various residual modes only create builtin, explicit `id=mumu` also cannot be forced through, third-party module files must not exist, settings page no longer has an engine dropdown, persistence layer overwrites obsolete fields, adb candidates do not include third-party adb, guard blocks adapter source code without harming `builtin.js`.
 
-## 从 0.5.5 升级说明
+## Upgrade notes from 0.5.5
 
-- `0.5.6.0 > 0.5.5.0`，商店可直接覆盖升级。
-- 已装的安卓应用、存档、quickboot 快照都保留，不需要重装。
-- 之前把引擎切成 MuMu / FydeOS / attach 的用户：升级后自动回到自带运行时，
-  设置页会显示只读的运行时说明；第一次开机可能因为要重新引导自带运行时多等十几秒。
-- 之前用第三方模拟器时的应用和数据在那边，不在这里；需要的话重新拖一次 APK 安装即可。
+- `0.5.6.0 > 0.5.5.0`, Store can directly overwrite upgrade.
+- Installed Android apps, save files, and quickboot snapshots are all retained; no need to reinstall.
+- For users who previously switched the engine to MuMu / FydeOS / attach: after upgrade, automatically return to the built-in runtime; the settings page shows only the read-only runtime note; the first boot may wait a few extra tens of seconds because of re-guiding the built-in runtime.
+- Apps and data from when you used a third-party emulator are over there, not here; if needed, drag the APK in again to install.
 
-## 微软商店
+## Microsoft Store
 
-- 包体：`dist/store/ApkStart_0.5.6.0_x64.msix`（x64，约 850 MB，内置完整运行时）
-- 身份：`farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
-- 提交材料：`docs/store-listing.md`（含本版 What's new 中英文段）
-- 步骤：`docs/store-upload-walkthrough.md`
+- Package: `dist/store/ApkStart_0.5.6.0_x64.msix` (x64, about 850 MB, full runtime bundled)
+- Identity: `farmanullah1.ApkStart` / `CN=58CA1DED-8AB3-4D0D-AF50-62C9B781AA4D`
+- Submission materials: `docs/store-listing.md` (includes this version's What's new in Chinese and English)
+- Steps: `docs/store-upload-walkthrough.md`
