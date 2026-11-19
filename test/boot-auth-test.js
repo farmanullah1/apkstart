@@ -1,15 +1,15 @@
 'use strict';
 /**
- * 开机授权 / 安装校验的纯 Node 测试（不需要真实模拟器、不需要网络）。
+ * Boot authorization / install verification pure Node tests (no real emulator, no network needed).
  *
- * 覆盖 0.5.3 两个真实故障的根因修复：
- *  1) 快照在「允许 USB 调试」对话框未确认时拍下 → 每次恢复都 device unauthorized →
- *     探测干等 240s×4 还被误诊成显卡问题。修复：识别 unauthorized、作废旧快照冷启动、
- *     健康时才存快照。
- *  2) PackageManager 报 installed=true，但 /data/app 文件已被快照/数据不一致弄丢 →
- *     am start 失败。修复：isInstalled 逐个核对 APK 文件真实存在。
+ * Covers the root-cause fixes for two real failures from 0.5.3:
+ *  1) Snapshot taken before "Allow USB debugging" dialog confirmed → every restore is device unauthorized →
+ *     probe blindly waits 240s×4 and gets misdiagnosed as a GPU problem. Fix: recognize unauthorized,
+ *     invalidate old snapshot and cold-boot, only save snapshot when healthy.
+ *  2) PackageManager reports installed=true, but /data/app files were lost by snapshot/data inconsistency →
+ *     am start fails. Fix: isInstalled checks each APK file actually exists.
  *
- * 运行：node test/boot-auth-test.js
+ * Run: node test/boot-auth-test.js
  */
 const assert = require('assert/strict');
 const fs = require('fs');
@@ -32,50 +32,50 @@ async function atest(name, fn) {
 const adbDevices = (line) => `List of devices attached\n${line}\n`;
 
 (async () => {
-  console.log('\n[adb 设备状态解析]');
-  test('unauthorized 与 authorized 必须能区分（get-state 分不清）', () => {
+  console.log('\n[adb device state parsing]');
+  test('unauthorized and authorized must be distinguishable (get-state cannot tell them apart)', () => {
     assert.equal(parseDeviceState(adbDevices('emulator-5554\tunauthorized'), 'emulator-5554'), 'unauthorized');
     assert.equal(parseDeviceState(adbDevices('emulator-5554\tdevice'), 'emulator-5554'), 'device');
   });
-  test('offline / no permissions / 无设备都要如实回报', () => {
+  test('offline / no permissions / no device must each report truthfully', () => {
     assert.equal(parseDeviceState(adbDevices('emulator-5554\toffline'), 'emulator-5554'), 'offline');
     assert.equal(parseDeviceState(adbDevices('emulator-5554\tno permissions'), 'emulator-5554'), 'unauthorized');
     assert.equal(parseDeviceState(adbDevices(''), 'emulator-5554'), 'no-device');
   });
-  test('只认本 serial 的状态行，不被别的设备干扰', () => {
+  test('only recognize the status line of this serial, not disturbed by other devices', () => {
     const out = adbDevices('emulator-5556\tdevice\nemulator-5554\tunauthorized');
     assert.equal(parseDeviceState(out, 'emulator-5554'), 'unauthorized');
   });
-  test('报错文本命中 unauthorized（含官方 ADB_VENDOR_KEYS 提示）', () => {
+  test('error text matching unauthorized (including official ADB_VENDOR_KEYS hint)', () => {
     assert.equal(isUnauthorizedError('error: device unauthorized.'), true);
     assert.equal(isUnauthorizedError("This adb server's $ADB_VENDOR_KEYS is not set. error: device unauthorized"), true);
     assert.equal(isUnauthorizedError('error: device offline'), false);
     assert.equal(isUnauthorizedError('error: no devices/emulators found'), false);
   });
 
-  console.log('\n[pm path 解析 + 文件真实性校验]');
-  test('pm path 多分片（split APK）要全部解析出来', () => {
+  console.log('\n[pm path parsing + file reality verification]');
+  test('pm path must parse all splits (split APK) completely', () => {
     const out = 'package:/data/app/~~x/com.foo-1/base.apk\npackage:/data/app/~~x/com.foo-1/split_arm64.apk\n';
     assert.deepEqual(parsePmPaths(out), [
       '/data/app/~~x/com.foo-1/base.apk',
       '/data/app/~~x/com.foo-1/split_arm64.apk',
     ]);
   });
-  test('pm path 空输出 = 未安装', () => {
+  test('pm path empty output = not installed', () => {
     assert.deepEqual(parsePmPaths(''), []);
     assert.deepEqual(parsePmPaths('Error: package not found'), []);
   });
 
-  await atest('PM 说已装但 APK 文件没了 → isInstalled 返回 false', async () => {
+  await atest('PM says installed but APK file is gone → isInstalled returns false', async () => {
     const c = Object.create(AdbClient.prototype);
     c.shell = async (cmd) => {
       if (cmd.startsWith('pm path')) return 'package:/data/app/~~x/com.foo-1/base.apk';
-      // 文件校验命令：文件丢了，没有 PRESENT 回显
+      // file verification command: file is gone, no PRESENT echoed back
       return '';
     };
     assert.equal(await c.isInstalled('com.foo'), false);
   });
-  await atest('APK 文件真实存在 → isInstalled 返回 true', async () => {
+  await atest('APK file truly exists → isInstalled returns true', async () => {
     const c = Object.create(AdbClient.prototype);
     c.shell = async (cmd) => {
       if (cmd.startsWith('pm path')) return 'package:/data/app/~~x/com.foo-1/base.apk';
@@ -83,7 +83,7 @@ const adbDevices = (line) => `List of devices attached\n${line}\n`;
     };
     assert.equal(await c.isInstalled('com.foo'), true);
   });
-  await atest('多分片有一个丢失 → 判定未安装（启动不了）', async () => {
+  await atest('one split missing → judged not installed (cannot launch)', async () => {
     const c = Object.create(AdbClient.prototype);
     const seen = [];
     c.shell = async (cmd) => {
@@ -91,46 +91,46 @@ const adbDevices = (line) => `List of devices attached\n${line}\n`;
         return 'package:/data/app/~~x/com.foo/base.apk\npackage:/data/app/~~x/com.foo/split.apk';
       }
       seen.push(cmd);
-      return ''; // 两个 [ -s ] 都失败
+      return ''; // both [ -s ] fail
     };
     assert.equal(await c.isInstalled('com.foo'), false);
-    assert.ok(seen.some((s) => s.includes('/data/app/~~x/com.foo/split.apk')), '校验命令要覆盖每个分片');
+    assert.ok(seen.some((s) => s.includes('/data/app/~~x/com.foo/split.apk')), 'verification command must cover each split');
   });
 
-  console.log('\n[快照保存守卫]');
-  await atest('adb unauthorized → 不存快照', async () => {
+  console.log('\n[snapshot save guard]');
+  await atest('adb unauthorized → do not save snapshot', async () => {
     const emu = Object.create(require('../src/core/emulator').EmulatorEngine.prototype);
-    emu.port = 5554; // serial 是 getter：emulator-${port}
-    emu._log = [];   // log() 会往里 push
+    emu.port = 5554; // serial is a getter: emulator-${port}
+    emu._log = [];   // log() pushes into it
     emu._adbGuestHealthy = async () => false;
     const ok = await emu._saveViaAdb('adb');
-    assert.equal(ok, false, '不健康时不允许保存');
+    assert.equal(ok, false, 'should not allow save when unhealthy');
   });
-  await atest('源码级：快照保存路径必须先过健康守卫', () => {
+  await atest('source-level: snapshot save path must first pass the health guard', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', 'emulator.js'), 'utf8');
     const fn = src.slice(src.indexOf('async _saveViaAdb('), src.indexOf('async _saveViaAdb(') + 700);
-    assert.ok(/_adbGuestHealthy/.test(fn), '_saveViaAdb 必须先判 guest 健康');
+    assert.ok(/_adbGuestHealthy/.test(fn), '_saveViaAdb must first judge guest health');
     const stopFn = src.slice(src.indexOf('async stop('), src.indexOf('async stop(') + 5000);
-    assert.ok(/_adbGuestHealthy/.test(stopFn), 'stop() 关机前也要判断健康');
-    assert.ok(/invalidateSnapshot\(\)/.test(stopFn), '不健康关机要作废快照');
+    assert.ok(/_adbGuestHealthy/.test(stopFn), 'stop() must also judge health before shutdown');
+    assert.ok(/invalidateSnapshot\(\)/.test(stopFn), 'unhealthy shutdown must invalidate snapshot');
   });
-  await atest('源码级：开机探测要识别 unauthorized 并冷启动自愈', () => {
+  await atest('source-level: boot probe must recognize unauthorized and cold-boot self-heal', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', 'engine.js'), 'utf8');
     const boot = src.slice(src.indexOf('async bootEmulator('), src.indexOf('async bootEmulator(') + 6000);
-    assert.ok(/isUnauthorizedError/.test(boot), '探测要按报错文本识别 unauthorized');
-    assert.ok(/deviceState\(\)/.test(boot), '探测要按 devices state 列二次确认');
-    assert.ok(/invalidateSnapshot\(\)/.test(boot), '命中授权卡住要作废旧快照');
-    assert.ok(/_coldBoot = true/.test(boot), '要强制冷启动以重新注入 adb 公钥');
-    assert.ok(/ADB_UNAUTHORIZED/.test(boot), '要给出准确诊断，不再误导成显卡问题');
+    assert.ok(/isUnauthorizedError/.test(boot), 'probe must recognize unauthorized by error text');
+    assert.ok(/deviceState\(\)/.test(boot), 'probe must double-confirm by devices state');
+    assert.ok(/invalidateSnapshot\(\)/.test(boot), 'authorization stuck must invalidate old snapshot');
+    assert.ok(/_coldBoot = true/.test(boot), 'must force cold boot to re-inject adb public key');
+    assert.ok(/ADB_UNAUTHORIZED/.test(boot), 'must give accurate diagnosis, no longer mislead as GPU problem');
   });
-  await atest('adb server 注入 ADB_VENDOR_KEYS 以对齐 host/guest 密钥', () => {
+  await atest('adb server injects ADB_VENDOR_KEYS to align host/guest keys', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'core', 'adb.js'), 'utf8');
-    assert.ok(/ADB_VENDOR_KEYS/.test(src), '必须显式指定 adb 公钥目录');
+    assert.ok(/ADB_VENDOR_KEYS/.test(src), 'must explicitly specify adb public key directory');
   });
 
-  console.log(`\n结果：${passed} 通过，${failed} 失败\n`);
+  console.log(`\nResult: ${passed} passed, ${failed} failed\n`);
   process.exit(failed ? 1 : 0);
 })().catch((e) => {
-  console.error('  异常：', e.stack || e.message);
+  console.error('  Exception:', e.stack || e.message);
   process.exit(1);
 });

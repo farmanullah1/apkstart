@@ -1,7 +1,7 @@
 'use strict';
 /**
- * 安卓系统设置（src/core/android.js）的纯 Node 测试：用假的 adb client 记录命令、返回预设输出，
- * 不需要模拟器。运行：node test/android-test.js
+ * Android system settings (src/core/android.js) pure Node tests: uses a fake adb client that records
+ * commands and returns preset output, no emulator needed. Run: node test/android-test.js
  */
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -24,10 +24,10 @@ async function test(name, fn) {
 }
 
 function assert(cond, msg) {
-  if (!cond) throw new Error(msg || '断言失败');
+  if (!cond) throw new Error(msg || 'Assertion failed');
 }
 
-/** 假运行时：shell() 按顺序返回 replies 里的输出，并记下收到的脚本 */
+/** Fake runtime: shell() returns outputs from replies in order and records received scripts */
 function fakeSettings(replies) {
   const scripts = [];
   const client = {
@@ -41,67 +41,67 @@ function fakeSettings(replies) {
 }
 
 (async () => {
-  console.log('\n[android.js 音量]');
+  console.log('\n[android.js volume]');
 
-  await test('parseVolume 能读出档位与范围', () => {
+  await test('parseVolume can read out the level and range', () => {
     const v = parseVolume('[V] will get volume\nvolume is 5 in range [0..15]\n');
     assert(v && v.index === 5 && v.min === 0 && v.max === 15, JSON.stringify(v));
-    assert(parseVolume('media: inaccessible or not found') === null, '无法识别的输出应返回 null');
-    assert(parseVolume('') === null && parseVolume(undefined) === null, '空输出应返回 null');
+    assert(parseVolume('media: inaccessible or not found') === null, 'unrecognizable output should return null');
+    assert(parseVolume('') === null && parseVolume(undefined) === null, 'empty output should return null');
   });
 
-  await test('volumePercent 按档位范围换算百分比', () => {
+  await test('volumePercent converts level to percentage by range', () => {
     assert(volumePercent({ index: 0, min: 0, max: 15 }) === 0);
     assert(volumePercent({ index: 15, min: 0, max: 15 }) === 100);
     assert(volumePercent({ index: 5, min: 0, max: 15 }) === 33);
-    assert(volumePercent({ index: 3, min: 0, max: 0 }) === 0, '范围为 0 时不应除以 0');
+    assert(volumePercent({ index: 3, min: 0, max: 0 }) === 0, 'should not divide by zero when range is 0');
     assert(volumePercent(null) === 0);
   });
 
-  await test('音量命令优先用 cmd media_session，旧镜像退回 media', () => {
+  await test('volume command prefers cmd media_session, falls back to media on old images', () => {
     const c = volumeCmd('--set 7');
     assert(c.indexOf('cmd media_session volume --stream 3 --set 7') >= 0, c);
     assert(c.indexOf('|| media volume --stream 3 --set 7') > c.indexOf('cmd media_session'), c);
-    assert(!/^media volume/.test(c), '不应只用 Android 11 起已移除的 media 工具');
+    assert(!/^media volume/.test(c), 'should not use only the media tool removed since Android 11');
   });
 
-  await test('setVolume 把百分比换算成档位再设置（Android 11+）', async () => {
+  await test('setVolume converts percentage to level then sets (Android 11+)', async () => {
     const { set, scripts } = fakeSettings(['volume is 4 in range [0..15]\n', '']);
     const r = await set.setVolume(60);
-    assert(scripts.length === 2, `应先读范围再设置，实际 ${scripts.length} 条`);
+    assert(scripts.length === 2, `should read range then set, actual ${scripts.length} commands`);
     assert(scripts[0].includes('cmd media_session volume --stream 3 --get'), scripts[0]);
     assert(scripts[1].includes('cmd media_session volume --stream 3 --set 9'), scripts[1]);
-    assert(!scripts[1].includes('--set 60'), '不应把百分比直接当档位');
+    assert(!scripts[1].includes('--set 60'), 'should not treat percentage directly as level');
     assert(r.ok && r.volume === 60, JSON.stringify(r));
   });
 
-  await test('setVolume 在不同档位范围上换算（0..25）', async () => {
+  await test('setVolume converts across different level ranges (0..25)', async () => {
     const { set, scripts } = fakeSettings(['volume is 10 in range [0..25]\n', '']);
     const r = await set.setVolume(100);
     assert(scripts[1].includes('--set 25'), scripts[1]);
     assert(r.volume === 100, JSON.stringify(r));
   });
 
-  await test('读不到范围时按常见的 0..15 换算并夹在 0~100', async () => {
+  await test('when range cannot be read, convert by common 0..15 and clamp to 0~100', async () => {
     const { set, scripts } = fakeSettings(['', '']);
     const r = await set.setVolume(250);
     assert(scripts[1].includes('--set 15'), scripts[1]);
     assert(r.volume === 100, JSON.stringify(r));
   });
 
-  await test('status() 把档位换算成百分比显示', async () => {
+  await test('status() converts level to percentage for display', async () => {
     const out = ['wifi=1', 'air=0', 'font=1.0', 'density=320', 'animw=1.0', 'sdk=34', 'vol=volume is 6 in range [0..15]'].join('\n');
     const { set, scripts } = fakeSettings([out]);
     const s = await set.status();
-    assert(scripts[0].includes('cmd media_session volume --stream 3 --get'), '状态应通过 media_session 读音量');
-    assert(s.volume === 40, `应为 40%，实际 ${s.volume}`);
+    assert(scripts[0].includes('cmd media_session volume --stream 3 --get'), 'status should read volume via media_session');
+    assert(s.volume === 40, `should be 40%, actual ${s.volume}`);
     assert(s.sdk === 34 && s.wifi === true, JSON.stringify(s));
   });
 
-  // 真实 sh 里验证命令的回退：PATH 里只有一个假的 `media`（模拟没有 cmd 的旧镜像），
-  // 以及一个假的 `cmd`（模拟 Android 11+）。
+  // Real sh verification of command fallback: PATH has only a fake `media` (simulating old image without cmd),
+  // and a fake `cmd` (simulating Android 11+).
   if (process.platform !== 'win32') {
-    await test('在 sh 里：没有 cmd 时回退到 media，有 cmd 时不再调用 media', () => {
+    await test('in sh: fall back to media when no cmd, do not call media when cmd exists', () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apkstart-vol-'));
       const log = path.join(dir, 'calls.log');
       const write = (name, body) => {
@@ -113,14 +113,14 @@ function fakeSettings(replies) {
         env: { PATH: dir },
         encoding: 'utf8',
       });
-      assert(parseVolume(run()).index === 3, '旧镜像应通过 media 读到音量');
+      assert(parseVolume(run()).index === 3, 'old image should read volume via media');
       write('cmd', 'echo "volume is 8 in range [0..15]"');
       fs.writeFileSync(log, '');
-      assert(parseVolume(run()).index === 8, '有 cmd 时应读 media_session 的结果');
-      assert(!fs.readFileSync(log, 'utf8').includes('media volume'), '有 cmd 时不应再调用 media');
+      assert(parseVolume(run()).index === 8, 'when cmd exists should read media_session result');
+      assert(!fs.readFileSync(log, 'utf8').includes('media volume'), 'when cmd exists should not call media again');
     });
   }
 
-  console.log(`\n结果：${passed} 通过，${failed} 失败\n`);
+  console.log(`\nResult: ${passed} passed, ${failed} failed\n`);
   process.exit(failed ? 1 : 0);
 })();

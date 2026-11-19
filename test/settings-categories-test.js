@@ -1,10 +1,10 @@
 'use strict';
 /**
- * 设置页分类导航 + 搜索（0.6.0）结构测试
+ * Settings page category navigation + search (0.6.0) structural tests
  *
- * 设置页是用户最常碰的面，一旦分类与分组对不上就会出现「某个分类点进去是空的」。
- * 这里做源码级断言：HTML 里每个分组都必须有 data-cat，导航项必须与分组用到的分类一致，
- * 前端的分类表必须与 HTML 对得上。
+ * The settings page is the most-touched UI; once categories and groups misalign, you get "a category
+ * clicked is empty". Here we make source-level assertions: every group in the HTML must have data-cat,
+ * nav items must match the categories used by groups, and the front-end category table must match the HTML.
  */
 
 const fs = require('fs');
@@ -17,15 +17,15 @@ function test(name, fn) {
   try {
     fn();
     passed++;
-    console.log(`  ✓ ${name}`);
+    console.log(`  OK ${name}`);
   } catch (e) {
     failed++;
-    console.error(`  ✗ ${name}\n    ${e.message}`);
+    console.error(`  FAIL ${name}\n    ${e.message}`);
   }
 }
 
 function assert(cond, msg) {
-  if (!cond) throw new Error(msg || '断言失败');
+  if (!cond) throw new Error(msg || 'Assertion failed');
 }
 
 const ROOT = path.join(__dirname, '..');
@@ -33,54 +33,54 @@ const html = fs.readFileSync(path.join(ROOT, 'src/ui/index.html'), 'utf8');
 const appJs = fs.readFileSync(path.join(ROOT, 'src/ui/app.js'), 'utf8');
 const css = fs.readFileSync(path.join(ROOT, 'src/ui/style.css'), 'utf8');
 
-/** 取设置面板主体（settingsBody）里的 HTML 片段 */
-const bodyMatch = html.match(/<div class="modal-body" id="settingsBody">([\s\S]*?)\n    <\/div>\n    <\/div>\n    <footer/);
-assert(bodyMatch, '应能定位到设置面板主体');
+/** Grab the HTML fragment inside the settings body (settingsBody) */
+const bodyMatch = html.match(/<div class="modal-body" id="settingsBody">([\s\S]*?)\n    <\/div>\n    <\/div>\n    <footer>/);
+assert(bodyMatch, 'should be able to locate the settings body');
 
-console.log('\n[设置分类 · 结构]');
-test('设置面板有分类导航与搜索框', () => {
-  assert(html.includes('id="setNav"'), '应有分类导航容器');
-  assert(html.includes('id="setSearch"'), '应有搜索框');
-  assert(html.includes('id="btnClearSearch"'), '应有清除搜索按钮');
-  assert(html.includes('id="settingsBody"'), '内容区应有稳定 id（定位与滚动要用）');
+console.log('\n[settings categories - structure]');
+test('settings panel has category nav and search box', () => {
+  assert(html.includes('id="setNav"'), 'should have category nav container');
+  assert(html.includes('id="setSearch"'), 'should have search box');
+  assert(html.includes('id="btnClearSearch"'), 'should have clear search button');
+  assert(html.includes('id="settingsBody"'), 'content area should have stable id (for locating and scrolling)');
 });
 
-test('导航项覆盖全部 8 个分类', () => {
-  const navMatch = html.match(/<nav class="set-nav" id="setNav"[\s\S]*?<\/nav>/);
-  assert(navMatch, '应有 nav');
+test('nav items cover all 8 categories', () => {
+  const navMatch = html.match(/<nav class="set-nav" id="setNav"[\\s\\S]*?<\/nav>/);
+  assert(navMatch, 'should have nav');
   const items = navMatch[0].match(/data-cat="([a-z]+)"/g) || [];
   const ids = items.map((s) => s.replace(/data-cat="|"/g, ''));
   const expected = ['basic', 'display', 'input', 'perf', 'net', 'diag', 'files', 'about'];
-  assert(ids.length === expected.length, `导航项应有 ${expected.length} 个，实际 ${ids.length}`);
+  assert(ids.length === expected.length, `nav items should have ${expected.length}, actual ${ids.length}`);
   for (const e of expected) {
-    assert(ids.includes(e), `导航缺少分类 ${e}`);
+    assert(ids.includes(e), `nav missing category ${e}`);
   }
 });
 
-test('每个设置分组都归了类（没有漏网的分组）', () => {
-  // 取设置主体里所有顶层分组的起始标签
+test('every settings group is categorized (no orphan groups)', () => {
+  // Grab the start tags of all top-level groups inside the settings body
   const groups = bodyMatch[1].match(/<(div class="group"|details class="advanced-group")[^>]*>/g) || [];
-  assert(groups.length >= 15, `设置分组应不少于 15 个，实际 ${groups.length}`);
+  assert(groups.length >= 15, `settings groups should be no fewer than 15, actual ${groups.length}`);
   for (const g of groups) {
-    assert(/data-cat="[a-z]+"/.test(g), `分组缺少 data-cat：${g}`);
+    assert(/data-cat="[a-z]+"/.test(g), `group missing data-cat: ${g}`);
   }
 });
 
-test('分组用到的分类都在导航里（不会出现「点了是空的」）', () => {
-  const navMatch = html.match(/<nav class="set-nav" id="setNav"[\s\S]*?<\/nav>/);
+test('categories used by groups all appear in nav (no "clicked and empty")', () => {
+  const navMatch = html.match(/<nav class="set-nav" id="setNav"[\\s\\S]*?<\/nav>/);
   const navIds = (navMatch[0].match(/data-cat="([a-z]+)"/g) || []).map((s) => s.replace(/data-cat="|"/g, ''));
   const used = (bodyMatch[1].match(/data-cat="([a-z]+)"/g) || []).map((s) => s.replace(/data-cat="|"/g, ''));
   const usedSet = Array.from(new Set(used));
   for (const u of usedSet) {
-    assert(navIds.includes(u), `分类 ${u} 没有对应的导航项`);
+    assert(navIds.includes(u), `category ${u} has no corresponding nav item`);
   }
-  // 每个分类至少有一个分组，空分类应当从导航里去掉
+  // Each category should have at least one group; empty categories should be removed from nav
   for (const n of navIds) {
-    assert(used.includes(n), `分类 ${n} 没有任何分组，不该出现在导航里`);
+    assert(used.includes(n), `category ${n} has no groups, should not appear in nav`);
   }
 });
 
-test('关键分组落在合理的分类里', () => {
+test('key groups land in reasonable categories', () => {
   const expect = [
     ['id="runtimeGroup"', 'basic'],
     ['id="perfGroup"', 'perf'],
@@ -93,64 +93,64 @@ test('关键分组落在合理的分类里', () => {
   ];
   for (const [marker, cat] of expect) {
     const idx = html.indexOf(marker);
-    assert(idx > 0, `找不到 ${marker}`);
+    assert(idx > 0, `cannot find ${marker}`);
     const tail = html.slice(idx, idx + 120);
-    assert(tail.includes(`data-cat="${cat}"`), `${marker} 应归到 ${cat}`);
+    assert(tail.includes(`data-cat="${cat}"`), `${marker} should be categorized as ${cat}`);
   }
 });
 
-test('前端分类表与导航项一一对应', () => {
+test('front-end category table corresponds one-to-one with nav items', () => {
   const m = appJs.match(/const SETTINGS_CATS = \[([\s\S]*?)\];/);
-  assert(m, 'app.js 里应有 SETTINGS_CATS');
+  assert(m, 'app.js should have SETTINGS_CATS');
   const ids = (m[1].match(/id:\s*'([a-z]+)'/g) || []).map((s) => s.replace(/id:\s*'|'/g, ''));
-  const navMatch = html.match(/<nav class="set-nav" id="setNav"[\s\S]*?<\/nav>/);
+  const navMatch = html.match(/<nav class="set-nav" id="setNav"[\\s\\S]*?<\/nav>/);
   const navIds = (navMatch[0].match(/data-cat="([a-z]+)"/g) || []).map((s) => s.replace(/data-cat="|"/g, ''));
-  assert(ids.length === navIds.length, `前端分类 ${ids.length} 个，导航 ${navIds.length} 个`);
+  assert(ids.length === navIds.length, `front-end categories ${ids.length}, nav ${navIds.length}`);
   for (const n of navIds) {
-    assert(ids.includes(n), `前端缺少分类 ${n}`);
+    assert(ids.includes(n), `front-end missing category ${n}`);
   }
 });
 
-console.log('\n[设置分类 · 行为]');
-test('实现了切换、过滤与记忆', () => {
-  assert(appJs.includes('function switchSettingsCat'), '应有分类切换函数');
-  assert(appJs.includes('function applySettingsFilter'), '应有可见性过滤函数');
-  assert(appJs.includes('function groupMatches'), '应有搜索匹配函数');
-  assert(appJs.includes('function focusGroup'), '应有定位到分组的函数');
-  assert(appJs.includes('apkstart.settings.cat'), '应记住上次停留的分类');
+console.log('\n[settings categories - behavior]');
+test('switching, filtering, and remembering are implemented', () => {
+  assert(appJs.includes('function switchSettingsCat'), 'should have category switch function');
+  assert(appJs.includes('function applySettingsFilter'), 'should have visibility filter function');
+  assert(appJs.includes('function groupMatches'), 'should have search match function');
+  assert(appJs.includes('function focusGroup'), 'should have function to locate group');
+  assert(appJs.includes('apkstart.settings.cat'), 'should remember last-stayed category');
 });
 
-test('搜索是跨分类的（否则搜到了却看不见）', () => {
-  // 过滤时按命中决定可见性，而不是只看当前分类
+test('search is cross-category (otherwise found but not visible)', () => {
+  // Filtering decides visibility by match, not only by current category
   const fn = appJs.match(/function applySettingsFilter\(\) \{[\s\S]*?\n\}/);
-  assert(fn, '应能定位 applySettingsFilter');
-  assert(/g\.hidden = q \? !hit : !inCat/.test(fn[0]), '搜索时应按命中显示（跨分类）');
+  assert(fn, 'should locate applySettingsFilter');
+  assert(/g\.hidden = q ? !hit : !inCat/.test(fn[0]), 'search should show by match (cross-category)');
 });
 
-test('跳转入口都改成了 focusGroup（分类切换后仍能定位到分组）', () => {
-  assert(appJs.includes("focusGroup($('runtimeGroup'))"), '部署向导应定位到运行时分组');
-  assert(appJs.includes("focusGroup($('perfGroup'))"), '数据分区问题应定位到性能分组');
-  // 旧的直接 scrollIntoView 定位应已被 focusGroup 取代
+test('jump entries all changed to focusGroup (locate group after category switch)', () => {
+  assert(appJs.includes("focusGroup($('runtimeGroup'))"), 'deploy guide should locate runtime group');
+  assert(appJs.includes("focusGroup($('perfGroup'))"), 'data partition problem should locate performance group');
+  // Old direct scrollIntoView locating should have been replaced by focusGroup
   const direct = appJs.match(/box\.scrollIntoView\(\{ block: 'start', behavior: 'smooth' \}\)/g) || [];
-  assert(direct.length === 0, `不应再有直接 scrollIntoView 的定位（还有 ${direct.length} 处）`);
+  assert(direct.length === 0, `should no longer have direct scrollIntoView locating (${direct.length} remaining)`);
 });
 
-test('自动检测面板的修复按钮复用 fixIssue', () => {
-  assert(appJs.includes('data-code="${esc(it.code)}"'), '检测项应带 code 以便修复');
-  assert(appJs.includes('fixIssue(issue)'), '应复用统一的修复入口');
+test('auto-detection panel fix buttons reuse fixIssue', () => {
+  assert(appJs.includes('data-code="${esc(it.code)}"'), 'detection items should carry code for fixing');
+  assert(appJs.includes('fixIssue(issue)'), 'should reuse unified fix entry');
 });
 
-console.log('\n[设置分类 · 样式]');
-test('有导航、搜索与检测面板的样式', () => {
+console.log('\n[settings categories - styles]');
+test('has styles for nav, search, and detection panel', () => {
   for (const sel of ['.set-nav', '.set-nav-item', '.set-search', '.dbg-list', '.dbg-item', '.modal-main']) {
-    assert(css.includes(sel), `style.css 应有 ${sel}`);
+    assert(css.includes(sel), `style.css should have ${sel}`);
   }
 });
 
-test('弹窗变宽了但没有撑破小屏', () => {
-  assert(/\.modal \{[^}]*width: 880px/.test(css), '弹窗应为 880px');
-  assert(css.includes('max-width: calc(100vw - 48px)'), '小屏上应自适应');
+test('popup widened but does not burst on small screens', () => {
+  assert(/\.modal \{[^}]*width: 880px/.test(css), 'popup should be 880px');
+  assert(css.includes('max-width: calc(100vw - 48px)'), 'should adapt on small screens');
 });
 
-console.log(`\n结果：${passed} 通过，${failed} 失败`);
+console.log(`\nResult: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

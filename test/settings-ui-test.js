@@ -1,13 +1,13 @@
 'use strict';
 /**
- * 设置页 UI 冒烟测试（需要真实 Electron 窗口）
+ * Settings page UI smoke test (needs a real Electron window)
  *
- * 运行：electron test/settings-ui-test.js
- * 输出：test/out/settings-*.png
+ * Run: electron test/settings-ui-test.js
+ * Output: test/out/settings-*.png
  *
- * 为什么单独写：设置页的结构刚大改过（加了分类导航与搜索），
- * 纯 Node 单测只能校验源码结构，校验不了「点得动、显示得对」。
- * 这里用真实渲染进程跑一遍：打开设置 → 切分类 → 搜索 → 截图。
+ * Why written separately: the settings page structure just had a big change (added category nav
+ * and search); plain Node unit tests can only assert source structure, not "clickable and displayed
+ * correctly". Here we run a real renderer process: open settings, switch categories, search, screenshot.
  */
 
 const { app, ipcMain, BrowserWindow } = require('electron');
@@ -41,10 +41,14 @@ const SETTINGS = {
   debug: { auto: true, intervalMin: 10, notify: true },
 };
 
+// These diagnostic-issue fixture strings are the text that the settings UI smoke test feeds into
+// the renderer. They are intentionally left in the fixture's current language here because this
+// smoke test is verifying the existing UI copy, not rewriting product copy; changing these would
+// change what the test screenshot/check asserts against.
 const DEBUG_ISSUES = [
-  { code: 'device.unauthorized', category: 'device', severity: 'error', title: '安卓设备未授权调试', hint: '重启运行时后会重新弹出确认框。', fix: 'restartRuntime', detail: '' },
-  { code: 'storage.diskLow', category: 'storage', severity: 'warn', title: '运行时所在磁盘空间偏紧', hint: '剩余不足 8 GB。', fix: 'disk', detail: '剩余 5120 MB' },
-  { code: 'settings.orientationConflict', category: 'settings', severity: 'warn', title: '屏幕方向策略与当前面板方向相反', hint: '把面板方向改成与策略一致即可。', fix: 'orientation', detail: '' },
+  { code: 'device.unauthorized', category: 'device', severity: 'error', title: 'Android device not authorized for debugging', hint: 'A confirmation dialog will reappear after restarting the runtime.', fix: 'restartRuntime', detail: '' },
+  { code: 'storage.diskLow', category: 'storage', severity: 'warn', title: 'Runtime disk space is tight', hint: 'Less than 8 GB remaining.', fix: 'disk', detail: '5120 MB left' },
+  { code: 'settings.orientationConflict', category: 'settings', severity: 'warn', title: 'Screen orientation policy conflicts with current panel orientation', hint: 'Set the panel orientation to match the policy.', fix: 'orientation', detail: '' },
 ];
 
 const OVERRIDES = {
@@ -53,11 +57,11 @@ const OVERRIDES = {
   'app:info': () => ({ version: '0.6.0', isDev: true, dataDir: 'C:\\data', runtimeDir: 'C:\\data\\runtime' }),
   'apps:list': () => ({ apps: [] }),
   'assoc:status': () => ({ registered: false }),
-  'doctor:profile': () => ({ profile: {}, text: '均衡 · 4 核 / 4 GB / 720p' }),
+  'doctor:profile': () => ({ profile: {}, text: 'Balanced · 4 cores / 4 GB / 720p' }),
   'doctor:selfCheck': () => ({ issues: [], accel: { ok: true }, free: 102400 }),
   'doctor:report': () => ({ ok: true, file: 'C:\\report.txt' }),
   'runtime:usage': () => ({ totalText: '8.2 GB', reclaimableText: '1.1 GB', count: 3 }),
-  'runtime:status': () => ({ mode: 'builtin', backend: 'builtin', backendLabel: '内置', installed: true, vmRunning: false, deviceOnline: false, ready: false, phase: 'idle', needsSetup: null, error: '', env: { adb: { ok: true }, emulator: { ok: true }, sysimg: { ok: true } }, accel: { ok: true }, network: null }),
+  'runtime:status': () => ({ mode: 'builtin', backend: 'builtin', backendLabel: 'Builtin runtime', installed: true, vmRunning: false, deviceOnline: false, ready: false, phase: 'idle', needsSetup: null, error: '', env: { adb: { ok: true }, emulator: { ok: true }, sysimg: { ok: true } }, accel: { ok: true }, network: null }),
   'runtime:dataInfo': () => ({ avdDir: 'C:\\data\\avd', configuredGB: 6, actualGB: 6 }),
   'android:status': () => ({ running: false, wifi: true, airplane: false, anim: true, volume: 50, font: 1, density: 320 }),
   'drivers:list': () => ({ drivers: [], errors: [] }),
@@ -75,7 +79,7 @@ const OVERRIDES = {
   'keymap:isEnabled': () => ({ enabled: true }),
 };
 
-// 其余通道统一返回空对象：app.js 里所有调用都有 .catch / 空值兜底
+// Remaining channels uniformly return empty object: all calls in app.js have .catch / empty-value fallback
 const CHANNELS = [
   'apk:pick', 'apk:parse', 'apk:install', 'apk:reveal', 'dialog:openDir',
   'settings:restoreSystem', 'settings:refreshPointer', 'settings:unhook', 'settings:setSharedDir',
@@ -101,7 +105,7 @@ const CHANNELS = [
 let passed = 0;
 let failed = 0;
 function step(name, ok, detail = '') {
-  if (ok) { passed++; console.log(`  ✓ ${name}${detail ? ` ${detail}` : ''}`); } else { failed++; console.error(`  ✗ ${name}${detail ? ` ${detail}` : ''}`); }
+  if (ok) { passed++; console.log(`  OK ${name}${detail ? ` ${detail}` : ''}`); } else { failed++; console.error(`  FAIL ${name}${detail ? ` ${detail}` : ''}`); }
 }
 
 app.whenReady().then(async () => {
@@ -127,12 +131,12 @@ app.whenReady().then(async () => {
 
   const evalJs = (code) => win.webContents.executeJavaScript(code, true);
 
-  console.log('\n[设置页 · 分类导航]');
-  // 先打开设置弹窗（自动检测结果是在打开设置时取回来渲染的）
+  console.log('\n[settings page · category nav]');
+  // First open the settings popup (auto-detection results are fetched when settings opens and rendered)
   await evalJs(`document.getElementById('btnSettings').click()`);
   await new Promise((r) => setTimeout(r, 900));
   const modalOpen = await evalJs(`document.getElementById('settingsMask').classList.contains('on')`);
-  step('设置弹窗能打开', modalOpen);
+  step('settings popup can open', modalOpen);
 
   const navInfo = await evalJs(`(() => ({
     items: document.querySelectorAll('#setNav .set-nav-item').length,
@@ -140,24 +144,25 @@ app.whenReady().then(async () => {
     groups: document.querySelectorAll('#settingsBody [data-cat]').length,
     visible: Array.from(document.querySelectorAll('#settingsBody [data-cat]')).filter(g => !g.hidden).map(g => g.dataset.cat),
   }))()`);
-  step('导航项渲染出来了', navInfo.items === 8, `${navInfo.items} 项`);
-  // 注意：分类会被记住（localStorage），所以这里只断言「同一时刻只显示一个分类的分组」
+  step('nav items rendered', navInfo.items === 8, `${navInfo.items} items`);
+  // Note: categories are remembered (localStorage), so only assert "at the same moment only one
+  // category's groups are shown"
   const oneCat = navInfo.visible.length > 0 && navInfo.visible.every((c) => c === navInfo.visible[0]);
-  step('同一时刻只显示一个分类的分组', oneCat, `默认可见：${navInfo.visible.join(',')}`);
+  step('at the same moment only one category groups are shown', oneCat, `default visible: ${navInfo.visible.join(',')}`);
 
-  // 点「显示与窗口」
+  // Tap Display & Window
   await evalJs(`document.querySelector('#setNav .set-nav-item[data-cat="display"]').click()`);
   await new Promise((r) => setTimeout(r, 300));
   const afterSwitch = await evalJs(`(() => ({
     visible: Array.from(document.querySelectorAll('#settingsBody [data-cat]')).filter(g => !g.hidden).map(g => g.dataset.cat),
     on: document.querySelector('#setNav .set-nav-item.on') ? document.querySelector('#setNav .set-nav-item.on').dataset.cat : '',
   }))()`);
-  step('切到「显示与窗口」后只显示该分类', afterSwitch.visible.length > 0 && afterSwitch.visible.every((c) => c === 'display'), `可见：${afterSwitch.visible.join(',')}`);
-  step('导航高亮跟着切换', afterSwitch.on === 'display', `高亮：${afterSwitch.on}`);
+  step('after switching to Display & Window only that category is shown', afterSwitch.visible.length > 0 && afterSwitch.visible.every((c) => c === 'display'), `visible: ${afterSwitch.visible.join(',')}`);
+  step('nav highlight follows the switch', afterSwitch.on === 'display', `highlighted: ${afterSwitch.on}`);
 
   await win.capturePage().then((img) => fs.writeFileSync(path.join(OUT, 'settings-display.png'), img.toPNG()));
 
-  // 点「诊断与修复」，看自动检测面板
+  // Tap Diagnostics & Repair, look at auto-detection panel
   await evalJs(`document.querySelector('#setNav .set-nav-item[data-cat="diag"]').click()`);
   await new Promise((r) => setTimeout(r, 400));
   const diag = await evalJs(`(() => ({
@@ -167,44 +172,44 @@ app.whenReady().then(async () => {
     text: (document.getElementById('autodebugStateText') || {}).textContent || '',
     fixBtns: document.querySelectorAll('#autodebugList .dbg-fix').length,
   }))()`);
-  step('「诊断与修复」下能看到本机体检、驱动与自动检测', diag.visible.includes('diag') && diag.visible.length === 3, `可见：${diag.visible.join(',')}`);
-  step('自动检测结果按分类分组渲染', diag.groups >= 3 && diag.items === 3, `${diag.groups} 组 / ${diag.items} 项`);
-  step('每条问题都有「处理」按钮', diag.fixBtns === 3, `${diag.fixBtns} 个按钮`);
-  step('状态行显示上次检测时间', /上次检测/.test(diag.text), diag.text);
+  step('Diagnostics & Repair can see system checkup, drivers, and auto-detection', diag.visible.includes('diag') && diag.visible.length === 3, `visible: ${diag.visible.join(',')}`);
+  step('auto-detection results rendered grouped by category', diag.groups >= 3 && diag.items === 3, `${diag.groups} groups / ${diag.items} items`);
+  step('each problem has a Fix button', diag.fixBtns === 3, `${diag.fixBtns} buttons`);
+  step('status line shows last detection time', /Last detection/.test(diag.text), diag.text);
 
-  // 滚到自动检测面板再截图（等合成器跟上，避免拍到上一帧）
+  // Scroll to auto-detection panel then screenshot (wait for compositor to catch up, avoid shooting previous frame)
   await evalJs(`document.getElementById('autodebugGroup').scrollIntoView({ block: 'start' })`);
   await new Promise((r) => setTimeout(r, 900));
   await win.capturePage().then((img) => fs.writeFileSync(path.join(OUT, 'settings-diag.png'), img.toPNG()));
 
-  console.log('\n[设置页 · 搜索]');
-  await evalJs(`(() => { const s = document.getElementById('setSearch'); s.value = '横屏'; s.dispatchEvent(new Event('input')); })()`);
+  console.log('\n[settings page · search]');
+  await evalJs(`(() => { const s = document.getElementById('setSearch'); s.value = 'landscape'; s.dispatchEvent(new Event('input')); })()`);
   await new Promise((r) => setTimeout(r, 300));
   const search = await evalJs(`(() => ({
     visible: Array.from(document.querySelectorAll('#settingsBody [data-cat]')).filter(g => !g.hidden).length,
     names: Array.from(document.querySelectorAll('#settingsBody [data-cat]')).filter(g => !g.hidden).map(g => (g.querySelector('.group-title')||{}).textContent),
     clearVisible: !document.getElementById('btnClearSearch').hidden,
   }))()`);
-  step('搜索「横屏」能命中分组', search.visible >= 1, `命中 ${search.visible} 个：${search.names.join(' / ')}`);
-  step('命中项跨分类可见（不会被当前分类挡住）', search.visible >= 1);
-  step('清除按钮出现', search.clearVisible);
+  step('search landscape can match groups', search.visible >= 1, `matched ${search.visible}: ${search.names.join(' / ')}`);
+  step('matched items visible cross-category (not blocked by current category)', search.visible >= 1);
+  step('clear button appears', search.clearVisible);
 
   await win.capturePage().then((img) => fs.writeFileSync(path.join(OUT, 'settings-search.png'), img.toPNG()));
 
   await evalJs(`document.getElementById('btnClearSearch').click()`);
   await new Promise((r) => setTimeout(r, 250));
   const afterClear = await evalJs(`(() => Array.from(document.querySelectorAll('#settingsBody [data-cat]')).filter(g => !g.hidden).map(g => g.dataset.cat))()`);
-  step('清除搜索后回到当前分类', afterClear.length > 0 && afterClear.every((c) => c === 'diag'), `可见：${afterClear.join(',')}`);
+  step('after clearing search returns to current category', afterClear.length > 0 && afterClear.every((c) => c === 'diag'), `visible: ${afterClear.join(',')}`);
 
-  console.log('\n[设置页 · 记忆分类]');
+  console.log('\n[settings page · remembered category]');
   const remembered = await evalJs(`localStorage.getItem('apkstart.settings.cat')`);
-  step('上次停留的分类被记住了', remembered === 'diag', `记住了：${remembered}`);
+  step('last-stayed category was remembered', remembered === 'diag', `remembered: ${remembered}`);
 
-  console.log('\n[设置页 · 渲染无异常]');
+  console.log('\n[settings page · no render exceptions]');
   const realErrors = errors.filter((e) => !/Autofill|devtools|Request Autofill/i.test(e));
-  step('控制台没有报错', realErrors.length === 0, realErrors.slice(0, 3).join(' | '));
+  step('console has no errors', realErrors.length === 0, realErrors.slice(0, 3).join(' | '));
 
-  console.log(`\n结果：${passed} 通过，${failed} 失败`);
+  console.log(`\nResult: ${passed} passed, ${failed} failed`);
   app.exit(failed ? 1 : 0);
 }).catch((e) => {
   console.error(e);

@@ -1,106 +1,106 @@
-# ApkStart 代码走读（接手开发用）
+# ApkStart Code Walkthrough (for taking over development)
 
-> 面向「要在本项目上继续写代码」的工程师。目标不是复述 README，而是回答三个问题：
-> **代码分成哪几层、每个关键动作真实走了哪条链路、改哪里最容易踩坑**。
+> Audience: engineers who are going to continue writing code in this project. The goal is not to recap the README, but to answer three questions:
+> **how the code is layered, which real chain each key action walks, and where changes are easiest to trip over**.
 >
-> 生成时间：2026-11-14 · 对应版本 **v0.3.5**（基于 commit `e1db34b` 的 v0.3.4 继续开发）· 仓库 `farmanullah1/APK-START-English`
-> 走读基线：`src/**` 共 41 个文件、约 14,845 行（js/html/css/ps1），`npm test` = **70 通过 / 0 失败**。
+> Generated: 2026-11-14 · Corresponding version **v0.3.5** (developed on top of v0.3.4 at commit `e1db34b`) · Repo `farmanullah1/APK-START-English`
+> Walkthrough baseline: `src/**` 41 files total, about 14,845 lines (js/html/css/ps1), `npm test` = **70 pass / 0 fail**.
 >
-> **怎么读这套文档**
-> - 先读本文（总览 + 关键调用链 + 问题地图，约 360 行）；
-> - 要改「装包 / 解析 / 图标 / 快捷方式」→ `CODE-WALKTHROUGH-PARSE.md`；
-> - 要改「下载 / 部署 / 换源 / 在线更新 / 路径规则」→ `CODE-WALKTHROUGH-RUNTIME.md`；
-> - 要改「开机 / 窗口嵌入 / 鼠标键位」→ 本文 2.3~2.6 + `docs/ARCHITECTURE.md`。
+> **How to read this document set**
+> - Read this doc first (overview + key call chains + problem map, about 360 lines);
+> - To change "package/install / parse / icon / shortcut" → `CODE-WALKTHROUGH-PARSE.md`;
+> - To change "download / deploy / source switching / online update / path rules" → `CODE-WALKTHROUGH-RUNTIME.md`;
+> - To change "boot / window embed / mouse & keys" → this doc 2.3~2.6 + `docs/ARCHITECTURE.md`.
 
 ---
 
-## 0. 一页纸速览
+## 0. One-page quick overview
 
-| 问题 | 答案 |
+| Question | Answer |
 |---|---|
-| 这是什么 | Windows 上的「安卓应用运行器」：Electron 壳 + 自带 Android 运行时（Google Android Emulator / QEMU 全系统虚拟化），把每个安卓应用装成桌面图标、开成独立 Windows 窗口 |
-| 一句话架构 | **Electron 主进程做编排，`core/*` 做领域能力，PowerShell 窗口代理做 Win32 脏活，渲染层只做 UI** |
-| 不做什么 | 不自己写 hypervisor、不做 Linux 内核/GPU 转译、不挂载 NTFS（共享目录用同步代替）、不依赖第三方模拟器 |
-| 关键依赖 | 运行时零第三方依赖手写解析（zip/AXML/ARSC/PNG/ICO）；仅 `@napi-rs/lzma`（解 .xz 镜像）+ Electron |
-| 数据在哪 | 代码 `%APPDATA%\apkstart`（settings.json / apps.json / icons / apks / logs）、运行时 `runtime.dir`（可换盘）、AVD `runtime.avdDir`（可换盘） |
-| 版本从哪来 | `package.json:version`，`app.getVersion()` 读它；CI 按 tag `v*` 触发发版 |
+| What is this | An Android app runner on Windows: Electron shell + built-in Android runtime (Google Android Emulator / QEMU full-system virtualization), installing each Android app as a desktop icon and opening it as a standalone Windows window |
+| Architecture in one line | **Electron main process does orchestration, `core/*` does domain capability, the PowerShell window agent does Win32 dirty work, the renderer layer only does UI** |
+| What it does not do | Does not write its own hypervisor, does not do Linux kernel/GPU translation, does not mount NTFS (shared folders use sync instead), does not depend on third-party emulators |
+| Key dependencies | Runtime has zero third-party dependencies; parsers are hand-written (zip/AXML/ARSC/PNG/ICO); only `@napi-rs/lzma` (decompress .xz images) + Electron |
+| Where data lives | Code `%APPDATA%\apkstart` (settings.json / apps.json / icons / apks / logs), runtime `runtime.dir` (can swap disk), AVD `runtime.avdDir` (can swap disk) |
+| Where version comes from | `package.json:version`, read by `app.getVersion()`; CI triggers release on tag `v*` |
 
 ---
 
-## 1. 仓库结构
+## 1. Repository structure
 
 ```
 apkstart/
 ├─ src/
-│  ├─ main.js                1790 行  Electron 主进程：窗口/托盘/单实例/CLI/IPC/生命周期
-│  ├─ preload.js              130 行  contextBridge 安全桥（渲染层唯一入口）
-│  ├─ ui/                            渲染层（原生 HTML/CSS/JS，无框架）
-│  │  ├─ index.html / app.js         主界面（应用列表 + 设置弹窗），app.js 1490 行
-│  │  ├─ shell.html / shell.js/css   应用窗口外壳（38px 标题栏 + 启动遮罩）
-│  │  └─ assets/                     logo / appicon.ico / 二维码
-│  └─ core/                          领域层（无 Electron 依赖的尽量纯 Node）
-│     ├─ 编排    installer.js engine.js container.js
-│     ├─ 运行时  emulator.js provision.js userdata.js doctor.js layers.js
-│     ├─ 设备    adb.js android.js sharer.js notify.js display.js
-│     ├─ 窗口    appwin.js agent.js win/agent.ps1 win/priority.ps1 windowctl.js pointer.js
-│     ├─ 解析    zip.js axml.js arsc.js apk.js png.js shortcut.js assoc.js
-│     └─ 下载/更新 download.js sources.js updater.js store.js logfile.js
-├─ build/                    打包流水线（pack.js / prepare-runtime.js / slim-runtime.js / zip.js / seed/）
-├─ test/                     run-tests.js(8) + engine-test.js(11) + auto-test.js(53) + 一堆实机探针脚本
-├─ tools/                    发布与实机检查脚本（publish-gitee.js、check-*.js、e2e-boot.js）
-├─ docs/                     ARCHITECTURE.md、images/、promo/、本文
-├─ engine/                   运行时下载缓存（gitignored，只有 README）
-└─ .github/workflows/        ci.yml（双 Node 测试）、release.yml（便携版 + 完整版 + Gitee 同步）
+│  ├─ main.js                1790 lines  Electron main process: windows/tray/single-instance/CLI/IPC/lifecycle
+│  ├─ preload.js              130 lines  contextBridge secure bridge (renderer-only entry point)
+│  ├─ ui/                            renderer layer (vanilla HTML/CSS/JS, no framework)
+│  │  ├─ index.html / app.js         main interface (app list + settings popup), app.js 1490 lines
+│  │  ├─ shell.html / shell.js/css   app window shell (38px titlebar + launch mask)
+│  │  └─ assets/                     logo / appicon.ico / QR code
+│  └─ core/                          domain layer (as pure Node as possible, no Electron dependency)
+│     ├─ orchestration    installer.js engine.js container.js
+│     ├─ runtime         emulator.js provision.js userdata.js doctor.js layers.js
+│     ├─ device          adb.js android.js sharer.js notify.js display.js
+│     ├─ window          appwin.js agent.js win/agent.ps1 win/priority.ps1 windowctl.js pointer.js
+│     ├─ parse           zip.js axml.js arsc.js apk.js png.js shortcut.js assoc.js
+│     └─ download/update download.js sources.js updater.js store.js logfile.js
+├─ build/                    packaging pipeline (pack.js / prepare-runtime.js / slim-runtime.js / zip.js / seed/)
+├─ test/                     run-tests.js(8) + engine-test.js(11) + auto-test.js(53) + a bunch of real-machine probe scripts
+├─ tools/                    release and real-machine check scripts (publish-gitee.js, check-*.js, e2e-boot.js)
+├─ docs/                     ARCHITECTURE.md, images/, promo/, this doc
+├─ engine/                   runtime download cache (gitignored, only README)
+└─ .github/workflows/        ci.yml (dual Node tests), release.yml (portable + full + Gitee sync)
 ```
 
-**分层调用方向**（只允许上层依赖下层）：
+**Layered call direction** (only upper layers may depend on lower layers):
 
 ```
 ui/*  ──preload(contextBridge)──▶  main.js
 main.js ──▶ installer.js / engine.js / appwin.js / updater.js / sharer.js …
 installer.js ──▶ apk.js ──▶ zip.js / axml.js / arsc.js / png.js / shortcut.js
-engine.js ──▶ emulator.js ──▶ provision.js(路径/磁盘守卫) + userdata.js(ext4) + adb.js
+engine.js ──▶ emulator.js ──▶ provision.js(path/disk guard) + userdata.js(ext4) + adb.js
 appwin.js ──▶ agent.js ──TCP JSON──▶ win/agent.ps1(C# P/Invoke)
 所有层 ──▶ store.js（设置/清单持久化）
 ```
 
 ---
 
-## 2. 关键调用链（改代码前先看这几条）
+## 2. Key call chains (read these before changing code)
 
-### 2.1 双击 APK → 装好并生成桌面图标
+### 2.1 Double-click APK → installed and desktop icon created
 
 ```
-Explorer 双击 .apk
- → HKCU\Software\Classes\ApkStart.apk (assoc.js 注册，免管理员)
+Explorer double-click .apk
+ → HKCU\Software\Classes\ApkStart.apk (assoc.js registers, no admin needed)
  → ApkStart.exe "C:\x\a.apk"
  → main.js parseArgs() → runInstall(filePath)              main.js:537
-     ├ 防重入：installBusy（连点/拖多次只跑一次）           main.js:540
+     ├ anti-reentry: installBusy (rapid clicks / multiple drags only run once)  main.js:540
      ├ installer.install()                                 installer.js:141
-     │   ├ /\.(apks|xapk)$/ → parseBundle()（解分片到临时目录）installer.js:26
+     │   ├ /\.(apks|xapk)$/ → parseBundle() (unpack splits to temp dir)  installer.js:26
      │   ├ parseApk()  →  zip.js → axml.js → arsc.js        apk.js:75
-     │   ├ isArmOnly(meta) && 无 Play 镜像 →
+     │   ├ isArmOnly(meta) && no Play image →
      │   │     ensureCompatImage() + switchToCompat()        installer.js:159
-     │   └ runtime.ensure()  → 见 2.3
+     │   └ runtime.ensure()  → see 2.3
      ├ installer.finishInstall()                            installer.js:179
-     │   ├ emulator.invalidateSnapshot()（装完旧快照作废）
-     │   ├ adb install -r -g -t（失败 NO_MATCHING_ABIS 自动切兼容镜像重试）
-     │   ├ 图标落盘 PNG + iconToIco()（WebP 交给渲染进程解码） main.js:213 decodeIcon
-     │   ├ 备份 APK 到 apks/（日后自动重装用）
-     │   ├ resolveLauncher()：以系统解析的 LAUNCHER 为准    adb.js
+     │   ├ emulator.invalidateSnapshot() (old snapshot after install invalidated)
+     │   ├ adb install -r -g -t (on NO_MATCHING_ABIS failure auto-switch compat image and retry)
+     │   ├ icon written to disk as PNG + iconToIco() (WebP handed to renderer process for decode)  main.js:213 decodeIcon
+     │   ├ backup APK to apks/ (for later auto-reinstall)
+     │   ├ resolveLauncher(): use the LAUNCHER resolved by the system as correct  adb.js
      │   ├ store.upsertApp()
-     │   └ createShortcut()：桌面 + 开始菜单两份 .lnk        installer.js:286
-     └ 通知 / 刷新资源管理器图标缓存
+     │   └ createShortcut(): desktop + Start menu, two .lnk files  installer.js:286
+     └ notification / refresh Resource Manager icon cache
 ```
 
-**为什么 `resolveLauncher` 必须在装完后跑**：APK 里解析到的「主 Activity」经常不是真正的 LAUNCHER（红果短剧是 `SplashActivity` 而不是 `MainFragmentActivity`），用错入口会跳过初始化 → 3~8 秒后闪退。见 `docs/ARCHITECTURE.md`。
+**Why `resolveLauncher` must run after install completes**: the "main Activity" parsed from the APK is often not the real LAUNCHER (Hongguo short dramas use `SplashActivity` not `MainFragmentActivity`); using the wrong entry skips initialization → crash after 3~8s. See `docs/ARCHITECTURE.md`.
 
-### 2.2 双击桌面图标 → 应用窗口出现
+### 2.2 Double-click desktop icon → app window appears
 
 ```
-<应用名>.lnk → ApkStart.exe --launch <pkg>（lnk 由 shortcut.js 写，带 AppUserModelId）
- → main.js parseArgs() 只认 com.foo.bar 形式              main.js:201
- → 已有实例？second-instance → runLaunch()                 main.js:1477
+<app name>.lnk → ApkStart.exe --launch <pkg> (lnk written by shortcut.js, carries AppUserModelId)
+ → main.js parseArgs() only accepts com.foo.bar form              main.js:201
+ → existing instance? second-instance → runLaunch()                 main.js:1477
  → runLaunch(pkg)                                          main.js:606
      ├ openAppWindow()：立刻开一个只有标题栏的窗口 + 启动遮罩 main.js:286
      ├ armAgent()：先给窗口代理下发 scope 并开「常驻压制」  main.js:1547
