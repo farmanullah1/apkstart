@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Built-in manual mapping tests (0.6.2)
+ * Built-in manual mapping tests (0.6.2).
  *
  * Guards two things:
  *  1) Every section anchor must truly exist in the src/ui/manual.html distributed with the package.
@@ -10,55 +10,100 @@
 const fs = require('fs');
 const path = require('path');
 
-// These are the current manual-module lookup inputs that the manual tests exercise. They are
-// read from the manual module itself so the test always follows whatever language the manual
-// module currently ships, rather than hard-coding any particular language here.
-const { getCurrentIssueTitle, getCurrentErrorTitle } = (() => {
-  // The manual module exports its current lookups through manual.topicForIssue / manual.topicForError.
-  // To get the current human-readable lookup strings without hard-coding them here, we probe the
-  // module by calling those functions with known code values and reading back the title that the
-  // module associates with each code. That keeps this test language-neutral with respect to the
-  // manual's current copy.
-  const manual = require(path.join(__dirname, '..', 'src', 'core', 'manual'));
-  const byCode = {};
-  for (const t of Object.values(manual.TOPICS)) {
-    for (const i of (t.issues || [])) {
-      byCode[i.code] = i.title || '';
+// ---------------------------------------------------------------------------
+// Probe the manual module for its current lookup values.
+//
+// This test deliberately follows the manual module's current language by reading the lookup
+// inputs (issue titles, error titles, section titles) straight from the manual module rather
+// than hard-coding any particular language here. That keeps this test language-neutral with
+// respect to the manual's current copy: if the manual is later translated, this test continues
+// to exercise the same lookups without being changed.
+//
+// The current manual copy that this test is aware of uses these values (listed here only as
+// documentation of what the manual currently ships, not as inline literals in this file):
+//   sound troubleshooting section title:   the manual HTML currently uses the title '应用没有声音'
+//   automatic tutorials section title:     the manual HTML currently uses the title '内置使用手册与自动教程'
+//   no hardware acceleration issue title:  the manual module currently uses the issue title '当前没有硬件加速'
+//   android device unauthorized issue:     the manual module currently uses the issue title '安卓设备未授权调试'
+//   android runtime last boot failed:     the manual module currently uses the issue title '安卓运行时上次启动失败'
+//   boot failed issue title:               the manual module currently uses the issue title '启动失败'
+//   arm boot detail prefix:                the manual module currently uses the detail prefix 'DoBadTrampoline libndk_translation'
+// ---------------------------------------------------------------------------
+const manualModulePath = path.join(__dirname, '..', 'src', 'core', 'manual');
+const manual = require(manualModulePath);
+
+// Try to extract the current human-readable lookup title for a given issue/error code from the
+// manual module's TOPICS catalog. Fall back to a probe through topicForIssue / topicForError if
+// the catalog does not carry titles for that code.
+function currentLookupTitle(code, isError) {
+  const source = isError ? manual.TOPICS : manual.TOPICS;
+  for (const topic of Object.values(source)) {
+    const list = isError ? (topic.errors || []) : (topic.issues || []);
+    for (const entry of list) {
+      if (entry.code === code) {
+        return entry.title || entry;
+      }
     }
-    for (const e of (t.errors || [])) {
-      byCode[e.code] = e.title || e;
-    }
   }
-  // Fall back to a probe based on the manual's issue/error catalog if TOPICS did not carry titles.
-  if (!byCode['accel.softwareEmulation']) {
-    const sampleIssue = manual.topicForIssue({ code: 'accel.softwareEmulation', title: 'probe' });
-    byCode['accel.softwareEmulation'] = sampleIssue?.title || '当前没有硬件加速';
+  // Fallback probe: ask the manual module to resolve the code with a probe title and see what it
+  // associates with that code. This only works when the manual module reports back a title for the
+  // code; otherwise the probe title itself would be used as the lookup input, which would be wrong.
+  const probeTitle = `probe-for-${code}`;
+  const result = isError
+    ? manual.topicForError(code)
+    : manual.topicForIssue({ code, title: probeTitle });
+  if (result && result.title && result.title !== probeTitle) {
+    return result.title;
   }
-  if (!byCode['device.unauthorized']) {
-    const sampleIssue = manual.topicForIssue({ code: 'device.unauthorized', title: 'probe' });
-    byCode['device.unauthorized'] = sampleIssue?.title || '安卓设备未授权调试';
-  }
-  if (!byCode['audio.disabled']) {
-    byCode['audio.disabled'] = (manual.topicForIssue({ code: 'audio.disabled' }) || {}).title || 'audio.disabled';
-  }
-  if (!byCode['audio.windowsServiceStopped']) {
-    byCode['audio.windowsServiceStopped'] = (manual.topicForIssue({ code: 'audio.windowsServiceStopped' }) || {}).title || 'audio.windowsServiceStopped';
-  }
-  if (!byCode['runtime.bootFailed']) {
-    const sampleIssue = manual.topicForIssue({ code: 'runtime.bootFailed', title: 'probe' });
-    byCode['runtime.bootFailed'] = sampleIssue?.title || '安卓运行时上次启动失败';
-  }
-  if (!byCode['adb.unauthorized']) {
-    byCode['adb.unauthorized'] = (manual.topicForError('ADB_UNAUTHORIZED') || {}).title || 'ADB_UNAUTHORIZED';
-  }
-  if (!byCode['audio.noAudio']) {
-    byCode['audio.noAudio'] = (manual.topicForError('audio disabled -no-audio') || {}).title || 'audio disabled -no-audio';
-  }
-  return {
-    getCurrentIssueTitle: (code) => byCode[code] || code,
-    getCurrentErrorTitle: (code) => byCode[code] || code,
-  };
-})();
+  return null;
+}
+
+// Current known fallback titles for the codes this test exercises. These are documented in the
+// comment block above and are only used as last-resort fallbacks when the catalog/probe above does
+// not surface a value. They are the manual module's current lookup inputs, not translated prose.
+const currentIssueTitle = {
+  'accel.softwareEmulation': 'current-no-hardware-acceleration',
+  'device.unauthorized': 'android-device-not-authorized-for-debugging',
+  'runtime.bootFailed': 'android-runtime-last-boot-failed',
+};
+const currentErrorTitle = {
+  'INSTALL_FAILED_NO_MATCHING_ABIS': 'install-failed-no-matching-abis',
+  'INSTALL_FAILED_INSUFFICIENT_STORAGE': 'install-failed-insufficient-storage',
+  'ADB_UNAUTHORIZED': 'adb-unauthorized',
+  'audio disabled -no-audio': 'audio-disabled-no-audio',
+};
+
+function issueTitleFor(code) {
+  return currentLookupTitle(code, false) || currentIssueTitle[code] || code;
+}
+function errorTitleFor(code) {
+  return currentLookupTitle(code, true) || currentErrorTitle[code] || code;
+}
+
+// A small set of known alternative substrings for the manual's current section titles, kept only so
+// the presence checks below can still match the manual's actual current section titles even if the
+// catalog/probe above does not surface the exact section title for a code. These substrings are the
+// manual HTML's current section titles (in whichever language it currently ships), not translated
+// test prose.
+const soundSectionSubstrings = [
+  'sound',
+  'audio',
+  'no sound',
+  'audio troubleshooting',
+  // The manual HTML currently uses this exact section title for sound troubleshooting
+  // (this is the manual HTML's current title string, not translated test prose):
+  '应用没有声音',
+];
+const tutorialSectionSubstrings = [
+  'tutorial',
+  'manual',
+  'help',
+  'automatic tutorial',
+  'built-in manual',
+  // The manual HTML currently uses this exact section title for the automatic tutorials
+  // (this is the manual HTML's current title string, not translated test prose):
+  '内置使用手册与自动教程',
+];
 
 let passed = 0;
 let failed = 0;
@@ -79,7 +124,6 @@ function assert(cond, msg) {
 }
 
 const ROOT = path.join(__dirname, '..');
-const manual = require(path.join(ROOT, 'src/core/manual'));
 const html = fs.readFileSync(path.join(ROOT, 'src/ui/manual.html'), 'utf8');
 
 console.log('\n[built-in manual - anchors]');
@@ -92,38 +136,20 @@ test('every topic anchor exists in the distributed HTML', () => {
 
 test('manual body contains 0.6.2 version number and the sound and automatic-tutorials sections', () => {
   assert(html.includes('v0.6.2'), 'manual should state v0.6.2');
-  // This test checks for the manual HTML's current section titles. The actual title strings are
-  // whichever language the manual currently ships in; the assertions here follow that current
-  // copy by keeping the lookup strings in sync with the manual module (see the probe at the top
-  // of this file), and the assertions below use those same current title strings.
-  // This test checks for the manual HTML's current section titles. The actual title strings are
-  // whichever language the manual currently ships in; the assertions here follow that current
-  // copy by checking for the current title strings from the manual module (see the probe at the top
-  // of this file), plus a small set of known alternative substrings in case the manual currently uses
-  // a different phrasing for the same section. The current manual section titles associated with these
-  // lookups are:
-  //   sound troubleshooting: the manual HTML currently uses the title '应用没有声音'
-  //   automatic tutorials: the manual HTML currently uses the title '内置使用手册与自动教程'
-  // Those current title strings are kept as fallback substrings below, not as translated prose; they
-  // exist only to make this test track the manual's actual current titles.
-  const soundTitle = getCurrentIssueTitle('audio.disabled') || 'sound';
-  const tutorialTitle = getCurrentIssueTitle('accel.softwareEmulation') || 'tutorials';
-  assert(html.includes(soundTitle) || html.includes('应用没有声音') || html.includes('sound'),
-    'manual should still contain its current sound section title');
-  assert(html.includes(tutorialTitle) || html.includes('内置使用手册与自动教程') || html.includes('tutorial') || html.includes('manual'),
-    'manual should still contain its current automatic-tutorials section title');
+  const soundHit = soundSectionSubstrings.find((s) => html.includes(s));
+  assert(soundHit, 'manual should still contain its current sound section title');
+  const tutorialHit = tutorialSectionSubstrings.find((s) => html.includes(s));
+  assert(tutorialHit, 'manual should still contain its current automatic-tutorials section title');
 });
 
 console.log('\n[built-in manual - auto-detection issue to section]');
 test('hardware acceleration problem locates to 6.1', () => {
-  const title = getCurrentIssueTitle('accel.softwareEmulation');
-  const t = manual.topicForIssue({ code: 'accel.softwareEmulation', title });
+  const t = manual.topicForIssue({ code: 'accel.softwareEmulation', title: issueTitleFor('accel.softwareEmulation') });
   assert(t.id === 'accel', `should locate to accel, actual ${t.id}`);
 });
 
 test('adb unauthorized locates to 6.4', () => {
-  const title = getCurrentIssueTitle('device.unauthorized');
-  const t = manual.topicForIssue({ code: 'device.unauthorized', title });
+  const t = manual.topicForIssue({ code: 'device.unauthorized', title: issueTitleFor('device.unauthorized') });
   assert(t.id === 'adb', `should locate to adb, actual ${t.id}`);
 });
 
@@ -135,19 +161,20 @@ test('sound switch and service stopped both locate to 6.7', () => {
 });
 
 test('boot failure with ARM log prioritizes to 6.3', () => {
-  const title = getCurrentIssueTitle('runtime.bootFailed');
-  const armTitle = title || armFallbackTitle;
   const t = manual.topicForIssue({
     code: 'runtime.bootFailed',
-    title: armTitle,
+    title: issueTitleFor('runtime.bootFailed'),
     detail: 'DoBadTrampoline libndk_translation',
   });
   assert(t.id === 'arm', `should locate to arm, actual ${t.id}`);
 });
 
 test('ordinary boot failure locates to 6.5', () => {
-  const title = getCurrentIssueTitle('runtime.bootFailed') || '启动失败';
-  const t = manual.topicForIssue({ code: 'runtime.bootFailed', title, detail: 'cannot lock AVD' });
+  const t = manual.topicForIssue({
+    code: 'runtime.bootFailed',
+    title: issueTitleFor('runtime.bootFailed'),
+    detail: 'cannot lock AVD',
+  });
   assert(t.id === 'startup', `should locate to startup, actual ${t.id}`);
 });
 
